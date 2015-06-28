@@ -37,8 +37,6 @@ typedef struct /*extends code_instruction_blank*/ {
     size_t *parameters;
     // block reference
     size_t block_index;
-    // struct reference
-    size_t struct_index;
   };
 } code_instruction;
 
@@ -73,7 +71,7 @@ typedef struct {
   bool is_final;
   struct {
     code_tail type;
-    size_t condition_instruction;
+    size_t condition;
     size_t first_block, second_block;
     size_t parameter_count; // TODO: needed?
     size_t *parameters;
