@@ -1,26 +1,13 @@
-u64 a = 0, b = 1;
+u64 fib(u64 index) {
+  u64 a = 0, b = 1;
 
-for (;;) {
-  u64 t = a + b;
-  a = b;
-  b = t;
+  while ((--index) > 0) {
+    u64 t = b;
+    b += a;
+    a = t;
+  }
+
+  return b;
 }
 
-class Object {
-  s8 field;
-}
-
-/**
- * Crazy commenting!
- *
- * @author Whoah.
- */
-void help(string beep) {
-  Object obj = new Object(-8);
-  obj.field = 17;
-
-  // ignore me!
-  // beep .. "hello\n";
-}
-
-help("things");
+fib(12);
