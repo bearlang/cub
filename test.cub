@@ -1,0 +1,26 @@
+u64 a = 0, b = 1;
+
+for (;;) {
+  u64 t = a + b;
+  a = b;
+  b = t;
+}
+
+class Object {
+  s8 field;
+}
+
+/**
+ * Crazy commenting!
+ *
+ * @author Whoah.
+ */
+void help(string beep) {
+  Object obj = new Object(-8);
+  obj.field = 17;
+
+  // ignore me!
+  // beep .. "hello\n";
+}
+
+help("things");

@@ -1,0 +1,81 @@
+#ifndef OPERATION_H
+#define OPERATION_H
+
+typedef enum {
+  O_BITWISE_NOT,       // 1
+  O_BLOCKREF,          // 1
+  O_CALL,              // UNUSED
+  O_CAST,
+  O_COMPARE,           // 2
+  O_FUNCTION,          // UNUSED
+  O_GET_FIELD,         // 2
+  O_GET_INDEX,         // 2
+  O_GET_SYMBOL,        // 1
+  O_IDENTITY,          // 2
+  O_LITERAL,           // 0
+  O_LOGIC,             // 2
+  O_NEGATE,            // 1
+  O_NEW,               // 1
+  O_NOT,               // 1
+  O_NUMERIC,           // 2
+  O_NUMERIC_ASSIGN,    // UNUSED
+  O_SET_FIELD,         // 3
+  O_SET_INDEX,         // 3
+  O_SET_SYMBOL,        // UNUSED
+  O_SHIFT,             // 2
+  O_SHIFT_ASSIGN,      // UNUSED
+  O_STR_CONCAT,        // 2
+  O_STR_CONCAT_ASSIGN, // UNUSED
+  O_TERNARY            // UNUSED
+} operation_type;
+
+// TODO: truncation, extension, reinterpretation, etc...
+typedef enum {
+  O_UPCAST,
+  O_DOWNCAST
+} cast_type;
+
+typedef enum {
+  O_EQ,
+  O_GT,
+  O_GTE,
+  O_LT,
+  O_LTE,
+  O_NE
+} compare_type;
+
+typedef enum {
+  O_AND,
+  O_OR,
+  O_XOR
+} logic_type;
+
+typedef enum {
+  O_ADD,
+  O_BAND,
+  O_BOR,
+  O_BXOR,
+  O_DIV,
+  O_MOD,
+  O_MUL,
+  O_SUB
+} numeric_type;
+
+typedef enum {
+  O_ASHIFT,
+  O_LSHIFT,
+  O_RSHIFT
+} shift_type;
+
+typedef struct {
+  operation_type type;
+  union {
+    cast_type cast_type;
+    compare_type compare_type;
+    logic_type logic_type;
+    numeric_type numeric_type;
+    shift_type shift_type;
+  };
+} operation;
+
+#endif
