@@ -13,7 +13,7 @@
 int main(int argc, char *argv[]) {
   if (argc < 3) {
     fprintf(stderr, "usage: backend-test <input-file> <output-file>\n");
-    exit(1);
+    return 1;
   }
   FILE *src = fopen(argv[1], "r");
   if (src == NULL) {
