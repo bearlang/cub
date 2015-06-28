@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
   FILE *src = fopen(argv[1], "r");
   if (src == NULL) {
     fprintf(stderr, "backend-test: no such file or directory\n");
-    exit(1);
+    return 1;
   }
   stream *in = open_stream(src);
   block_statement *block = parse(in);
@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
   FILE *out = fopen(argv[2], "w");
   if (out == NULL) {
     fprintf(stderr, "backend-test: error opening output-file\n");
-    exit(1);
+    return 1;
   }
 
   backend_write(system, out);

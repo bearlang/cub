@@ -7,12 +7,12 @@
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     fprintf(stderr, "usage: lexer-test <input-file>\n");
-    exit(1);
+    return 1;
   }
   FILE *src = fopen(argv[1], "r");
   if (src == NULL) {
     fprintf(stderr, "lexer-test: no such file or directory\n");
-    exit(1);
+    return 1;
   }
   stream *in = open_stream(src);
   token *token;

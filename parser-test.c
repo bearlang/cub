@@ -291,12 +291,12 @@ void inspect_statement(statement *node, uint8_t depth) {
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     fprintf(stderr, "usage: parser-test <input-file>\n");
-    exit(1);
+    return 1;
   }
   FILE *src = fopen(argv[1], "r");
   if (src == NULL) {
     fprintf(stderr, "parser-test: no such file or directory\n");
-    exit(1);
+    return 1;
   }
   stream *in = open_stream(src);
   block_statement *block = parse(in);
