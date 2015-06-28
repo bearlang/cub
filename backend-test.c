@@ -8,6 +8,7 @@
 #include "analyze.h"
 #include "generator.h"
 #include "backend.h"
+#include "optimize.h"
 
 int main(int argc, char *argv[]) {
   if (argc < 3) {
@@ -26,6 +27,7 @@ int main(int argc, char *argv[]) {
 
   analyze(block);
   code_system *system = generate(block);
+  optimize(system);
 
   FILE *out = fopen(argv[2], "w");
   if (out == NULL) {

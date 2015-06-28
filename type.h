@@ -85,7 +85,9 @@ typedef struct class {
 
 bool compatible_type(type *left, type *right);
 bool is_void(type*);
-argument *copy_arguments(argument *arg, bool with_names);
+argument *copy_arguments(argument*, bool with_names);
+void free_arguments(argument*);
 type *copy_type(type*);
+void free_type(type*);
 
 #endif
