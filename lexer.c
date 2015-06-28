@@ -544,11 +544,13 @@ static token *scan_inner(stream *in) {
   switch (chr) {
   case '.':
     chr = stream_shift(in);
+#ifdef DOT_STYLE_CONCAT
     if (chr == '.') {
       return consume(in, '=')
         ? new_token(L_STR_CONCAT_ASSIGN)
         : new_token(L_STR_CONCAT);
     }
+#endif
     // works with EOF too
     if (chr < '0' || chr > '9') {
       stream_push(in, chr);
@@ -571,10 +573,20 @@ static token *scan_inner(stream *in) {
   case 'x': case 'y': case 'z': case '_':
     stream_push(in, chr);
     return scan_word(in);
-  case '\'':
+  case '!':
+    type = consume(in, '=') ? L_NE : L_NOT;
+    break;
   case '"':
+  case '\'':
     // TODO: implement interpolation for '"'
     return scan_string(in, chr);
+#ifndef DOT_STYLE_CONCAT
+  case '#':
+    return consume(in, '=')
+      ? new_token(L_STR_CONCAT_ASSIGN)
+      : new_token(L_STR_CONCAT);
+    break;
+#endif
   case '>':
     type = consume(in, '>')
       ? consume(in, '>')
@@ -586,9 +598,6 @@ static token *scan_inner(stream *in) {
     type = consume(in, '<')
       ? consume(in, '=') ? L_LSHIFT_ASSIGN : L_LSHIFT
       : (consume(in, '=') ? L_LTE : L_LT);
-    break;
-  case '!':
-    type = consume(in, '=') ? L_NE : L_NOT;
     break;
   case '%':
     type = consume(in, '=') ? L_MOD_ASSIGN : L_MOD;
