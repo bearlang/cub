@@ -48,6 +48,15 @@ argument *copy_arguments(argument *arg, bool with_names) {
   return new;
 }
 
+void free_arguments(argument *arg) {
+  while (arg) {
+    argument *next = arg->next;
+    free_type(arg->argument_type);
+    free(arg);
+    arg = next;
+  }
+}
+
 type *copy_type(type *t) {
   if (t == NULL) {
     return NULL;
@@ -68,4 +77,16 @@ type *copy_type(type *t) {
   }
 
   return new;
+}
+
+void free_type(type *t) {
+  if (t == NULL) return;
+
+  switch (t->type) {
+  case T_ARRAY: free_type(t->arraytype); break;
+  case T_BLOCKREF: free_arguments(t->blocktype); break;
+  default: break;
+  }
+
+  free(t);
 }
