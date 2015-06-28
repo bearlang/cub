@@ -3,13 +3,6 @@
 #include "xalloc.h"
 #include "backend.h"
 
-static size_t size_for(size_t value) {
-  if (value == 0) {
-    return 1;
-  }
-  return (size_t) ceil(log10((double) value));
-}
-
 static void w(FILE *file, char *string) {
   fputs(string, file);
 }
@@ -19,27 +12,23 @@ static void wb(FILE *file, char *bytes, size_t size) {
 }
 
 #define wbin(file, info, index, op) do {\
-  FILE *out = file;\
-  code_instruction *ins = info;\
-  wt(out, ins->type, "instruction", index, true);\
-  wf(out, " = ");\
-  wf(out, "instruction_");\
-  wi(out, ins->parameters[0]);\
-  w(out, op);\
-  wf(out, "instruction_");\
-  wi(out, ins->parameters[1]);\
+  wt(file, info->type, "instruction", index, true);\
+  wf(file, " = ");\
+  wf(file, "instruction_");\
+  wi(file, info->parameters[0]);\
+  w(file, op);\
+  wf(file, "instruction_");\
+  wi(file, info->parameters[1]);\
 } while (0);
 
-#define wbinf(file, ins, index, op) do {\
-  FILE *out = file;\
-  code_instruction *info = ins;\
-  wt(out, info->type, "instruction", index, true);\
-  wf(out, " = ");\
-  wf(out, "instruction_");\
-  wi(out, info->parameters[0]);\
-  wf(out, op);\
-  wf(out, "instruction_");\
-  wi(out, info->parameters[1]);\
+#define wbinf(file, info, index, op) do {\
+  wt(file, info->type, "instruction", index, true);\
+  wf(file, " = ");\
+  wf(file, "instruction_");\
+  wi(file, info->parameters[0]);\
+  wf(file, op);\
+  wf(file, "instruction_");\
+  wi(file, info->parameters[1]);\
 } while (0);
 
 static void wc(FILE *file, char chr) {
@@ -49,16 +38,11 @@ static void wc(FILE *file, char chr) {
 }
 
 #define wf(file, v) do {\
-  printf("wf\n");
   fwrite(v, sizeof(char), sizeof(v) - 1, file);\
 } while (0);
 
 static void wi(FILE *file, size_t value) {
-  size_t size = size_for(value);
-  char *str = xmalloc(size);
-  snprintf(str, size, "%zu", value);
-  wb(file, str, size);
-  free(str);
+  fprintf(file, "%zu", value);
 }
 
 static void wt(FILE *file, type *t, char *name_type, size_t i, bool constant) {
@@ -69,15 +53,21 @@ static void wt(FILE *file, type *t, char *name_type, size_t i, bool constant) {
       fprintf(stderr, "array type not implemented\n");
       exit(1);
     case T_BLOCKREF:
-      wf(file, "void(*");
+      wf(file, "void (*");
       if (name_type) {
         w(file, name_type);
         wc(file, '_');
         wi(file, i);
       }
       wf(file, ")(");
-      for (argument *arg = t->blocktype; arg; arg = arg->next) {
+      argument *arg = t->blocktype;
+      if (arg) {
         wt(file, arg->argument_type, NULL, 0, true);
+        arg = arg->next;
+        for (; arg; arg = arg->next) {
+          wf(file, ", ");
+          wt(file, arg->argument_type, NULL, 0, true);
+        }
       }
       wc(file, ')');
       return;
@@ -86,10 +76,11 @@ static void wt(FILE *file, type *t, char *name_type, size_t i, bool constant) {
     case T_F64: type = "double"; break;
     case T_F128: type = "long double"; break;
     case T_OBJECT:
-      w(file, constant ? "const struct_" : "struct_");
+      w(file, "struct_");
       wi(file, t->struct_index);
-      wc(file, ' ');
+      wc(file, '*');
       if (name_type) {
+        wc(file, ' ');
         w(file, name_type);
         wc(file, '_');
         wi(file, i);
@@ -101,7 +92,7 @@ static void wt(FILE *file, type *t, char *name_type, size_t i, bool constant) {
     case T_S16: type = "int16_t"; break;
     case T_S32: type = "int32_t"; break;
     case T_S64: type = "int64_t"; break;
-    case T_STRING: type = name_type ? "char *" : "char*"; break;
+    case T_STRING: type = "char*"; break;
     case T_U8: type = "uint8_t"; break;
     case T_U16: type = "uint16_t"; break;
     case T_U32: type = "uint32_t"; break;
@@ -113,8 +104,8 @@ static void wt(FILE *file, type *t, char *name_type, size_t i, bool constant) {
     wf(file, "const ");
   }
   w(file, type);
-  wc(file, ' ');
   if (name_type) {
+    wc(file, ' ');
     w(file, name_type);
     wc(file, '_');
     wi(file, i);
@@ -122,7 +113,10 @@ static void wt(FILE *file, type *t, char *name_type, size_t i, bool constant) {
 }
 
 void backend_write(code_system *system, FILE *out) {
-  wf(out, "#include <stdint.h>\n\ntypedef enum {false, true} bool;\n");
+  wf(out,
+    "#include <stdint.h>\n"
+    "#include <stdlib.h>\n\n"
+    "typedef enum {false, true} bool;\n");
 
   if (system->struct_count) {
     wc(out, '\n');
@@ -153,10 +147,11 @@ void backend_write(code_system *system, FILE *out) {
     }
   }
 
+  wf(out, "\n\n");
   for (size_t i = 0; i < system->block_count; i++) {
     code_block *block = &system->blocks[i];
 
-    wf(out, "\nvoid block_");
+    wf(out, "static void block_");
     wi(out, i);
     wc(out, '(');
 
@@ -176,10 +171,11 @@ void backend_write(code_system *system, FILE *out) {
     wf(out, ");\n");
   }
 
+  wc(out, '\n');
   for (size_t i = 0; i < system->block_count; i++) {
     code_block *block = &system->blocks[i];
 
-    wf(out, "\nvoid block_");
+    wf(out, "\nstatic void block_");
     wi(out, i);
     wc(out, '(');
 
@@ -232,12 +228,12 @@ void backend_write(code_system *system, FILE *out) {
       case O_COMPARE: {
         char *op;
         switch (ins->operation.compare_type) {
-        case O_EQ: op = " == ";
-        case O_GT: op = " > ";
-        case O_GTE: op = " >= ";
-        case O_LT: op = " < ";
-        case O_LTE: op = " <= ";
-        case O_NE: op = " != ";
+        case O_EQ: op = " == "; break;
+        case O_GT: op = " > "; break;
+        case O_GTE: op = " >= "; break;
+        case O_LT: op = " < "; break;
+        case O_LTE: op = " <= "; break;
+        case O_NE: op = " != "; break;
         }
         wbin(out, ins, k, op);
       } break;
@@ -245,7 +241,7 @@ void backend_write(code_system *system, FILE *out) {
         wt(out, ins->type, "instruction", k, true);
         wf(out, " = instruction_");
         wi(out, ins->parameters[0]);
-        wf(out, ".field_");
+        wf(out, "->field_");
         wi(out, ins->parameters[1]);
         break;
       case O_GET_INDEX:
@@ -289,9 +285,7 @@ void backend_write(code_system *system, FILE *out) {
         case T_STRING: {
           wf(out, "(const char*) \"");
           for (char *s = ins->value_string; *s; s++) {
-            char buf[5] = {'\\', 'x', 0, 0, 0};
-            snprintf(buf + 2, 2, "%hhx", *s);
-            wf(out, buf);
+            fprintf(out, "\\x%02hhx", *s);
           }
           wc(out, '"');
         } break;
@@ -330,7 +324,19 @@ void backend_write(code_system *system, FILE *out) {
         wi(out, ins->parameters[0]);
         break;
       case O_NEW:
+        wf(out, "struct_");
+        wi(out, ins->type->struct_index);
+        wf(out, " instruction_");
+        wi(out, k);
+        wf(out, "_src;\n  ")
         wt(out, ins->type, "instruction", k, true);
+        wf(out, " = &instruction_");
+        wi(out, k);
+        wf(out, "_src");
+        // awww yeah memory leaks XD
+        // wf(out, " = malloc(sizeof(*instruction_");
+        // wi(out, k);
+        // wf(out, "))");
         break;
       case O_NOT:
         wt(out, ins->type, "instruction", k, true);
@@ -352,7 +358,7 @@ void backend_write(code_system *system, FILE *out) {
       case O_SET_FIELD:
         wf(out, "instruction_");
         wi(out, ins->parameters[0]);
-        wf(out, ".field_");
+        wf(out, "->field_");
         wi(out, ins->parameters[1]);
         wf(out, " = instruction_");
         wi(out, ins->parameters[2]);
@@ -414,6 +420,7 @@ void backend_write(code_system *system, FILE *out) {
       wf(out, ";\n");
     }
 
+    printf("block tail %zu\n", i);
     if (!block->is_final) {
       wf(out, "  ");
       switch (block->tail.type) {
@@ -435,7 +442,7 @@ void backend_write(code_system *system, FILE *out) {
       } break;
       case BRANCH: {
         wf(out, "(instruction_");
-        wi(out, block->tail.condition_instruction);
+        wi(out, block->tail.condition);
         wf(out, " ? instruction_");
         wi(out, block->tail.first_block);
         wf(out, " : instruction_");
@@ -459,4 +466,10 @@ void backend_write(code_system *system, FILE *out) {
 
     wf(out, "}\n");
   }
+
+  wf(out, "\n\n"
+    "int main() {\n"
+    "  block_0();\n"
+    "  return 0;\n"
+    "}\n");
 }
