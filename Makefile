@@ -6,4 +6,4 @@ backend-test: $(MAIN_SRCS) backend.c backend-test.c
 llvm-backend-test: $(MAIN_SRCS) llvm-backend.c backend-test.c
 	gcc $(CFLAGS) $(MAIN_SRCS) llvm-backend.c backend-test.c -o $@ 2>&1
 clean:
-	rm backend-test llvm-backend-test
+	rm -f backend-test llvm-backend-test
