@@ -170,6 +170,8 @@ static type *parse_type(parse_state *state, type **first_type) {
           }
         }
       } while (consume(state, L_COMMA));
+
+      expect_consume(state, L_CLOSE_PAREN);
     }
   }
 
@@ -1174,7 +1176,7 @@ statement *parse_statement(parse_state *state) {
   case G_DEFINE: {
     result = parse_define_statement(state, true);
     if (!result) {
-      unexpected_token(parse_peek(state), "expecting define statement");
+      break;
     }
     expect_consume(state, L_SEMICOLON);
     return result;
@@ -1182,7 +1184,7 @@ statement *parse_statement(parse_state *state) {
   case G_EXPRESSION: {
     expression *e = parse_expression(state);
     if (!e) {
-      unexpected_token(parse_peek(state), "expecting expression");
+      break;
     }
     expect_consume(state, L_SEMICOLON);
     return s_expression(e);
@@ -1190,13 +1192,15 @@ statement *parse_statement(parse_state *state) {
   case G_FUNCTION: {
     function *fn = parse_function(state, false);
     if (!fn) {
-      unexpected_token(parse_peek(state), "expecting function declaration");
+      break;
     }
     return s_function(fn);
   }
   default:
-    return NULL;
+    break;
   }
+
+  return NULL;
 }
 
 statement *next_statement(parse_state *state) {
