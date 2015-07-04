@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "xalloc.h"
 #include "lexer.h"
 #include "parser.h"
@@ -27,29 +29,38 @@ static void init_lookahead(parse_state *state, lookahead_state *look) {
 }
 
 static void merge_lookahead(lookahead_state *state) {
-  parse_state *up = state->upstream;
   size_t count = state->count;
-  size_t upstream_count = up->count;
-  size_t merged_count = count + upstream_count;
 
-  resize(merged_count, &up->cap, (void**) &up->buffer,
-    sizeof(token*));
+  if (count) {
+    parse_state *up = state->upstream;
+    size_t upstream_count = up->count;
+    size_t merged_count = count + upstream_count;
 
-  state->count = merged_count;
+    resize(merged_count, &up->cap, (void**) &up->buffer,
+      sizeof(token*));
 
-  token **to = up->buffer, **from = state->tokens;
-  for (size_t i = 0; i < count; ) {
-    size_t dest = upstream_count + i;
-    size_t src = count - ++i;
-    to[dest] = from[src];
+    up->count = merged_count;
+
+    token **to = up->buffer, **from = state->tokens;
+    memmove(to + count, to, upstream_count * sizeof(token*));
+
+    for (size_t i = 0; i < count; ) {
+      size_t dest = i;
+      size_t src = count - ++i;
+      to[dest] = from[src];
+    }
+
+    free(from);
   }
-
-  free(from);
 }
 
 static bool lookahead(lookahead_state *state, token_type expected) {
   if (state->upstream_index) {
-    return state->upstream->buffer[--state->upstream_index]->type == expected;
+    if (state->upstream->buffer[state->upstream_index - 1]->type == expected) {
+      state->upstream_index--;
+      return true;
+    }
+    return false;
   }
 
   if (state->unused) {
@@ -57,6 +68,8 @@ static bool lookahead(lookahead_state *state, token_type expected) {
       state->unused = false;
       return true;
     }
+
+    return false;
   }
 
   resize(state->count, &state->cap, (void**) &state->tokens, sizeof(token*));
@@ -150,6 +163,7 @@ static syntax_structure detect_ambiguous_expression_ambiguous(
     return 0;
   }
 
+  // TODO: can't be an expression if it was a known-typed parameter
   return restriction & (G_EXPRESSION | G_PARAMETER);
 }
 
