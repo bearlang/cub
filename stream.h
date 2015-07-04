@@ -3,11 +3,13 @@
 
 #include <stdio.h>
 
+#include "bool.h"
 #include "buffer.h"
 
 typedef struct {
   FILE *source;
-  size_t line;
+  bool was_newline;
+  size_t line, offset;
   buffer buffer;
 } stream;
 

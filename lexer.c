@@ -56,8 +56,8 @@ static uint8_t integer_bits(uint64_t value) {
   return bits;
 }
 
-static token *new_integer_token(uint64_t value, uint8_t bits) {
-  token *t = new_token(L_LITERAL);
+static token *new_integer_token(stream *in, uint64_t value, uint8_t bits) {
+  token *t = new_token(in, L_LITERAL);
   if (bits > 32) {
     t->literal_type = T_U64;
     t->value_u64 = value;
@@ -74,7 +74,7 @@ static token *new_integer_token(uint64_t value, uint8_t bits) {
   return t;
 }
 
-static token *scan_number(stream *in) {
+static token *scan_number_inner(stream *in) {
   char chr = stream_shift(in);
   if (chr == '0') {
     chr = stream_shift(in);
@@ -119,7 +119,7 @@ static token *scan_number(stream *in) {
           in->line);
         exit(1);
       }
-      return new_integer_token(value, integer_bits(value));
+      return new_integer_token(in, value, integer_bits(value));
     }
     if (chr == 'b') {
       bool any = false;
@@ -147,7 +147,7 @@ static token *scan_number(stream *in) {
         any = true;
         value = v2 | (chr - '0');
       }
-      return new_integer_token(value, integer_bits(value));
+      return new_integer_token(in, value, integer_bits(value));
     }
     if (chr >= '0' && chr <= '9') {
       // TODO: octal literals
@@ -157,7 +157,7 @@ static token *scan_number(stream *in) {
     }
     // handles null, too
     stream_push(in, chr);
-    return new_integer_token(0, 0);
+    return new_integer_token(in, 0, 0);
   }
   if (chr == '.') {
     // TODO: floating-point numbers
@@ -185,7 +185,14 @@ static token *scan_number(stream *in) {
     chr = stream_shift(in);
   }
   stream_push(in, chr);
-  return new_integer_token(value, integer_bits(value));
+  return new_integer_token(in, value, integer_bits(value));
+}
+
+static token *scan_number(stream *in) {
+  size_t offset = in->offset;
+  token *t = scan_number_inner(in);
+  t->offset = offset;
+  return t;
 }
 
 static token *scan_string(stream *in, char match) {
@@ -235,7 +242,7 @@ static token *scan_string(stream *in, char match) {
     }
     buffer_append_char(&buf, append);
   }
-  token *t = new_token(L_LITERAL);
+  token *t = new_token(in, L_LITERAL);
   t->literal_type = T_STRING;
   t->value_string = buffer_flush(&buf);
   // TODO: buffer_free not called (not a leak currently, but could be a problem)
@@ -310,6 +317,8 @@ static token *scan_word(stream *in) {
   buffer buf;
   buffer_init(&buf);
 
+  size_t offset = in->offset;
+
   char chr = stream_shift(in);
   do {
     buffer_append_char(&buf, chr);
@@ -320,43 +329,47 @@ static token *scan_word(stream *in) {
   stream_push(in, chr);
 
   const char *word = buffer_flush(&buf);
+  token *t;
 
   for (size_t i = 0; i < keyword_count; i++) {
     if (strcmp(word, keywords[i]) == 0) {
       free((void*) word);
-      return new_token(keyword_map[i]);
+      t = new_token(in, keyword_map[i]);
+      t->offset = offset;
+      return t;
     }
   }
 
   for (size_t i = 0; i < type_count; i++) {
     if (strcmp(word, types[i]) == 0) {
       free((void*) word);
-      token *t = new_token(L_TYPE);
+      t = new_token(in, L_TYPE);
+      t->offset = offset;
       t->literal_type = type_map[i];
       return t;
     }
   }
 
-  token *t;
   if (strcmp(word, "true") == 0) {
     free((void*) word);
-    t = new_token(L_LITERAL);
+    t = new_token(in, L_LITERAL);
     t->literal_type = T_BOOL;
     t->value_bool = true;
   } else if (strcmp(word, "false") == 0) {
     free((void*) word);
-    t = new_token(L_LITERAL);
+    t = new_token(in, L_LITERAL);
     t->literal_type = T_BOOL;
     t->value_bool = false;
   } else if (strcmp(word, "null") == 0) {
     free((void*) word);
-    t = new_token(L_LITERAL);
+    t = new_token(in, L_LITERAL);
     t->literal_type = T_OBJECT;
     // TODO: indicate null
   } else {
-    t = new_token(L_IDENTIFIER);
+    t = new_token(in, L_IDENTIFIER);
     t->symbol_name = (char*) word;
   }
+  t->offset = offset;
   return t;
 }
 
@@ -536,25 +549,25 @@ static token *scan_inner(stream *in) {
       if (chr == ' ' || chr == '\t') continue;
       if (chr == 0) return NULL;
       if (chr != '\n') break;
-      ++in->line;
     }
   }
 
   token_type type;
+  size_t offset = in->offset - 1;
   switch (chr) {
   case '.':
     chr = stream_shift(in);
 #ifdef DOT_STYLE_CONCAT
     if (chr == '.') {
       return consume(in, '=')
-        ? new_token(L_STR_CONCAT_ASSIGN)
-        : new_token(L_STR_CONCAT);
+        ? new_token(in, L_STR_CONCAT_ASSIGN)
+        : new_token(in, L_STR_CONCAT);
     }
 #endif
     // works with EOF too
     if (chr < '0' || chr > '9') {
       stream_push(in, chr);
-      return new_token(L_DOT);
+      return new_token(in, L_DOT);
     }
     stream_push(in, chr);
     stream_push(in, '.');
@@ -583,8 +596,8 @@ static token *scan_inner(stream *in) {
 #ifndef DOT_STYLE_CONCAT
   case '#':
     return consume(in, '=')
-      ? new_token(L_STR_CONCAT_ASSIGN)
-      : new_token(L_STR_CONCAT);
+      ? new_token(in, L_STR_CONCAT_ASSIGN)
+      : new_token(in, L_STR_CONCAT);
     break;
 #endif
   case '>':
@@ -652,7 +665,9 @@ static token *scan_inner(stream *in) {
       chr, in->line);
     exit(1);
   }
-  return new_token(type);
+  token *t = new_token(in, type);
+  t->offset = offset;
+  return t;
 }
 
 token *scan(stream *in) {

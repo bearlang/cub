@@ -49,6 +49,7 @@ typedef struct symbol_entry {
   struct symbol_entry *next;
 
   // code generation
+  bool exists;
   size_t instruction;
 } symbol_entry;
 

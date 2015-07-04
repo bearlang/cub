@@ -55,6 +55,7 @@ expression *new_new_node(char *class_name, expression *args);
 expression *new_not_node(bool bitwise, expression *value);
 expression *new_numeric_node(numeric_type type, expression *left, expression *right);
 expression *new_numeric_assign_node(numeric_type type, expression *left, expression *right);
+expression *new_postfix_node(postfix_type, expression*);
 expression *new_shift_node(shift_type type, expression *left, expression *right);
 expression *new_shift_assign_node(shift_type type, expression *left, expression *right);
 expression *new_str_concat_node(expression *left, expression *right);

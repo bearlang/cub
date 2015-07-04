@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 
-#include "type.h"
+#include "primitive-type.h"
+#include "stream.h"
 
 typedef enum {
   L_ADD,
@@ -75,7 +76,6 @@ typedef enum {
 
 typedef struct {
   token_type type;
-  // TODO: real type!
   type_type literal_type;
   union {
     bool value_bool;
@@ -86,9 +86,11 @@ typedef struct {
     uint64_t value_u64;
     uint8_t value_u8;
   };
+
+  size_t line, offset;
 } token;
 
-token *new_token(token_type type);
-char *token_string(token_type type);
+token *new_token(stream*, token_type);
+char *token_string(token_type);
 
 #endif

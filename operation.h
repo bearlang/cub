@@ -5,7 +5,7 @@ typedef enum {
   O_BITWISE_NOT,       // 1
   O_BLOCKREF,          // 1
   O_CALL,              // UNUSED
-  O_CAST,
+  O_CAST,              // 2
   O_COMPARE,           // 2
   O_FUNCTION,          // UNUSED
   O_GET_FIELD,         // 2
@@ -19,6 +19,7 @@ typedef enum {
   O_NOT,               // 1
   O_NUMERIC,           // 2
   O_NUMERIC_ASSIGN,    // UNUSED
+  O_POSTFIX,           // 1
   O_SET_FIELD,         // 3
   O_SET_INDEX,         // 3
   O_SET_SYMBOL,        // UNUSED
@@ -62,6 +63,11 @@ typedef enum {
 } numeric_type;
 
 typedef enum {
+  O_INCREMENT,
+  O_DECREMENT
+} postfix_type;
+
+typedef enum {
   O_ASHIFT,
   O_LSHIFT,
   O_RSHIFT
@@ -74,6 +80,7 @@ typedef struct {
     compare_type compare_type;
     logic_type logic_type;
     numeric_type numeric_type;
+    postfix_type postfix_type;
     shift_type shift_type;
   };
 } operation;

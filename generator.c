@@ -19,43 +19,23 @@ type *instruction_type(code_block *parent, size_t src) {
   return NULL;
 }
 
-static void resize(size_t *used, size_t *total, void **ptr, size_t size) {
-  const size_t u = *used;
-  size_t t = *total;
-  if (t == 0) {
-    *total = t = 16;
-  } else if (u >= t) {
-    size_t n = t;
-    while (u >= t) {
-      const size_t mask = -!(n & (n - 1));
-      n = (mask & (n | (n >> 1))) | (((n / 3) << 2) & ~mask);
-    }
-    *total = t = n;
-  } else {
-    return;
-  }
-
-  void *new_ptr = xrealloc(*ptr, size * t);
-  *ptr = new_ptr;
-}
-
 static code_block *add_block(code_system *system) {
   printf("add_block\n");
-  resize(&system->block_count, &system->block_cap, (void**) &system->blocks,
+  resize(system->block_count, &system->block_cap, (void**) &system->blocks,
     sizeof(code_block));
 
   return &system->blocks[system->block_count++];
 }
 
 static code_struct *add_struct(code_system *system) {
-  resize(&system->struct_count, &system->struct_cap, (void**) &system->structs,
+  resize(system->struct_count, &system->struct_cap, (void**) &system->structs,
     sizeof(code_struct));
 
   return &system->structs[system->struct_count++];
 }
 
 code_instruction *add_instruction(code_block *block) {
-  resize(&block->instruction_count, &block->instruction_cap,
+  resize(block->instruction_count, &block->instruction_cap,
     (void**) &block->instructions, sizeof(code_instruction));
 
   return &block->instructions[block->instruction_count++];
@@ -76,6 +56,7 @@ static symbol_entry *add_symbol(code_block *block, const char *symbol_name,
 
   *entry = xmalloc(sizeof(symbol_entry));
   (*entry)->instruction = instruction;
+  (*entry)->exists = true;
   (*entry)->next = NULL;
   (*entry)->symbol_name = (char*) symbol_name;
   (*entry)->type = NULL;
@@ -142,9 +123,10 @@ static code_block *create_child_block(code_block *parent) {
   for (; entry; i++, entry = entry->next) {
     block->parameters[i].field_type = copy_type(entry->type);
     symbol_entry *new = xmalloc(sizeof(*new));
+    new->exists = true;
+    new->instruction = i;
     new->symbol_name = entry->symbol_name;
     new->type = copy_type(entry->type);
-    new->instruction = i;
     *tail = new;
     tail = &new->next;
   }
@@ -435,11 +417,17 @@ static code_block *generate_define(code_block *parent,
   define_clause *clause = define->clause;
 
   do {
-    parent = generate_expression(parent, clause->value);
-    size_t value = last_instruction(parent);
+    size_t value = 0;
+
+    if (clause->value) {
+      parent = generate_expression(parent, clause->value);
+      value = last_instruction(parent);
+    }
 
     symbol_entry *entry = add_symbol(parent, clause->symbol_name, value);
     entry->type = copy_type(define_type);
+    entry->exists = !!clause->value;
+
     clause = clause->next;
   } while (clause);
 
@@ -683,13 +671,20 @@ static code_block *generate_function_stub(code_system *system, function *fn) {
 static code_block *generate_expression(code_block *parent, expression *value) {
   switch (value->operation.type) {
   case O_BITWISE_NOT:
-  case O_NEGATE:
   case O_NOT:
     return generate_linear(parent, value, 1);
-  case O_BLOCKREF:
-  case O_CAST:
-  case O_FUNCTION:
-    abort();
+  case O_NEGATE: {
+    parent = generate_linear(parent, value, 1);
+    code_instruction *last = &parent->instructions[last_instruction(parent) -
+      parent->parameter_count];
+    switch (last->type->type) {
+    case T_U8: last->type->type = T_S8; break;
+    case T_U16: last->type->type = T_S16; break;
+    case T_U32: last->type->type = T_S32; break;
+    case T_U64: last->type->type = T_S64; break;
+    }
+    return parent;
+  }
   case O_CALL:
     return generate_call(parent, value);
   case O_COMPARE:
@@ -720,6 +715,11 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     for (symbol_entry *entry = parent->symbol_head; entry;
         entry = entry->next) {
       if (strcmp(entry->symbol_name, symbol) == 0) {
+        if (!entry->exists) {
+          fprintf(stderr, "symbol '%s' not initialized\n", symbol);
+          exit(1);
+        }
+
         mirror_instruction(parent, entry->instruction);
         return parent;
       }
@@ -753,6 +753,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   case O_NEW:
     return generate_new(parent, value);
   case O_NUMERIC_ASSIGN:
+  case O_POSTFIX:
   case O_SHIFT_ASSIGN:
   case O_STR_CONCAT_ASSIGN: {
     expression *left = value->value, *right = value->value->next;
@@ -794,10 +795,21 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     }
 
     // new value/right value
-    parent = generate_expression(parent, right);
+    if (value->operation.type == O_POSTFIX) {
+      code_instruction *literal = add_instruction(parent);
+      literal->operation.type = O_LITERAL;
+      literal->type = new_type(T_U8);
+      literal->value_u8 = 1;
+    } else {
+      parent = generate_expression(parent, right);
+    }
 
     code_instruction *compute = new_instruction(parent, 2);
+    compute->type = copy_type(value->type);
+    compute->parameters[0] = pop_stack(parent);
+    compute->parameters[1] = last_instruction(parent) - 1;
 
+    size_t mirror = last_instruction(parent);
     switch (value->operation.type) {
     case O_NUMERIC_ASSIGN:
       compute->operation.type = O_NUMERIC;
@@ -810,13 +822,14 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     case O_STR_CONCAT_ASSIGN:
       compute->operation.type = O_STR_CONCAT;
       break;
+    case O_POSTFIX:
+      compute->operation.type = value->operation.postfix_type == O_INCREMENT
+        ? O_ADD : O_SUB;
+      mirror = compute->parameters[0];
+      break;
     default:
       abort();
     }
-
-    compute->type = value->type;
-    compute->parameters[0] = pop_stack(parent);
-    compute->parameters[1] = last_instruction(parent) - 1;
 
     switch (left->operation.type) {
     case O_GET_FIELD: {
@@ -827,7 +840,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
       set->parameters[1] = left->field_index;
       set->parameters[2] = last_instruction(parent) - 1;
 
-      mirror_instruction(parent, last_instruction(parent) - 1);
+      mirror_instruction(parent, mirror);
     } break;
     case O_GET_INDEX: {
       code_instruction *set = new_instruction(parent, 3);
@@ -837,7 +850,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
       set->parameters[1] = pop_stack(parent); // index
       set->parameters[0] = pop_stack(parent); // array
 
-      mirror_instruction(parent, last_instruction(parent) - 1);
+      mirror_instruction(parent, mirror);
     } break;
     case O_GET_SYMBOL: {
       const char *symbol = left->symbol_name;
@@ -846,19 +859,21 @@ static code_block *generate_expression(code_block *parent, expression *value) {
           entry = entry->next) {
         if (strcmp(entry->symbol_name, symbol) == 0) {
           entry->instruction = last_instruction(parent);
+
+          if (value->operation.type == O_POSTFIX) {
+            mirror_instruction(parent, mirror);
+          }
           return parent;
         }
       }
 
       fprintf(stderr, "YOU CHECKED THIS :(\n");
-      abort();
+      // fallthrough
     }
     default:
       abort();
     }
-
-    return parent;
-  }
+  } return parent;
   case O_SET_FIELD: {
     parent = generate_expression(parent, value->value);
     push_stack(parent);
@@ -908,6 +923,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     for (symbol_entry *entry = parent->symbol_head; entry;
         entry = entry->next) {
       if (strcmp(entry->symbol_name, symbol) == 0) {
+        entry->exists = true;
         entry->instruction = last_instruction(parent);
         return parent;
       }
@@ -919,7 +935,16 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   }
   case O_TERNARY:
     return generate_ternary(parent, value);
+
+  case O_BLOCKREF:
+  case O_CAST:
+  case O_FUNCTION:
+    abort();
   }
+
+  // if we get here, we've got some memory corruption
+  fprintf(stderr, "memory corrupted, invalid operation type\n");
+  abort();
 }
 
 static code_block *generate_call(code_block *parent, expression *value) {
@@ -1151,7 +1176,7 @@ static code_block *generate_linear(code_block *parent, expression *value,
 
   code_instruction *ins = new_instruction(parent, param_count);
   ins->operation = value->operation;
-  ins->type = value->type;
+  ins->type = copy_type(value->type);
   while (param_count-- > 0) {
     ins->parameters[param_count] = pop_stack(parent);
   }

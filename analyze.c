@@ -372,8 +372,7 @@ static void analyze_expression(block_statement *block, expression *e) {
     }
 
     free(class_name);
-    break;
-  }
+  } break;
   case O_NOT:
     analyze_expression(block, e->value);
     break;
@@ -402,6 +401,14 @@ static void analyze_expression(block_statement *block, expression *e) {
     }*/
 
     e->type = e->value->type;
+    break;
+  case O_POSTFIX:
+    analyze_expression(block, e->value);
+    e->type = copy_type(e->value->type);
+
+    assert_integer(e->value->type, e->operation.postfix_type == O_INCREMENT
+      ? "increment" : "decrement");
+
     break;
   case O_SHIFT:
   case O_SHIFT_ASSIGN:

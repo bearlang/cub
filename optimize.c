@@ -80,6 +80,7 @@ static void optimize_copies(code_block *block) {
     case O_CALL:
     case O_FUNCTION:
     case O_NUMERIC_ASSIGN:
+    case O_POSTFIX:
     case O_SET_SYMBOL:
     case O_SHIFT_ASSIGN:
     case O_STR_CONCAT_ASSIGN:

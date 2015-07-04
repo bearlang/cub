@@ -1,8 +1,10 @@
 #include "token.h"
 #include "xalloc.h"
 
-token *new_token(token_type type) {
+token *new_token(stream *in, token_type type) {
   token *t = xmalloc(sizeof(*t));
+  t->line = in->line;
+  t->offset = in->offset;
   t->type = type;
   return t;
 }
