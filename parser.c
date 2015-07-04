@@ -163,7 +163,8 @@ static type *parse_type(parse_state *state, type **first_type) {
             unexpected_token(arg_name, "expecting ','");
           } else {
             *first_type = param_type;
-            type *real_return_type = return_type->blocktype;
+            type *real_return_type = return_type->blocktype->argument_type;
+            free(return_type->blocktype);
             free(return_type);
             return real_return_type;
           }
@@ -250,7 +251,8 @@ function *parse_function(parse_state *state, bool allow_anonymous) {
     parse_args(state, fn, first_type);
     expect_consume(state, L_CLOSE_PAREN);
   } else if (!name_token && !return_type->blocktype->next) {
-    type *real_return_type = return_type->blocktype;
+    type *real_return_type = return_type->blocktype->argument_type;
+    free(return_type->blocktype);
     free(return_type);
     return_type = real_return_type;
 
@@ -894,13 +896,13 @@ statement *parse_define_statement(parse_state *state, bool allow_init) {
     return NULL;
   }
 
+  char *symbol = symbol_token->symbol_name;
   if (is_void(define_type)) {
     fprintf(stderr, "variable '%s' declared void on line %zi\n",
       symbol, symbol_token->line);
     exit(1);
   }
 
-  char *symbol = symbol_token->symbol_name;
   free(symbol_token);
 
   define_clause *head = xmalloc(sizeof(*head)), *tail = head;
@@ -1172,7 +1174,7 @@ statement *parse_statement(parse_state *state) {
   case G_DEFINE: {
     result = parse_define_statement(state, true);
     if (!result) {
-      unexpected_token(parse_state(state), "expecting define statement");
+      unexpected_token(parse_peek(state), "expecting define statement");
     }
     expect_consume(state, L_SEMICOLON);
     return result;
@@ -1180,7 +1182,7 @@ statement *parse_statement(parse_state *state) {
   case G_EXPRESSION: {
     expression *e = parse_expression(state);
     if (!e) {
-      unexpected_token(parse_state(state), "expecting expression");
+      unexpected_token(parse_peek(state), "expecting expression");
     }
     expect_consume(state, L_SEMICOLON);
     return s_expression(e);
@@ -1188,7 +1190,7 @@ statement *parse_statement(parse_state *state) {
   case G_FUNCTION: {
     function *fn = parse_function(state, false);
     if (!fn) {
-      unexpected_token(parse_state(state), "expecting function declaration");
+      unexpected_token(parse_peek(state), "expecting function declaration");
     }
     return s_function(fn);
   }

@@ -9,12 +9,12 @@
 
 typedef uint8_t syntax_structure;
 
-const syntax_structure G_ARGUMENT = 1;
-const syntax_structure G_DEFINE = 2;
-const syntax_structure G_EXPRESSION = 4;
-const syntax_structure G_FUNCTION = 8;
-const syntax_structure G_PARAMETER = 16;
-const syntax_structure G_ANY = 31;
+#define G_ARGUMENT ((syntax_structure) 1)
+#define G_DEFINE ((syntax_structure) 2)
+#define G_EXPRESSION ((syntax_structure) 4)
+#define G_FUNCTION ((syntax_structure) 8)
+#define G_PARAMETER ((syntax_structure) 16)
+#define G_ANY ((syntax_structure) 31)
 
 typedef struct {
   stream *in;

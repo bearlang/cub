@@ -682,6 +682,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     case T_U16: last->type->type = T_S16; break;
     case T_U32: last->type->type = T_S32; break;
     case T_U64: last->type->type = T_S64; break;
+    default: break;
     }
     return parent;
   }
