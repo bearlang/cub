@@ -537,7 +537,6 @@ static token *scan_inner(stream *in) {
       if (chr == '/') {
         do chr = stream_shift(in);
         while (chr != '\n');
-        ++in->line;
       } else if (chr == '*') {
         consume_comment(in);
       } else {
