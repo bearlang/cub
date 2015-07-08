@@ -11,122 +11,6 @@ statement *next_statement(parse_state *state);
 statement *expect_statement(parse_state *state);
 static block_statement *parse_block(parse_state *state);
 
-// TODO: support function references like `void(string) beep = `
-/*static type *parse_type(token *t, bool array) {
-  type *new_type = xmalloc(sizeof(*new_type));
-
-  if (t->type == L_IDENTIFIER) {
-    new_type->type = T_REF;
-    new_type->symbol_name = t->symbol_name;
-  } else {
-    new_type->type = t->literal_type;
-  }
-
-  if (array) {
-    type *outer = xmalloc(sizeof(*outer));
-    outer->type = T_ARRAY;
-    outer->arraytype = new_type;
-    new_type = outer;
-  }
-
-  return new_type;
-}
-
-static void expect_type_symbol(parse_state *state, type **ret_type,
-    char **ret_symbol, token_type *next) {
-  token *t = accept(state, L_IDENTIFIER);
-
-  if (t == NULL) {
-    t = accept(state, L_TYPE);
-
-    if (t == NULL) {
-      fprintf(stderr, "expecting IDENTIFIER or TYPE on line %zi\n",
-        state->in->line);
-      exit(1);
-    }
-  }
-
-  bool array = consume(state, L_OPEN_BRACKET);
-  if (array) {
-    expect_consume(state, L_CLOSE_BRACKET);
-  }
-
-  token *symbol = expect(state, L_IDENTIFIER);
-
-  if (next) {
-    expect_peek(state, *next);
-  }
-
-  *ret_type = parse_type(t, array);
-  *ret_symbol = symbol->symbol_name;
-  free(t);
-  free(symbol);
-}
-
-static bool parse_type_symbol(parse_state *state, type **ret_type,
-    char **ret_symbol, token_type *next) {
-  token *t = accept(state, L_IDENTIFIER);
-
-  if (t == NULL) {
-    t = parse_peek(state);
-
-    if (t == NULL || t->type != L_TYPE) {
-      goto fail0;
-    }
-
-    expect_type_symbol(state, ret_type, ret_symbol, next);
-    return true;
-  }
-
-  token *a = accept(state, L_OPEN_BRACKET), *b;
-  if (a) {
-    b = accept(state, L_CLOSE_BRACKET);
-
-    // could be an index expression
-    if (!b) {
-      goto fail1;
-    }
-  }
-
-  token *symbol = accept(state, L_IDENTIFIER);
-
-  if (symbol == NULL) {
-    goto fail2;
-  }
-
-  if (next) {
-    token *n = parse_peek(state);
-    if (!n || n->type != *next) {
-      goto fail3;
-    }
-  }
-
-  *ret_type = parse_type(t, !!a);
-  *ret_symbol = symbol->symbol_name;
-  free(t);
-  if (a) {
-    free(a);
-    free(b);
-  }
-  free(symbol);
-
-  return true;
-
-fail3:
-  parse_push(state, symbol);
-fail2:
-  if (a) {
-    parse_push(state, b);
-fail1: // pre: !!a
-    parse_push(state, a);
-  }
-  parse_push(state, t);
-fail0:
-  *ret_type = NULL;
-  *ret_symbol = NULL;
-  return false;
-}*/
-
 block_statement *ensure_block(statement *node) {
   if (node != NULL && node->type != S_BLOCK) {
     statement *parent = s_block(node);
@@ -695,6 +579,7 @@ expression *parse_operation_expression(parse_state *state) {
 
       left = new_assign_node(left, right);
       break;
+    // TODO: right-associate!!
     case L_TERNARY:
       parse_shift(state);
 
@@ -781,6 +666,7 @@ expression *parse_expression(parse_state *state) {
 void free_expression(expression *value, bool free_strings) {
   switch (value->operation.type) {
   case O_BITWISE_NOT:
+  case O_INSTANCEOF:
   case O_NEW:
   case O_NOT:
     free_expression(value->value, free_strings);
@@ -794,7 +680,7 @@ void free_expression(expression *value, bool free_strings) {
       free_expression(sub, free_strings);
       sub = next;
     }
-    goto end;
+    goto undefined_type;
   case O_CAST:
     // do nothing!
     return;
@@ -811,7 +697,7 @@ void free_expression(expression *value, bool free_strings) {
     if (free_strings) {
       free(value->symbol_name);
     }
-    goto end;
+    goto undefined_type;
   case O_GET_INDEX: // undefined type
   case O_NUMERIC: // undefined type
   case O_NUMERIC_ASSIGN: // undefined type
@@ -819,12 +705,12 @@ void free_expression(expression *value, bool free_strings) {
   case O_SHIFT_ASSIGN: // undefined type
     free_expression(value->value->next, free_strings);
     free_expression(value->value, free_strings);
-    goto end;
+    goto undefined_type;
   case O_GET_SYMBOL: // undefined type
     if (free_strings) {
       free(value->symbol_name);
     }
-    goto end;
+    goto undefined_type;
   case O_IDENTITY:
   case O_LOGIC:
   case O_STR_CONCAT:
@@ -840,31 +726,33 @@ void free_expression(expression *value, bool free_strings) {
   case O_NEGATE: // undefined type
   case O_POSTFIX: // undefined type
     free_expression(value->value, free_strings);
-    goto end;
+    goto undefined_type;
   case O_SET_FIELD: // undefined type
     free_expression(value->value->next, free_strings);
     free_expression(value->value, free_strings);
     if (free_strings) {
       free(value->symbol_name);
     }
-    goto end;
+    goto undefined_type;
   case O_SET_INDEX: // undefined type
   case O_TERNARY: // undefined type
     free_expression(value->value->next->next, free_strings);
     free_expression(value->value->next, free_strings);
     free_expression(value->value, free_strings);
-    goto end;
+    goto undefined_type;
   case O_SET_SYMBOL: // undefined type
     free_expression(value->value, free_strings);
     if (free_strings) {
       free(value->symbol_name);
     }
-    goto end;
+    goto undefined_type;
   }
+
   if (value->type) {
     free_type(value->type);
   }
-end:
+
+undefined_type:
   free(value);
 }
 

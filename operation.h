@@ -12,6 +12,7 @@ typedef enum {
   O_GET_INDEX,         // 2
   O_GET_SYMBOL,        // 1
   O_IDENTITY,          // 2
+  O_INSTANCEOF,        // 2
   O_LITERAL,           // 0
   O_LOGIC,             // 2
   O_NEGATE,            // 1
@@ -32,8 +33,24 @@ typedef enum {
 
 // TODO: truncation, extension, reinterpretation, etc...
 typedef enum {
+  // between objects
+  O_DOWNCAST,
   O_UPCAST,
-  O_DOWNCAST
+  // between floats
+  O_FLOAT_EXTEND,
+  O_FLOAT_TRUNCATE,
+  // from floats to integers
+  O_FLOAT_TO_SIGNED,
+  O_FLOAT_TO_UNSIGNED,
+  // from integers to floats
+  O_SIGNED_TO_FLOAT,
+  O_UNSIGNED_TO_FLOAT,
+  // between integers
+  O_SIGN_EXTEND,
+  O_TRUNCATE,
+  O_ZERO_EXTEND,
+  // bitwise
+  O_REINTERPRET
 } cast_type;
 
 typedef enum {

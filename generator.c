@@ -691,7 +691,6 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   case O_COMPARE:
   case O_GET_INDEX:
   case O_IDENTITY:
-  case O_LOGIC:
   case O_NUMERIC:
   case O_SHIFT:
   case O_STR_CONCAT:
@@ -940,6 +939,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   case O_BLOCKREF:
   case O_CAST:
   case O_FUNCTION:
+  case O_LOGIC: // used to be generate_linear
     abort();
   }
 

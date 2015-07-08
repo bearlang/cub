@@ -28,6 +28,7 @@ typedef struct expression_node {
     struct expression_node *value;
   };
   union {
+    class *classtype; // O_INSTANCEOF
     function *function;
     char *value_string;
     char *symbol_name;

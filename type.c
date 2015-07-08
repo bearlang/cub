@@ -90,6 +90,10 @@ type *new_function_type(type *ret, argument *arg) {
   return new;
 }
 
+type *new_blockref_type(function *fn) {
+  return new_function_type(copy_type(fn->return_type), fn->argument);
+}
+
 type *copy_type(type *t) {
   if (t == NULL) {
     return NULL;

@@ -40,6 +40,7 @@ typedef struct function {
   size_t argument_count; // TODO: use this (store, don't forget stack values)
   argument *argument;
   struct block_statement *body;
+  symbol_entry *closure_head, *closure_tail;
 
   // code generation
   size_t block_body;
@@ -69,6 +70,7 @@ type *new_type(type_type);
 type *new_type_from_token(token*);
 type *new_array_type(type *inner);
 type *new_function_type(type *ret, argument *arg);
+type *new_blockref_type(function*);
 type *copy_type(type*);
 void free_type(type*);
 

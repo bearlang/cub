@@ -311,13 +311,14 @@ void backend_write(code_system *system, FILE *out) {
         } break;
         }
         break;
-      case O_LOGIC: {
-        switch (ins->operation.logic_type) {
+      case O_LOGIC:
+        abort();
+        /*switch (ins->operation.logic_type) {
         case O_AND: wbinf(out, ins, k, " && "); break;
         case O_OR: wbinf(out, ins, k, " || "); break;
         case O_XOR: wbinf(out, ins, k, " != "); break;
         }
-      } break;
+        break;*/
       case O_NEGATE:
         wt(out, ins->type, "instruction", k, true);
         wf(out, " = -instruction_");
