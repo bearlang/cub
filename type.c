@@ -94,23 +94,40 @@ type *new_blockref_type(function *fn) {
   return new_function_type(copy_type(fn->return_type), fn->argument);
 }
 
+type *new_class_type(class *c) {
+  type *new = new_type(T_OBJECT);
+  new->classtype = c;
+  return new;
+}
+
+void copy_type_into(type *src, type *dest) {
+  switch (t->type) {
+  case T_ARRAY:
+    new->arraytype = copy_type(t->arraytype);
+    break;
+  case T_BLOCKREF:
+    new->blocktype = copy_arguments(t->blocktype, false);
+    break;
+  case T_OBJECT:
+    new->classtype = t->classtype;
+    new->struct_index = t->struct_index;
+    break;
+  case T_REF:
+    new->symbol_name = t->symbol_name;
+    break;
+  default:
+    break;
+  }
+}
+
 type *copy_type(type *t) {
   if (t == NULL) {
     return NULL;
   }
 
-  type *new = new_type(t->type);
+  type *new = xmalloc(sizeof(*new));
 
-  switch (t->type) {
-  case T_ARRAY: new->arraytype = copy_type(t->arraytype); break;
-  case T_BLOCKREF: new->blocktype = copy_arguments(t->blocktype, false); break;
-  case T_OBJECT:
-    new->classtype = t->classtype;
-    new->struct_index = t->struct_index;
-    break;
-  case T_REF: new->symbol_name = t->symbol_name; break;
-  default: break;
-  }
+  copy_type_into(t, new);
 
   return new;
 }

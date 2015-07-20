@@ -71,6 +71,8 @@ type *new_type_from_token(token*);
 type *new_array_type(type *inner);
 type *new_function_type(type *ret, argument *arg);
 type *new_blockref_type(function*);
+type *new_object_type(class*);
+void copy_type_into(type *src, type *dest);
 type *copy_type(type*);
 void free_type(type*);
 
