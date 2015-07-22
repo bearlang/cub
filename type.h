@@ -40,7 +40,6 @@ typedef struct function {
   size_t argument_count; // TODO: use this (store, don't forget stack values)
   argument *argument;
   struct block_statement *body;
-  symbol_entry *closure_head, *closure_tail;
 
   // code generation
   size_t block_body;
@@ -62,8 +61,11 @@ typedef struct class {
   size_t struct_index;
 } class;
 
-bool compatible_type(type *left, type *right);
 bool is_void(type*);
+bool is_integer(type*);
+bool is_float(type*);
+bool equivalent_type(type *left, type *right);
+bool compatible_type(type *left, type *right);
 argument *copy_arguments(argument*, bool with_names);
 void free_arguments(argument*);
 type *new_type(type_type);

@@ -82,6 +82,7 @@ static void analyze_expression(block_statement *block, expression *e) {
       uint8_t symbol_type = ST_VARIABLE | ST_TYPE;
       symbol_entry *entry;
 
+      // marks all variable dependencies while resolving the symbol
       entry = get_symbol(block, right->symbol_name, &symbol_type, ST_VARIABLE);
 
       if (symbol_type == ST_TYPE) {
@@ -89,7 +90,7 @@ static void analyze_expression(block_statement *block, expression *e) {
         e->operation.type = O_INSTANCEOF;
         e->classtype = entry->type->classtype;
         free_expression(right);
-        return;
+        break;
       }
 
       right->type = copy_type(entry->type);
@@ -170,7 +171,6 @@ static void analyze_expression(block_statement *block, expression *e) {
     fprintf(stderr, "'%s' has no field named '%s'\n", class->class_name, name);
     exit(1);
   }
-  // TODO: O_GET_INDEX, O_SET_INDEX
   case O_GET_INDEX:
   case O_SET_INDEX: {
     analyze_expression(block, e->value);
@@ -182,29 +182,41 @@ static void analyze_expression(block_statement *block, expression *e) {
       exit(1);
     }
 
-    switch (e->value->next->type->type) {
-    case T_S8:
-    case T_S16:
-    case T_S32:
-    case T_S64:
-    case T_U8:
-    case T_U16:
-    case T_U32:
-    case T_U64:
-      break;
-    default:
+    if (!is_integer(e->value->next->type)) {
       fprintf(stderr, "cannot index by non-integer\n");
       exit(1);
     }
 
-    e->type = copy_type(e->value->type->arraytype);
+    if (e->operation.type == O_SET_INDEX) {
+      if (e->value->type->type == T_STRING) {
+        fprintf(stderr, "strings are immutable\n");
+        exit(1);
+      }
+
+      analyze_expression(block, e->value->next->next);
+      expression *cast = implicit_cast(e->value->next, e->value->type->arraytype);
+
+      cast->next = NULL;
+      e->value->next->next = cast;
+    }
+
+    if (e->value->type->type == T_STRING) {
+      e->type = new_type(T_U8);
+    } else {
+      e->type = copy_type(e->value->type->arraytype);
+    }
   } break;
   case O_GET_SYMBOL:
   case O_SET_SYMBOL: {
     // O_GET_SYMBOL also implemented in O_IDENTITY :|
-    symbol_entry *entry = get_symbol(block, ST_VARIABLE, e->symbol_name);
+    symbol_entry *entry = get_variable_symbol(block, e->symbol_name);
 
     if (e->operation.type == O_SET_SYMBOL) {
+      if (entry->constant && entry->exists) {
+        fprintf(stderr, "cannot reassign variable '%s'\n", e->symbol_name);
+        exit(1);
+      }
+
       expression *cast = implicit_cast(e->value, entry->type);
       if (!cast) {
         fprintf(stderr, "incompatible type for '%s' assignment\n",
@@ -212,9 +224,11 @@ static void analyze_expression(block_statement *block, expression *e) {
         exit(1);
       }
 
-      if (cast != e->value) {
-        e->value = cast;
-      }
+      // not initialized by implicit_cast
+      cast->next = NULL;
+
+      // might already be the same
+      e->value = cast;
     }
 
     e->type = copy_type(entry->type);
@@ -267,21 +281,33 @@ static void analyze_expression(block_statement *block, expression *e) {
       literal->value_bool = false;
       break;
     case T_S8:
+      literal = new_literal_node(T_S8);
+      literal->value_s8 = 0;
+      break;
+    case T_S16:
+      literal = new_literal_node(T_S16);
+      literal->value_s16 = 0;
+      break;
+    case T_S32:
+      literal = new_literal_node(T_S32);
+      literal->value_s32 = 0;
+      break;
+    case T_S64:
+      literal = new_literal_node(T_S64);
+      literal->value_s64 = 0;
+      break;
     case T_U8:
       literal = new_literal_node(T_U8);
       literal->value_u8 = 0;
       break;
-    case T_S16:
     case T_U16:
       literal = new_literal_node(T_U16);
       literal->value_u16 = 0;
       break;
-    case T_S32:
     case T_U32:
       literal = new_literal_node(T_U32);
       literal->value_u32 = 0;
       break;
-    case T_S64:
     case T_U64:
       literal = new_literal_node(T_U64);
       literal->value_u64 = 0;
@@ -417,7 +443,13 @@ static void analyze_expression(block_statement *block, expression *e) {
     analyze_expression(block, e->value->next);
     analyze_expression(block, e->value->next->next);
 
-    assert_condition(e->value->type);
+    expression *b = bool_cast(e->value);
+
+    if (b != e->value) {
+      b->next = e->value->next;
+      e->value->next = NULL;
+      e->value = b;
+    }
 
     // TODO: implicit cast
     if (!compatible_type(e->value->next->type, e->value->next->next->type)) {
@@ -509,16 +541,7 @@ static void analyze_inner(block_statement *block, statement **node) {
       arg->argument_type = arg_type;
     }
 
-    analyze(fn->body);
-
-    // TODO: support all closured variables, not just constant ones
-    // TODO: for now, any code_struct with a T_BLOCKTYPE as the first field can
-    // be called with the O_CALL operation, but only in the generation phase.
-    // also, that process would error out if it discovers that the function
-    // field does not accept the code_struct as its first argument
-    for (symbol_entry *entry = fn->body->ref_head; entry; entry = entry->next) {
-
-    }
+    analyze(body);
   } break;
   case S_EXPRESSION:
     analyze_expression(block, ((expression_statement*) *node)->value);
@@ -570,9 +593,12 @@ return_loop_escape:;
       exit(1);
     }
   } break;
-  case S_CLASS:
-    // do nothing!
-    break;
+  case S_CLASS: {
+    class *class = ((class_statement*) *node)->classtype;
+    for (field *item = class->field; item; item = item->next) {
+      resolve_type(item->field_type);
+    }
+  } break;
   }
 }
 

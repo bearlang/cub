@@ -64,7 +64,8 @@ loop_statement *get_label(control_statement *control) {
   return NULL;
 }
 
-symbol_entry **find_entry(const symbol_entry **head, const char *symbol_name) {
+static symbol_entry **find_entry(const symbol_entry **head,
+    const char *symbol_name) {
   symbol_entry **entry = head;
   for (; *entry; entry = &(*entry)->next) {
     if (strcmp(symbol_name, (*entry)->symbol_name) == 0) {
@@ -76,10 +77,10 @@ symbol_entry **find_entry(const symbol_entry **head, const char *symbol_name) {
 }
 
 symbol_entry *get_entry(const symbol_entry *head, const char *symbol_name) {
-  return *find_entry(&head);
+  return *find_entry(&head, symbol_name);
 }
 
-static symbol_entry *new_symbol_entry(char *symbol_name, bool constant) {
+symbol_entry *new_symbol_entry(char *symbol_name, bool constant) {
   symbol_entry *entry = xmalloc(sizeof(*entry));
   entry->symbol_name = symbol_name;
   entry->constant = constant;
@@ -87,7 +88,7 @@ static symbol_entry *new_symbol_entry(char *symbol_name, bool constant) {
   return entry;
 }
 
-static symbol_entry *add_symbol(block_statement *block, symbol_type type,
+symbol_entry *add_symbol(block_statement *block, symbol_type type,
     char *symbol_name) {
   symbol_entry **entry, **tail;
 
@@ -105,7 +106,7 @@ static symbol_entry *add_symbol(block_statement *block, symbol_type type,
     break;
   }
 
-  entry = find_entry(entry);
+  entry = find_entry(entry, symbol_name);
 
   if (*entry) {
     fprintf(stderr, "symbol '%s' already defined\n", symbol_name);
@@ -115,8 +116,10 @@ static symbol_entry *add_symbol(block_statement *block, symbol_type type,
   return *tail = *entry = new_symbol_entry(symbol_name, false);
 }
 
-static symbol_entry *get_symbol(block_statement *block, char *symbol_name,
-    uint8_t *symbol_type, uint8_t mark_dependency) {
+symbol_entry *get_symbol(block_statement *block, char *symbol_name,
+    uint8_t *symbol_type) {
+  uint8_t symtype = *symbol_type;
+
   bool escape = false;
   do {
     uint8_t symbol_types[] = {ST_VARIABLE, ST_CLASS, ST_TYPE};
@@ -124,7 +127,7 @@ static symbol_entry *get_symbol(block_statement *block, char *symbol_name,
     for (size_t i = 0; i < sizeof(symbol_types) / sizeof(*symbol_types); i++) {
       uint8_t compare_symbol_type = symbol_types[i]
 
-      if (!(compare_symbol_type & *symbol_type)) {
+      if (!(compare_symbol_type & symtype)) {
         continue;
       }
 
@@ -136,35 +139,22 @@ static symbol_entry *get_symbol(block_statement *block, char *symbol_name,
       case ST_VARIABLE: entry = block->variable_head; break;
       }
 
-      bool mark = (compare_symbol_type & mark_dependency) != 0;
-
       entry = get_entry(entry, symbol_name);
       if (entry) {
-        if (escape && mark && !entry->constant) {
-          fprintf(stderr, "non-constant closured variables not supported\n");
-          exit(1);
-        }
-
         *symbol_type = compare_symbol_type;
 
         return entry;
-      }
-
-      if (mark) {
-        symbol_entry **entry = find_entry(&block->ref_head, symbol_name);
-        if (!*entry) {
-          *tail = *entry = new_symbol_entry(symbol_name, false);
-        }
       }
     }
 
     block = parent_scope(block, &escape);
   } while (block);
 
-  if (symtype == ST_CLASS) {
-    fprintf(stderr, "class '%s' undeclared\n", symbol_name);
-  } else {
-    fprintf(stderr, "symbol '%s' undeclared\n", symbol_name);
-  }
+  fprintf(stderr, "symbol '%s' undeclared\n", symbol_name);
   exit(1);
+}
+
+symbol_entry *get_variable_symbol(block_statement *block, char *symbol_name) {
+  uint8_t symbol_type = ST_VARIABLE;
+  return get_symbol(block, symbol_name, &symbol_type);
 }

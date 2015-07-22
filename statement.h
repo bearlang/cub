@@ -59,8 +59,8 @@ typedef struct block_statement /*extends statement*/ {
   statement *next, *parent;
   statement *body;
   function *fn_parent;
-  symbol_entry *class_head, *class_tail, *ref_head, *ref_tail,
-    *type_head, *type_tail, *variable_head, *variable_tail;
+  symbol_entry *class_head, *class_tail, *type_head, *type_tail, *variable_head,
+    *variable_tail;
 } block_statement;
 
 typedef struct /*extends statement*/ {

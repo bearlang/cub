@@ -5,6 +5,74 @@ bool is_void(type *t) {
   return !t || t->type == T_VOID;
 }
 
+bool is_integer(type *t) {
+  if (!t) return false;
+  switch (t->type) {
+  case T_S8:
+  case T_S16:
+  case T_S32:
+  case T_S64:
+  case T_U8:
+  case T_U16:
+  case T_U32:
+  case T_U64:
+    return true;
+  default:
+    break;
+  }
+  return false;
+}
+
+bool is_float(type *t) {
+  if (!t) return false;
+  switch (t->type) {
+  case T_F32:
+  case T_F64:
+  case T_F128:
+    return true;
+  default:
+    break;
+  }
+  return false;
+}
+
+bool equivalent_type(type *left, type *right) {
+  if (!left) {
+    return (!right) || (right->type == T_VOID);
+  }
+
+  switch (left->type) {
+  case T_ARRAY:
+    return right->type == T_ARRAY && equivalent_type(left->arraytype,
+      right->arraytype);
+  case T_BLOCKREF: {
+    // TODO: allow casting between "compatible" function references?
+    argument *la = left->blocktype, *ra = right->blocktype;
+    while (la && lb) {
+      if (!equivalent_type(la->argument_type, lb->argument_type)) {
+        return false;
+      }
+
+      la = la->next;
+      lb = lb->next;
+    }
+    return !la && !lb;
+  }
+  case T_OBJECT:
+    return right->type == T_OBJECT && left->classtype == right->classtype;
+  case T_REF:
+    // not supposed to happen here
+    return false;
+  case T_STRING:
+    return right->type == T_STRING;
+  case T_VOID:
+    return (!right) || (right->type == T_VOID);
+  default:
+    break;
+  }
+  return left->type == right->type;
+}
+
 bool compatible_type(type *left, type *right) {
   if (!left) {
     return (!right) || (right->type == T_VOID);

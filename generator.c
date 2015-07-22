@@ -703,7 +703,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
 
     code_instruction *get = new_instruction(parent, 2);
     get->operation.type = O_GET_FIELD;
-    get->type = target->fields[value->field_index].field_type;
+    get->type = copy_type(target->fields[value->field_index].field_type);
     get->parameters[0] = last_instruction(parent) - 1;
     get->parameters[1] = value->field_index;
 

@@ -109,7 +109,7 @@ void parse_args(parse_state *state, function *fn, type *first_type) {
   *tail = NULL;
 }
 
-// can expect, guaranteed to find a function if anything
+// can use expect, guaranteed to find a function if anything
 function *parse_function(parse_state *state, bool allow_anonymous) {
   type *first_type = NULL;
   type *return_type = parse_type(state, &first_type);

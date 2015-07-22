@@ -260,6 +260,7 @@ const char *keywords[] = {
   "if",
   "new",
   "return",
+  "type",
   "while"
 };
 const token_type keyword_map[] = {
@@ -273,6 +274,7 @@ const token_type keyword_map[] = {
   L_IF,
   L_NEW,
   L_RETURN,
+  L_TYPEDEF,
   L_WHILE
 };
 const size_t keyword_count = sizeof(keywords) / sizeof(char*);

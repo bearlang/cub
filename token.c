@@ -71,6 +71,7 @@ char *token_string(token_type type) {
   case L_SUB_ASSIGN: return "SUB_ASSIGN";
   case L_TERNARY: return "TERNARY";
   case L_TYPE: return "TYPE";
+  case L_TYPEDEF: return "TYPEDEF";
   case L_VOID: return "VOID";
   case L_WHILE: return "WHILE";
   case L_XOR: return "XOR";

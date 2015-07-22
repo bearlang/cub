@@ -8,7 +8,6 @@ expression *new_compare_node(compare_type type, expression *left,
   compare->operation.compare_type = type;
   compare->type = xmalloc(sizeof(type));
   compare->type->type = T_BOOL;
-  // can't determine type because left or right might not be initialized
   compare->value = left;
   left->next = right;
   compare->next = NULL;

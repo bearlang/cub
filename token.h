@@ -69,6 +69,7 @@ typedef enum {
   L_SUB_ASSIGN,
   L_TERNARY,
   L_TYPE,
+  L_TYPEDEF,
   L_VOID,
   L_WHILE,
   L_XOR

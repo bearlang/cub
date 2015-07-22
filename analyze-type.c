@@ -15,6 +15,199 @@ static void replace_cast(expression **value, cast_type cast, type_type target) {
   *value = new_cast;
 }
 
+expression *bool_cast(expression *value) {
+  type t = {.type = T_BOOL};
+  implicit_cast(value, &t);
+}
+
+// caller is responsible for correctly assigning next field of return value if
+// changed
+expression *implicit_cast(expression *value, type *expected) {
+  type_type etype = expected->type, vtype = value->type->type;
+
+  cast_type cmethod;
+
+  if (equivalent_type(value->type, expected)) {
+    return value;
+  }
+
+  switch ((((uint8_t) etype) << 8) | (uint8_t) vtype) {
+  case (T_F32 << 8) | T_F64:
+  case (T_F32 << 8) | T_F128:
+  case (T_F32 << 8) | T_S32:
+  case (T_F32 << 8) | T_S64:
+  case (T_F32 << 8) | T_U32:
+  case (T_F32 << 8) | T_U64:
+  case (T_F64 << 8) | T_F128:
+  case (T_F64 << 8) | T_S64:
+  case (T_F64 << 8) | T_U64:
+  case (T_S8 << 8) | T_F32:
+  case (T_S8 << 8) | T_F64:
+  case (T_S8 << 8) | T_F128:
+  case (T_S8 << 8) | T_S16:
+  case (T_S8 << 8) | T_S32:
+  case (T_S8 << 8) | T_S64:
+  case (T_S8 << 8) | T_U16:
+  case (T_S8 << 8) | T_U32:
+  case (T_S8 << 8) | T_U64:
+  case (T_S16 << 8) | T_F32:
+  case (T_S16 << 8) | T_F64:
+  case (T_S16 << 8) | T_F128:
+  case (T_S16 << 8) | T_S32:
+  case (T_S16 << 8) | T_S64:
+  case (T_S16 << 8) | T_U32:
+  case (T_S16 << 8) | T_U64:
+  case (T_S32 << 8) | T_F32:
+  case (T_S32 << 8) | T_F64:
+  case (T_S32 << 8) | T_F128:
+  case (T_S32 << 8) | T_S64:
+  case (T_S32 << 8) | T_U64:
+  case (T_S64 << 8) | T_F64:
+  case (T_S64 << 8) | T_F128:
+  case (T_U8 << 8) | T_F32:
+  case (T_U8 << 8) | T_F64:
+  case (T_U8 << 8) | T_F128:
+  case (T_U8 << 8) | T_S16:
+  case (T_U8 << 8) | T_S32:
+  case (T_U8 << 8) | T_S64:
+  case (T_U8 << 8) | T_U16:
+  case (T_U8 << 8) | T_U32:
+  case (T_U8 << 8) | T_U64:
+  case (T_U16 << 8) | T_F32:
+  case (T_U16 << 8) | T_F64:
+  case (T_U16 << 8) | T_F128:
+  case (T_U16 << 8) | T_S32:
+  case (T_U16 << 8) | T_S64:
+  case (T_U16 << 8) | T_U32:
+  case (T_U16 << 8) | T_U64:
+  case (T_U32 << 8) | T_F32:
+  case (T_U32 << 8) | T_F64:
+  case (T_U32 << 8) | T_F128:
+  case (T_U32 << 8) | T_S64:
+  case (T_U32 << 8) | T_U64:
+  case (T_U64 << 8) | T_F64:
+  case (T_U64 << 8) | T_F128:
+    fprintf(stderr, "possible loss of precision during implicit conversion\n");
+    exit(1);
+  case (T_F32 << 8) | T_S8:
+  case (T_F32 << 8) | T_S16:
+  case (T_F64 << 8) | T_S8:
+  case (T_F64 << 8) | T_S16:
+  case (T_F64 << 8) | T_S32:
+  case (T_F128 << 8) | T_S8:
+  case (T_F128 << 8) | T_S16:
+  case (T_F128 << 8) | T_S32:
+  case (T_F128 << 8) | T_S64:
+    cmethod = O_SIGNED_TO_FLOAT;
+    break;
+  case (T_F32 << 8) | T_U8:
+  case (T_F32 << 8) | T_U16:
+  case (T_F64 << 8) | T_U8:
+  case (T_F64 << 8) | T_U16:
+  case (T_F64 << 8) | T_U32:
+  case (T_F128 << 8) | T_U8:
+  case (T_F128 << 8) | T_U16:
+  case (T_F128 << 8) | T_U32:
+  case (T_F128 << 8) | T_U64:
+    cmethod = O_UNSIGNED_TO_FLOAT;
+    break;
+  case (T_F64 << 8) | T_F32:
+  case (T_F128 << 8) | T_F32:
+  case (T_F128 << 8) | T_F64:
+    cmethod = O_FLOAT_EXTEND;
+    break;
+  case (T_S8 << 8) | T_U8:
+  case (T_S16 << 8) | T_U16:
+  case (T_S32 << 8) | T_U32:
+  case (T_S64 << 8) | T_U64:
+  case (T_U8 << 8) | T_S8:
+  case (T_U16 << 8) | T_S16:
+  case (T_U32 << 8) | T_S32:
+  case (T_U64 << 8) | T_S64:
+    cmethod = O_REINTERPRET;
+    break;
+  case (T_S16 << 8) | T_S8:
+  case (T_S32 << 8) | T_S8:
+  case (T_S32 << 8) | T_S16:
+  case (T_S64 << 8) | T_S8:
+  case (T_S64 << 8) | T_S16:
+  case (T_S64 << 8) | T_S32:
+    cmethod = O_SIGN_EXTEND;
+    break;
+  case (T_S16 << 8) | T_U8:
+  case (T_S32 << 8) | T_U8:
+  case (T_S32 << 8) | T_U16:
+  case (T_S64 << 8) | T_U8:
+  case (T_S64 << 8) | T_U16:
+  case (T_S64 << 8) | T_U32:
+  case (T_U16 << 8) | T_S8:
+  case (T_U16 << 8) | T_U8:
+  case (T_U32 << 8) | T_S8:
+  case (T_U32 << 8) | T_S16:
+  case (T_U32 << 8) | T_U8:
+  case (T_U32 << 8) | T_U16:
+  case (T_U64 << 8) | T_S8:
+  case (T_U64 << 8) | T_S16:
+  case (T_U64 << 8) | T_S32:
+  case (T_U64 << 8) | T_U8:
+  case (T_U64 << 8) | T_U16:
+  case (T_U64 << 8) | T_U32:
+    cmethod = O_ZERO_EXTEND;
+    break;
+  case (T_S64 << 8) | T_F32:
+    cmethod = O_FLOAT_TO_SIGNED;
+    break;
+  case (T_U64 << 8) | T_F32:
+    cmethod = O_FLOAT_TO_UNSIGNED;
+    break;
+  case (T_ARRAY << 8) | T_ARRAY:
+    fprintf(stderr, "incompatible array type\n");
+    exit(1);
+  case (T_BLOCKREF << 8) | T_BLOCKREF:
+    fprintf(stderr, "incompatible function type\n");
+    exit(1);
+  case (T_OBJECT << 8) | T_OBJECT:
+    // TODO: implicit upcasting
+    fprintf(stderr, "incompatible object\n");
+    exit(1);
+  case (T_BOOL << 8) | T_S8:
+  case (T_BOOL << 8) | T_S16:
+  case (T_BOOL << 8) | T_S32:
+  case (T_BOOL << 8) | T_S64:
+  case (T_BOOL << 8) | T_U8:
+  case (T_BOOL << 8) | T_U16:
+  case (T_BOOL << 8) | T_U32:
+  case (T_BOOL << 8) | T_U64: {
+    expression *right = new_literal_node(vtype);
+
+    switch (vtype) {
+    case T_S8: right->value_s8 = 0; break;
+    case T_S16: right->value_s16 = 0; break;
+    case T_S32: right->value_s32 = 0; break;
+    case T_S64: right->value_s64 = 0; break;
+    case T_U8: right->value_u8 = 0; break;
+    case T_U16: right->value_u16 = 0; break;
+    case T_U32: right->value_u32 = 0; break;
+    case T_U64: right->value_u64 = 0; break;
+    default:
+      abort();
+    }
+
+    return new_compare_node(O_NE, value, right);
+  }
+  default:
+    fprintf(stderr, "incompatible types\n");
+    exit(1);
+  }
+
+  expression *cast = xmalloc(sizeof(*cast));
+  cast->operation.type = O_CAST;
+  cast->operation.cast_type = cmethod;
+  cast->type = new_type(expected);
+  cast->value = value;
+  return cast;
+}
+
 void numeric_promotion(expression *value, bool allow_floats) {
   type_type ctype;
   cast_type cmethod;
@@ -250,25 +443,14 @@ type_type binary_numeric_promotion(expression *value, bool allow_floats) {
 }
 
 static void assert_condition(type *type) {
-  switch (type->type) {
-  case T_BOOL:
-  case T_S8:
-  case T_S16:
-  case T_S32:
-  case T_S64:
-  case T_U8:
-  case T_U16:
-  case T_U32:
-  case T_U64:
-    break;
-  default:
+  if (type->type != T_BOOL && !is_integer(type)) {
     fprintf(stderr, "invalid condition\n");
     exit(1);
   }
 }
 
 // mutates
-static type *resolve_type(block_statement *block, type *type) {
+type *resolve_type(block_statement *block, type *type) {
   // TODO: static types as properties (module support)
   switch (type->type) {
   case T_ARRAY:
