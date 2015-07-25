@@ -405,19 +405,21 @@ static void analyze_expression(block_statement *block, expression *e) {
 
     e->type = copy_type(e->value->type);
   } break;
-  case O_SHIFT_ASSIGN:
-    abort();
+  case O_SHIFT_ASSIGN: {
+    expression *left = e->value, *right = left->next;
+    analyze_expression(block, left);
+    analyze_expression(block, right);
 
-    // TODO: need to handle implicit casting during assignment phase
-    /*analyze_expression(block, e->value);
-    analyze_expression(block, e->value->next);
+    if (!is_integer(left->type)) {
+      fprintf(stderr, "shift assignment lhs must be numeric\n");
+      exit(1);
+    }
 
-    assert_integer(e->value->type, "shift on");
-    assert_integer(e->value->next->type, "shift with");
+    expression *cast = numeric_promotion(right, false);
+    left->next = cast;
 
-    // TODO: implicit cast
-    e->type = copy_type(e->value->type);*/
-    break;
+    e->type = copy_type(left->type);
+  } break;
   case O_STR_CONCAT: {
     expression *left = e->value, *right = left->next;
     analyze_expression(block, left);
