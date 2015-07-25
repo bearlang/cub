@@ -178,10 +178,27 @@ static void wt(type *t) {
 	}
 }
 
-bool check_prototypes(code_block *from, code_block *to) {
+bool check_prototypes(code_block *from, code_block *to, size_t toindex) {
 	if (from->is_final || from->tail.parameter_count != to->parameter_count) {
 		return false;
 	}
+	switch (from->tail.type) {
+	case GOTO:
+		if (from->tail.first_block >= from->parameter_count
+		 && from->instructions[from->tail.first_block - from->parameter_count].operation.type == O_BLOCKREF) {
+			return from->instructions[from->tail.first_block - from->parameter_count].block_index == toindex;
+		}
+		break;
+	case BRANCH:
+		if (from->tail.first_block >= from->parameter_count && from->tail.second_block >= from->parameter_count
+		 && from->instructions[from->tail.first_block - from->parameter_count].operation.type == O_BLOCKREF
+		 && from->instructions[from->tail.second_block - from->parameter_count].operation.type == O_BLOCKREF) {
+			return from->instructions[from->tail.first_block - from->parameter_count].block_index == toindex
+			    || from->instructions[from->tail.second_block - from->parameter_count].block_index == toindex;
+		}
+		break;
+	}
+
 	for (size_t p = 0; p < to->parameter_count; p++) {
 		type *req = to->parameters[p].field_type;
 		size_t iind = from->tail.parameters[p];
@@ -264,7 +281,7 @@ void backend_write(code_system *system, FILE *out) {
 			for (size_t l = 0; l < system->block_count; l++) {
 				code_block *from = &system->blocks[l];
 				// we want to limit the number of source possibilities - so we make sure the prototype matches.
-				if (check_prototypes(from, block)) {
+				if (check_prototypes(from, block, i)) {
 					size_t sourceid = from->tail.parameters[k];
 					if (first) {
 						first = false;
@@ -562,30 +579,50 @@ void backend_write(code_system *system, FILE *out) {
 		if (block->is_final) {
 			pf("  ret i32 0\n}\n");
 		} else {
+			bool needs_indirection = true;
 			switch (block->tail.type) {
 			case GOTO: {
-				pf("  indirectbr i8* %s, [ ", pt_fetch(ref[block->tail.first_block]));
+				if (block->tail.first_block >= offset
+				 && block->instructions[block->tail.first_block - offset].operation.type == O_BLOCKREF) {
+					pf("  br label %%Block%zu\n", block->instructions[block->tail.first_block - offset].block_index);
+					needs_indirection = false;
+				} else {
+					pf("  indirectbr i8* %s, [ ", pt_fetch(ref[block->tail.first_block]));
+				}
 			} break;
 			case BRANCH: {
-				pf("  %%brtarget = select i1 %s, i8* %s, i8* %s\n",
-				   pt_fetch(ref[block->tail.condition]),
-				   pt_fetch(ref[block->tail.first_block]),
-				   pt_fetch(ref[block->tail.second_block]));
-				pf("  indirectbr i8* %%brtarget, [ ");
+				if (block->tail.first_block >= offset
+				 && block->tail.second_block >= offset
+				 && block->instructions[block->tail.first_block - offset].operation.type == O_BLOCKREF
+				 && block->instructions[block->tail.second_block - offset].operation.type == O_BLOCKREF) {
+					pf("  br i1 %s, label %%Block%zu, label %%Block%zu\n",
+					   pt_fetch(ref[block->tail.condition]),
+					   block->instructions[block->tail.first_block - offset].block_index,
+					   block->instructions[block->tail.second_block - offset].block_index);
+					needs_indirection = false;
+				} else {
+					pf("  %%brtarget = select i1 %s, i8* %s, i8* %s\n",
+					   pt_fetch(ref[block->tail.condition]),
+					   pt_fetch(ref[block->tail.first_block]),
+					   pt_fetch(ref[block->tail.second_block]));
+					pf("  indirectbr i8* %%brtarget, [ ");
+				}
 			} break;
 			}
-			bool first = true;
-			for (size_t j = 0; j < system->block_count; j++) {
-				if (check_prototypes(block, &system->blocks[j])) {
-					if (first) {
-						first = false;
-					} else {
-						pf(", ");
+			if (needs_indirection) {
+				bool first = true;
+				for (size_t j = 0; j < system->block_count; j++) {
+					if (check_prototypes(block, &system->blocks[j], j)) {
+						if (first) {
+							first = false;
+						} else {
+							pf(", ");
+						}
+						pf("label %%Block%zu", j);
 					}
-					pf("label %%Block%zu", j);
 				}
+				pf(" ]\n");
 			}
-			pf(" ]\n");
 		}
 	}
 
