@@ -10,4 +10,4 @@ u64 fib(u64 index) {
   return b;
 }
 
-fib(8);
+print(fib(8));

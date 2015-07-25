@@ -1,17 +1,3 @@
 void print(u64 value) {
-  u8[] str = new u8[19];
-  u8 index = 18;
-  for (;;) {
-    str[index] = 48 + value % 10;
-    value = value / 10;
-    if (value) {
-      index = index - 1;
-    } else {
-      break;
-    }
-  }
-  for (; index < 19; index++) {
-    native putchar(str[index]);
-  }
-  native putchar(10);
+  native printf("%lu\n", value);
 }

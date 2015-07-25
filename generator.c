@@ -612,9 +612,12 @@ static void generate_return(code_block *parent, return_statement *ret) {
   parent->tail.parameters[0] = 0;
   parent->tail.first_block = next_instruction(parent);
 
+  size_t return_struct_index = instruction_type(parent, 0)->struct_index;
+  type *return_block_type = parent->system->structs[return_struct_index].fields[0].field_type;
+
   code_instruction *unwrap = new_instruction(parent, 2);
   unwrap->operation.type = O_GET_FIELD;
-  unwrap->type = get_blockref_type(&parent->system->blocks[fn->block_body]);
+  unwrap->type = copy_type(return_block_type);
   unwrap->parameters[0] = 0; // return structs are always the first argument
   unwrap->parameters[1] = 0; // blockref position in all return structs
 }
@@ -810,6 +813,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     code_instruction *native = new_instruction(parent, value->arg_count + 1);
     native->operation.type = O_NATIVE;
     native->type = copy_type(value->type);
+    native->native_call = value->symbol_name;
 
     size_t i = value->arg_count;
     native->parameters[0] = value->arg_count;
@@ -1035,6 +1039,8 @@ static code_block *generate_call(code_block *parent, expression *value) {
   // create placeholder return struct
   size_t return_struct = get_return_struct(system, return_type);
 
+  size_t return_block_index = system->block_count;
+
   // create the return block
   size_t param_count = non_void ? 2 : 1;
   code_block *return_block = create_block(system);
@@ -1114,7 +1120,7 @@ static code_block *generate_call(code_block *parent, expression *value) {
   get = add_instruction(parent);
   get->operation.type = O_BLOCKREF;
   get->type = get_blockref_type(return_block);
-  get->block_index = system->block_count - 1;
+  get->block_index = return_block_index;
 
   set = new_instruction(parent, 3);
   set->operation.type = O_SET_FIELD;

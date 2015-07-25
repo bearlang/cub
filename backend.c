@@ -115,6 +115,7 @@ static void wt(FILE *file, type *t, char *name_type, size_t i, bool constant) {
 void backend_write(code_system *system, FILE *out) {
   wf(out,
     "#include <stdint.h>\n"
+    "#include <stdio.h>\n"
     "#include <stdlib.h>\n\n"
     "typedef enum {false, true} bool;\n");
 
@@ -355,8 +356,10 @@ void backend_write(code_system *system, FILE *out) {
         }
         break;*/
       case O_NATIVE: {
-        wt(out, ins->type, "instruction", k, true);
-        wf(out, " = ");
+        if (!is_void(ins->type)) {
+          wt(out, ins->type, "instruction", k, true);
+          wf(out, " = ");
+        }
         w(out, ins->native_call);
         wc(out, '(');
 

@@ -62,7 +62,7 @@ static type *parse_type(parse_state *state, type **first_type,
     }
   }
 
-  if (consume(state, L_OPEN_BRACKET)) {
+  if (!ignore_array && consume(state, L_OPEN_BRACKET)) {
     expect_consume(state, L_CLOSE_BRACKET);
 
     return_type = new_array_type(return_type);

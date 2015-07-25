@@ -544,7 +544,7 @@ static token *scan_inner(stream *in) {
         consume_comment(in);
       } else {
         stream_push(in, chr);
-        stream_push(in, '/');
+        chr = '/';
         break;
       }
     } else {

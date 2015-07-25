@@ -66,6 +66,8 @@ static block_statement *wrap_core(block_statement *root) {
   for (; *tail; tail = &(*tail)->next);
   *tail = (statement*) root;
 
+  root->parent = (statement*) core_block;
+
   return core_block;
 }
 
