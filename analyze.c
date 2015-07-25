@@ -387,12 +387,8 @@ static void analyze_expression(block_statement *block, expression *e) {
     e->type = copy_type(left->type);
   } break;
   case O_POSTFIX:
-    abort();
-
-    // TODO: need to handle implicit casting during assignment phase
     analyze_expression(block, e->value);
 
-    e->value = numeric_promotion(e->value, true);
     e->type = copy_type(e->value->type);
     break;
   case O_SHIFT: {

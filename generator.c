@@ -878,10 +878,42 @@ static code_block *generate_expression(code_block *parent, expression *value) {
 
     // new value/right value
     if (value->operation.type == O_POSTFIX) {
-      code_instruction *literal = add_instruction(parent);
+      code_instruction *literal = add_instruction(parent), *cast = NULL;
       literal->operation.type = O_LITERAL;
       literal->type = new_type(T_U8);
       literal->value_u8 = 1;
+
+      switch (literal->type->type) {
+      case T_S8:
+        cast = new_instruction(parent, 1);
+        cast->operation.cast_type = O_REINTERPRET;
+        break;
+      case T_S16:
+      case T_S32:
+      case T_S64:
+      case T_U16:
+      case T_U32:
+      case T_U64:
+        cast = new_instruction(parent, 1);
+        cast->operation.cast_type = O_ZERO_EXTEND;
+        break;
+      case T_F32:
+      case T_F64:
+      case T_F128:
+        cast = new_instruction(parent, 1);
+        cast->operation.cast_type = O_UNSIGNED_TO_FLOAT;
+      case T_U8:
+        break;
+      default:
+        // we only accept numeric types
+        abort();
+      }
+
+      if (cast) {
+        cast->operation.type = O_CAST;
+        cast->type = copy_type(value->value->type);
+        cast->parameters[0] = last_instruction(parent) - 1;
+      }
     } else {
       parent = generate_expression(parent, right);
     }
@@ -905,8 +937,9 @@ static code_block *generate_expression(code_block *parent, expression *value) {
       compute->operation.type = O_STR_CONCAT;
       break;
     case O_POSTFIX:
-      compute->operation.type = value->operation.postfix_type == O_INCREMENT
-        ? O_ADD : O_SUB;
+      compute->operation.type = O_NUMERIC;
+      compute->operation.numeric_type =
+        value->operation.postfix_type == O_INCREMENT ? O_ADD : O_SUB;
       mirror = compute->parameters[0];
       break;
     default:
@@ -942,6 +975,8 @@ static code_block *generate_expression(code_block *parent, expression *value) {
         if (strcmp(entry->symbol_name, symbol) == 0) {
           entry->instruction = last_instruction(parent);
 
+          // only need to mirror when we're referencing a previous value because
+          // we're just updating the entry's instruction
           if (value->operation.type == O_POSTFIX) {
             mirror_instruction(parent, mirror);
           }
