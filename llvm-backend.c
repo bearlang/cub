@@ -132,17 +132,7 @@ static void wt(type *t) {
 		fprintf(stderr, "array type not implemented\n");
 		exit(1);
 	case T_BLOCKREF:
-		pf("void (");
-		argument *arg = t->blocktype;
-		if (arg != NULL) {
-			wt(arg->argument_type);
-			arg = arg->next;
-			for (; arg != NULL; arg = arg->next) {
-				pf(", ");
-				wt(arg->argument_type);
-			}
-		}
-		pf(")*");
+		pf("i8*");
 		break;
 	case T_BOOL:
 		pf("i1");
@@ -188,6 +178,21 @@ static void wt(type *t) {
 	}
 }
 
+bool check_prototypes(code_block *from, code_block *to) {
+	if (from->is_final || from->tail.parameter_count != to->parameter_count) {
+		return false;
+	}
+	for (size_t p = 0; p < to->parameter_count; p++) {
+		type *req = to->parameters[p].field_type;
+		size_t iind = from->tail.parameters[p];
+		type *found = iind < from->parameter_count ? from->parameters[iind].field_type : from->instructions[iind - from->parameter_count].type;
+		if (!equivalent_type(req, found)) {
+			return false;
+		}
+	}
+	return true;
+}
+
 void backend_write(code_system *system, FILE *out) {
 	pt_reset();
 
@@ -213,39 +218,65 @@ void backend_write(code_system *system, FILE *out) {
 	pf("declare i8* @allocate(i64) nounwind\n");
 	pf("declare void @exit(i32) nounwind noreturn\n\n");
 
-	pf("define fastcc i32 @main() {\n"
-					"  tail call fastcc void @block_0()\n"
-					"  ret i32 0\n"
-					"}\n\n");
+	pf("define i32 @main() {\n");
+	pf("  br label %%Block0\n");
+
+	struct patchvar **allrefs[system->block_count];
+
+	for (size_t i = 0; i < system->block_count; i++) {
+		size_t len = system->blocks[i].parameter_count + system->blocks[i].instruction_count;
+		allrefs[i] = malloc(sizeof(struct patchvar *) * len);
+		if (allrefs[i] == NULL) {
+			fputs("alloc failed\n", stderr);
+			exit(1);
+		}
+		for (size_t j = 0; j < len; j++) {
+			allrefs[i][j] = pt_def();
+		}
+	}
 
 	for (size_t i = 0; i < system->block_count; i++) {
 		code_block *block = &system->blocks[i];
 
-		pf("define internal fastcc void @block_%zu(", i);
-
-		size_t offset = block->parameter_count;
-		if (offset) {
-			wt(block->parameters[0].field_type);
-
-			for (size_t j = 1; j < offset; j++) {
-				pf(", ");
-				wt(block->parameters[j].field_type);
-			}
-		}
-
-		pf(") #0 {\n"); // TODO: include noreturn
+		pf("Block%zu:\n", i);
 
 #define TYPEOF(x) ((x) < offset ? block->parameters[x].field_type : block->instructions[x - offset].type)
 
-		struct patchvar *ref[block->instruction_count + offset];
+		struct patchvar **ref = allrefs[i];
 
 #define RP(n) pt_fetch(ref[ins->parameters[(n)]])
 #define PR(n) pv(ref[ins->parameters[(n)]]);
 #define TP(n) (TYPEOF(ins->parameters[(n)]))
 
-		for (size_t k = 0; k < offset + block->instruction_count; k++) {
-			ref[k] = pt_def();
-			vf(ref[k], k < offset ? "%%%zu" : "%%n%zu", k);
+		for (size_t k = 0; k < block->parameter_count + block->instruction_count; k++) {
+			vf(ref[k], "%%b%zu_%zu", i, k);
+		}
+
+#define SET(x, ...) pf("  %%b%zu_%zu = " x, i, k, __VA_ARGS__)
+#define SETR(x) SET("%s", x)
+
+		// parameters via PHI
+		size_t offset = block->parameter_count;
+		for (size_t k = 0; k < offset; k++) {
+			SETR("phi ");
+			wt(block->parameters[k].field_type);
+			bool first = true;
+			for (size_t l = 0; l < system->block_count; l++) {
+				code_block *from = &system->blocks[l];
+				// we want to limit the number of source possibilities - so we make sure the prototype matches.
+				if (check_prototypes(from, block)) {
+					size_t sourceid = from->tail.parameters[k];
+					if (first) {
+						first = false;
+					} else {
+						pf(",");
+					}
+					pf(" [ ")
+					pv(allrefs[l][sourceid]);
+					pf(", %%Block%zu ]", l);
+				}
+			}
+			pf("\n");
 		}
 
 		for (size_t j = 0; j < block->instruction_count; j++) {
@@ -254,12 +285,12 @@ void backend_write(code_system *system, FILE *out) {
 
 			switch (ins->operation.type) {
 			case O_BITWISE_NOT:
-				pf("  %%n%zu = xor ", k);
+				SETR("xor ");
 				wt(ins->type);
 				pf(" %s, -1", RP(0));
 				break;
 			case O_BLOCKREF:
-				vf(ref[k], "@block_%zu", ins->block_index);
+				vf(ref[k], "blockaddress(@main, %%Block%zu)", ins->block_index);
 				break;
 			case O_CAST: {
 				type *typ = ins->type;
@@ -302,7 +333,7 @@ void backend_write(code_system *system, FILE *out) {
 					name = "bitcast";
 					break;
 				}
-				pf("  %%n%zu = %s ", k, name);
+				SET("%s ", name);
 				wt(TP(np));
 				pf(" %s to ", RP(np));
 				wt(typ);
@@ -317,7 +348,7 @@ void backend_write(code_system *system, FILE *out) {
 				case O_LTE: op = "icmp ule"; break;
 				case O_NE: op = "icmp ne"; break;
 				}
-				pf("  %%n%zu = %s ", k, op);
+				SET("%s ", op);
 				wt(TP(0));
 				pf(" %s, %s", RP(0), RP(1));
 			} break;
@@ -328,7 +359,7 @@ void backend_write(code_system *system, FILE *out) {
 				wt(TP(0));
 				pf(" %s, i64 0, i32 %zu\n", RP(0), ins->parameters[1]);
 
-				pf("  %%n%zu = load ", k);
+				SETR("load ");
 				wt(ins->type);
 				pf("* %%temp.%zu, align 1", k);
 				break;
@@ -337,15 +368,15 @@ void backend_write(code_system *system, FILE *out) {
 //				wt(TP(0));
 //				pf(", ");
 				wt(TP(0));
-				pf(" %s, i64 %%n%zu\n", RP(0), ins->parameters[1]);
+				pf(" %s, i64 %s\n", RP(0), RP(1));
 
-				pf("  %%n%zu = load ", k);
+				SETR("load ");
 				wt(ins->type);
 				pf("* %%temp.%zu, align 1", k);
 				break;
 			case O_GET_SYMBOL:
 				// TODO: fix
-				pf("  %%n%zu = %s", k, RP(0));
+				SET("%s", RP(0));
 				break;
 			case O_IDENTITY:
 				fprintf(stderr, "this backend does not support identity checking\n");
@@ -413,16 +444,15 @@ void backend_write(code_system *system, FILE *out) {
 				wt(TP(1));
 				pf(" %s, 0\n", RP(1));
 
-				pf("  %%n%zu = ", k);
 				switch (ins->operation.logic_type) {
 				case O_AND:
-					pf("and");
+					SETR("and");
 					break;
 				case O_OR:
-					pf("or");
+					SETR("or");
 					break;
 				case O_XOR:
-					pf("xor");
+					SETR("xor");
 					break;
 				default:
 					abort();
@@ -430,7 +460,7 @@ void backend_write(code_system *system, FILE *out) {
 				pf(" i1 %%a.%zu, %%b.%zu", k, k);
 			} break;
 			case O_NEGATE:
-				pf("  %%n%zu = sub ", k);
+				SETR("sub ");
 				wt(ins->type);
 				pf(" 0, %s", RP(0));
 				break;
@@ -439,10 +469,10 @@ void backend_write(code_system *system, FILE *out) {
 				pf("  %%psize.%zu = getelementptr " /* "%%struct.%zu, " */ "%%struct.%zu* %%zptr.%zu, i64 1\n", k, /* ins->type->struct_index, */ ins->type->struct_index, k);
 				pf("  %%size.%zu = ptrtoint %%struct.%zu* %%psize.%zu to i64\n", k, ins->type->struct_index, k); // TODO: is i64 too long for 32-bit?
 				pf("  %%raw.%zu = call ccc i8* @allocate(i64 %%size.%zu)\n", k, k); // TODO: garbage collection
-				pf("  %%n%zu = bitcast i8* %%raw.%zu to %%struct.%zu*", k, k, ins->type->struct_index);
+				SET("bitcast i8* %%raw.%zu to %%struct.%zu*", k, ins->type->struct_index);
 				break;
 			case O_NOT:
-				pf("  %%n%zu = icmp eq ", k);
+				SETR("icmp eq ");
 				wt(TP(0));
 				pf(" %s, 0", RP(0));
 				break;
@@ -459,7 +489,7 @@ void backend_write(code_system *system, FILE *out) {
 				case O_SUB: op = "sub"; break;
 				default: abort();
 				}
-				pf("  %%n%zu = %s ", k, op);
+				SET("%s ", op);
 				wt(ins->type);
 				pf(" %s, %s", RP(0), RP(1));
 			} break;
@@ -484,7 +514,7 @@ void backend_write(code_system *system, FILE *out) {
 			case O_SET_INDEX:
 				pf("  %%temp.%zu = getelementptr inbounds ", k);
 				wt(TP(0));
-				pf(" %s, i64 %%n%zu\n", RP(0), ins->parameters[1]);
+				pf(" %s, i64 %s\n", RP(0), RP(1));
 
 				type *et = t->arraytype;
 
@@ -509,7 +539,7 @@ void backend_write(code_system *system, FILE *out) {
 				default:
 					abort();
 				}
-				pf("  %%n%zu = %s ", k, op);
+				SET("%s ", op);
 				wt(ins->type);
 				pf(" %s, %s", RP(0), RP(1));
 			} break;
@@ -530,65 +560,38 @@ void backend_write(code_system *system, FILE *out) {
 		}
 
 		if (block->is_final) {
-			pf("  call ccc void @exit(i32 0) noreturn\n");
+			pf("  ret i32 0\n}\n");
 		} else {
 			switch (block->tail.type) {
 			case GOTO: {
-				pf("  tail call fastcc void %s(", pt_fetch(ref[block->tail.first_block]));
-				size_t params = block->tail.parameter_count;
-				if (params) {
-					wt(TYPEOF(block->tail.parameters[0]));
-					pf(" %s", pt_fetch(ref[block->tail.parameters[0]]));
-
-					for (size_t i = 1; i < params; i++) {
-						pf(", ");
-						wt(TYPEOF(block->tail.parameters[i]));
-						pf(" %s", pt_fetch(ref[block->tail.parameters[i]]));
-					}
-				}
-				pf(") noreturn\n");
+				pf("  indirectbr i8* %s, [ ", pt_fetch(ref[block->tail.first_block]));
 			} break;
 			case BRANCH: {
-				pf("  br i1 %s, label %%iftrue, label %%iffalse\n", pt_fetch(ref[block->tail.condition]));
-				pf("iftrue:\n");
-				pf("  tail call fastcc void %s(", pt_fetch(ref[block->tail.first_block]));
-				size_t params = block->tail.parameter_count; // TODO: less code duplication
-				if (params) {
-					wt(TYPEOF(block->tail.parameters[0]));
-					pf(" %s", pt_fetch(ref[block->tail.parameters[0]]));
-
-					for (size_t i = 1; i < params; i++) {
-						pf(", ");
-						wt(TYPEOF(block->tail.parameters[i]));
-						pf(" %s", pt_fetch(ref[block->tail.parameters[i]]));
-					}
-				}
-				pf(") noreturn\n");
-				pf("  ret void\n");
-
-				pf("iffalse:\n");
-				pf("  tail call fastcc void %s(", pt_fetch(ref[block->tail.second_block]));
-				if (params) {
-					wt(TYPEOF(block->tail.parameters[0]));
-					pf(" %s", pt_fetch(ref[block->tail.parameters[0]]));
-
-					for (size_t i = 1; i < params; i++) {
-						pf(", ");
-						wt(TYPEOF(block->tail.parameters[i]));
-						pf(" %s", pt_fetch(ref[block->tail.parameters[i]]));
-					}
-				}
-				pf(") noreturn\n");
-				pf("  ret void\n");
+				pf("  %%brtarget = select i1 %s, i8* %s, i8* %s\n",
+				   pt_fetch(ref[block->tail.condition]),
+				   pt_fetch(ref[block->tail.first_block]),
+				   pt_fetch(ref[block->tail.second_block]));
+				pf("  indirectbr i8* %%brtarget, [ ");
 			} break;
 			}
+			bool first = true;
+			for (size_t j = 0; j < system->block_count; j++) {
+				if (check_prototypes(block, &system->blocks[j])) {
+					if (first) {
+						first = false;
+					} else {
+						pf(", ");
+					}
+					pf("label %%Block%zu", j);
+				}
+			}
+			pf(" ]\n");
 		}
-
-		pf("  ret void\n}\n");
 	}
 
-	pf("\n\n");
-	pf("attributes #0 = { inlinehint noreturn nounwind }\n");
+	for (size_t i = 0; i < system->block_count; i++) {
+		free(allrefs[i]);
+	}
 
 	pt_finalize(out);
 }
