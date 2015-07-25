@@ -168,7 +168,7 @@ static void wt(type *t) {
 		pf("i64");
 		break;
 	case T_STRING:
-		pf("%%struct.string*");
+		pf("i8*");
 		break;
 	case T_VOID:
 		pf("void");
@@ -235,7 +235,63 @@ void backend_write(code_system *system, FILE *out) {
 	pf("declare i8* @allocate(i64) nounwind\n");
 	pf("declare void @exit(i32) nounwind noreturn\n\n");
 
-	pf("define i32 @main() {\n");
+	size_t natid = 0, natcap = 10;
+	char **natives = malloc(natcap * sizeof(char*));
+	if (natives == NULL) {
+		fputs("alloc failed\n", stderr);
+		exit(1);
+	}
+
+#define TYPEOF(x) ((x) < block->parameter_count ? block->parameters[x].field_type : block->instructions[x - block->parameter_count].type)
+
+	// constant and prototype extraction
+	for (size_t i = 0; i < system->block_count; i++) {
+		code_block *block = &system->blocks[i];
+		for (size_t j = 0; j < block->instruction_count; j++) {
+			code_instruction *insr = &block->instructions[j];
+			if (insr->operation.type == O_NATIVE) {
+				char *name = insr->native_call;
+				bool found = false;
+				for (size_t k = 0; k < natid; k++) {
+					if (strcmp(name, natives[k]) == 0) {
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					if (natid >= natcap) {
+						natives = realloc(natives, (natcap <<= 1) * sizeof(char*));
+					}
+					natives[natid++] = name;
+					pf("declare ");
+					wt(insr->type);
+					pf(" @%s(", name);
+					size_t count = insr->parameters[0];
+					if (count) {
+						wt(TYPEOF(insr->parameters[1]));
+						for (size_t k = 2; k <= count; k++) {
+							pf(", ");
+							wt(TYPEOF(insr->parameters[k]));
+						}
+					}
+					pf(") nounwind\n")
+				}
+			} else if (insr->operation.type == O_LITERAL && insr->type->type == T_STRING) {
+				pf("@str_%zu_%zu = private unnamed_addr constant [%zu x i8] c\"", i, j, strlen(insr->value_string) + 1);
+				for (char *s = insr->value_string; *s; s++) {
+					char c = *s;
+					if (c >= 32 && c <= 126 && c != '"' && c != '\\') {
+						pf("%c", c);
+					} else {
+						pf("\\%02hhx", c);
+					}
+				}
+				pf("\\00\"");
+			}
+		}
+	}
+
+	pf("\ndefine i32 @main() {\n");
 	pf("  br label %%Block0\n");
 
 	struct patchvar **allrefs[system->block_count];
@@ -256,8 +312,6 @@ void backend_write(code_system *system, FILE *out) {
 		code_block *block = &system->blocks[i];
 
 		pf("Block%zu:\n", i);
-
-#define TYPEOF(x) ((x) < offset ? block->parameters[x].field_type : block->instructions[x - offset].type)
 
 		struct patchvar **ref = allrefs[i];
 
@@ -370,7 +424,7 @@ void backend_write(code_system *system, FILE *out) {
 				pf(" %s, %s", RP(0), RP(1));
 			} break;
 			case O_GET_FIELD:
-				pf("  %%temp.%zu = getelementptr inbounds ", k);
+				pf("  %%temp.%zu_%zu = getelementptr inbounds ", i, k);
 //				wt(TP(0));
 //				pf(", ");
 				wt(TP(0));
@@ -378,10 +432,10 @@ void backend_write(code_system *system, FILE *out) {
 
 				SETR("load ");
 				wt(ins->type);
-				pf("* %%temp.%zu, align 1", k);
+				pf("* %%temp.%zu_%zu, align 1", i, k);
 				break;
 			case O_GET_INDEX:
-				pf("  %%temp.%zu = getelementptr inbounds ", k);
+				pf("  %%temp.%zu_%zu = getelementptr inbounds ", i, k);
 //				wt(TP(0));
 //				pf(", ");
 				wt(TP(0));
@@ -389,7 +443,7 @@ void backend_write(code_system *system, FILE *out) {
 
 				SETR("load ");
 				wt(ins->type);
-				pf("* %%temp.%zu, align 1", k);
+				pf("* %%temp.%zu_%zu, align 1", i, k);
 				break;
 			case O_GET_SYMBOL:
 				// TODO: fix
@@ -402,7 +456,7 @@ void backend_write(code_system *system, FILE *out) {
 				fprintf(stderr, "this backend does not support instanceof checking\n");
 				exit(1);
 			case O_LITERAL:
-				switch (ins->type->type) {
+			switch (ins->type->type) {
 				case T_ARRAY:
 				case T_BLOCKREF:
 				case T_F32:
@@ -422,22 +476,9 @@ void backend_write(code_system *system, FILE *out) {
 				case T_OBJECT:
 					vf(ref[k], "null");
 					break;
-				case T_STRING: {
-					char *tmp = malloc(strlen(ins->value_string) * 3 + 4);
-					strcpy(tmp, "c\"");
-					size_t ti = strlen(tmp);
-					for (char *s = ins->value_string; *s; s++) {
-						char c = *s;
-						if (c >= 32 && c <= 126 && c != '"' && c != '\\') {
-							tmp[ti++] = c;
-						} else {
-							sprintf(tmp + ti, "\\%02hhx", c); // 3 characters added
-							ti += 3;
-						}
-					}
-					strcat(tmp, "\"");
-					vfr(ref[k], tmp);
-				} break;
+				case T_STRING:
+					SET("getelementptr [%zu x i8]* @str_%zu_%zu, i64 0, i64 0", strlen(ins->value_string) + 1, i, j);
+					break;
 				case T_U8:
 					vf(ref[k], "%hhu", ins->value_u8);
 					break;
@@ -476,17 +517,50 @@ void backend_write(code_system *system, FILE *out) {
 				}
 				pf(" i1 %%a.%zu, %%b.%zu", k, k);
 			} break;
+			case O_NATIVE: {
+				if (is_void(ins->type)) {
+					pf("  call void");
+				} else {
+					SETR("call ");
+					wt(ins->type);
+				}
+				pf(" @%s(", ins->native_call);
+				size_t count = ins->parameters[0];
+				if (count) {
+					wt(TP(1));
+					pf(" %s", RP(1));
+					for (size_t i = 2; i <= count; i++) {
+						pf(",");
+						wt(TP(i));
+						pf(" %s", RP(i));
+					}
+				}
+				pf(")");
+			} break;
 			case O_NEGATE:
 				SETR("sub ");
 				wt(ins->type);
 				pf(" 0, %s", RP(0));
 				break;
 			case O_NEW:
-				pf("  %%zptr.%zu = inttoptr i32 0 to %%struct.%zu*\n", k, ins->type->struct_index);
-				pf("  %%psize.%zu = getelementptr " /* "%%struct.%zu, " */ "%%struct.%zu* %%zptr.%zu, i64 1\n", k, /* ins->type->struct_index, */ ins->type->struct_index, k);
-				pf("  %%size.%zu = ptrtoint %%struct.%zu* %%psize.%zu to i64\n", k, ins->type->struct_index, k); // TODO: is i64 too long for 32-bit?
-				pf("  %%raw.%zu = call ccc i8* @allocate(i64 %%size.%zu)\n", k, k); // TODO: garbage collection
-				SET("bitcast i8* %%raw.%zu to %%struct.%zu*", k, ins->type->struct_index);
+				pf("  %%zptr.%zu_%zu = inttoptr i32 0 to %%struct.%zu*\n", i, k, ins->type->struct_index);
+				pf("  %%psize.%zu_%zu = getelementptr %%struct.%zu* %%zptr.%zu_%zu, i64 1\n", i, k, ins->type->struct_index, i, k);
+				pf("  %%size.%zu_%zu = ptrtoint %%struct.%zu* %%psize.%zu_%zu to i64\n", i, k, ins->type->struct_index, i, k); // TODO: is i64 too long for 32-bit?
+				pf("  %%raw.%zu_%zu = call ccc i8* @allocate(i64 %%size.%zu_%zu)\n", i, k, i, k); // TODO: garbage collection
+				SET("bitcast i8* %%raw.%zu_%zu to %%struct.%zu*", i, k, ins->type->struct_index);
+				break;
+			case O_NEW_ARRAY:
+				pf("  %%zptr.%zu_%zu = inttoptr i32 0 to ", i, k);
+				wt(ins->type->arraytype);
+				pf("*\n  %%psize.%zu_%zu = getelementptr ", i, k);
+				wt(ins->type->arraytype);
+				pf("* %%zptr.%zu_%zu, i64 %zu\n", i, k, ins->parameters[0]);
+				pf("  %%size.%zu_%zu = ptrtoint", i, k)
+				wt(ins->type->arraytype);
+				pf("* %%psize.%zu_%zu to i64\n", i, k); // TODO: is i64 too long for 32-bit?
+				pf("  %%raw.%zu_%zu = call ccc i8* @allocate(i64 %%size.%zu_%zu)\n", i, k, i, k); // TODO: garbage collection
+				SET("bitcast i8* %%raw.%zu_%zu to ", i, k);
+				wt(ins->type);
 				break;
 			case O_NOT:
 				SETR("icmp eq ");
@@ -511,7 +585,7 @@ void backend_write(code_system *system, FILE *out) {
 				pf(" %s, %s", RP(0), RP(1));
 			} break;
 			case O_SET_FIELD:
-				pf("  %%temp.%zu = getelementptr inbounds ", k);
+				pf("  %%temp.%zu_%zu = getelementptr inbounds ", i, k);
 				type *t = TP(0);
 				if (t->type != T_OBJECT) {
 					fprintf(stderr, "expected object in SET_FIELD");
@@ -526,10 +600,10 @@ void backend_write(code_system *system, FILE *out) {
 				wt(ft);
 				pf(" %s, ", RP(2));
 				wt(ft);
-				pf("* %%temp.%zu, align 1", k);
+				pf("* %%temp.%zu_%zu, align 1", i, k);
 				break;
 			case O_SET_INDEX:
-				pf("  %%temp.%zu = getelementptr inbounds ", k);
+				pf("  %%temp.%zu_%zu = getelementptr inbounds ", i, k);
 				wt(TP(0));
 				pf(" %s, i64 %s\n", RP(0), RP(1));
 
@@ -539,7 +613,7 @@ void backend_write(code_system *system, FILE *out) {
 				wt(et);
 				pf(" %s, ", RP(2));
 				wt(et);
-				pf("* %%temp.%zu, align 1", k);
+				pf("* %%temp.%zu_%zu, align 1", i, k);
 				break;
 			case O_SHIFT: {
 				const char *op;
@@ -577,7 +651,7 @@ void backend_write(code_system *system, FILE *out) {
 		}
 
 		if (block->is_final) {
-			pf("  ret i32 0\n}\n");
+			pf("  br label %%Done\n");
 		} else {
 			bool needs_indirection = true;
 			switch (block->tail.type) {
@@ -625,6 +699,8 @@ void backend_write(code_system *system, FILE *out) {
 			}
 		}
 	}
+
+	pf("Done:\n  ret i32 0\n}\n");
 
 	for (size_t i = 0; i < system->block_count; i++) {
 		free(allrefs[i]);
