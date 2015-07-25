@@ -803,7 +803,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   }
   case O_NATIVE: {
     for (expression *val = value->value; val; val = val->next) {
-      generate_expression(parent, val);
+      parent = generate_expression(parent, val);
       push_stack(parent);
     }
 
@@ -821,6 +821,15 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   }
   case O_NEW:
     return generate_new(parent, value);
+  case O_NEW_ARRAY: {
+    parent = generate_expression(parent, value->value);
+
+    code_instruction *new = new_instruction(parent, 1);
+    new->operation.type = O_NEW_ARRAY;
+    new->type = copy_type(value->type);
+    new->parameters[0] = last_instruction(parent) - 1;
+    return parent;
+  }
   case O_NUMERIC_ASSIGN:
   case O_POSTFIX:
   case O_SHIFT_ASSIGN:
@@ -1327,7 +1336,7 @@ static code_block *generate_new(code_block *parent, expression *value) {
 }
 
 static code_block *generate_ternary(code_block *parent, expression *value) {
-  generate_expression(parent, value->value);
+  parent = generate_expression(parent, value->value);
 
   code_block *first = create_child_block(parent),
     *second = create_child_block(parent);
@@ -1340,10 +1349,10 @@ static code_block *generate_ternary(code_block *parent, expression *value) {
   make_blockref(parent, second);
   parent->tail.second_block = last_instruction(parent);
 
-  generate_expression(first, value->value->next);
+  first = generate_expression(first, value->value->next);
   push_stack(first);
 
-  generate_expression(second, value->value->next->next);
+  second = generate_expression(second, value->value->next->next);
   push_stack(second);
 
   code_block *after = create_child_block(first);

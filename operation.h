@@ -18,6 +18,7 @@ typedef enum {
   O_NATIVE,
   O_NEGATE,            // 1
   O_NEW,               // 1
+  O_NEW_ARRAY,
   O_NOT,               // 1
   O_NUMERIC,           // 2
   O_NUMERIC_ASSIGN,    // UNUSED

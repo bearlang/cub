@@ -43,6 +43,7 @@ static void optimize_copies(code_block *block) {
     case O_GET_FIELD:
     case O_INSTANCEOF:
     case O_NEGATE:
+    case O_NEW_ARRAY:
     case O_NOT:
       ip[0] = map[ip[0]];
       break;

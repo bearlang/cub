@@ -20,7 +20,8 @@ block_statement *ensure_block(statement *node) {
   return (block_statement*) node;
 }
 
-static type *parse_type(parse_state *state, type **first_type) {
+static type *parse_type(parse_state *state, type **first_type,
+    bool ignore_array) {
   token *first_token = accept(state, L_TYPE);
 
   if (!first_token) {
@@ -40,7 +41,7 @@ static type *parse_type(parse_state *state, type **first_type) {
       return_type = new_function_type(return_type, NULL);
     } else {
       do {
-        type *param_type = parse_type(state, NULL);
+        type *param_type = parse_type(state, NULL, false);
 
         token *arg_name = parse_peek(state);
 
@@ -70,6 +71,36 @@ static type *parse_type(parse_state *state, type **first_type) {
   return return_type;
 }
 
+static expression *parse_new(parse_state *state) {
+  switch (detect_ambiguous_new(state)) {
+  case G_NEW_ARRAY: {
+    type *array_type = parse_type(state, NULL, true);
+
+    expect_consume(state, L_OPEN_BRACKET);
+    expression *size = parse_expression(state);
+    expect_consume(state, L_CLOSE_BRACKET);
+
+    return new_new_array_node(array_type, size);
+  }
+  case G_NEW_OBJECT: {
+    token *t = expect(state, L_IDENTIFIER);
+    char *class_name = t->symbol_name;
+    free(t);
+
+    expect_consume(state, L_OPEN_PAREN);
+    expression *args = parse_expression_list(state, NULL);
+    expect_consume(state, L_CLOSE_PAREN);
+
+    return new_new_node(class_name, args);
+  }
+  case 0:
+  default:
+    break;
+  }
+
+  return NULL;
+}
+
 void parse_args(parse_state *state, function *fn, type *first_type) {
   size_t count = 0;
   argument **tail = &fn->argument;
@@ -82,7 +113,7 @@ void parse_args(parse_state *state, function *fn, type *first_type) {
       arg_type = first_type;
       first_type = NULL;
     } else {
-      arg_type = parse_type(state, NULL);
+      arg_type = parse_type(state, NULL, false);
 
       if (!arg_type) {
         break;
@@ -114,7 +145,7 @@ void parse_args(parse_state *state, function *fn, type *first_type) {
 // can use expect, guaranteed to find a function if anything
 function *parse_function(parse_state *state, bool allow_anonymous) {
   type *first_type = NULL;
-  type *return_type = parse_type(state, &first_type);
+  type *return_type = parse_type(state, &first_type, false);
 
   if (!return_type) {
     return NULL;
@@ -298,16 +329,7 @@ expression *parse_unary_expression(parse_state *state) {
     parse_shift(state);
     free(t);
 
-    t = expect(state, L_IDENTIFIER);
-
-    char *class_name = t->symbol_name;
-    free(t);
-
-    expect_consume(state, L_OPEN_PAREN);
-    expression *args = parse_expression_list(state, NULL);
-    expect_consume(state, L_CLOSE_PAREN);
-
-    return new_new_node(class_name, args);
+    return parse_new(state);
   }
   default:
     return parse_interact_expression(state);
@@ -674,7 +696,7 @@ void free_expression(expression *value, bool free_strings) {
   switch (value->operation.type) {
   case O_BITWISE_NOT:
   case O_INSTANCEOF:
-  case O_NEW:
+  case O_NEW_ARRAY:
   case O_NOT:
     free_expression(value->value, free_strings);
     break;
@@ -744,6 +766,13 @@ void free_expression(expression *value, bool free_strings) {
   case O_POSTFIX: // undefined type
     free_expression(value->value, free_strings);
     goto undefined_type;
+  case O_NEW:
+    for (expression *val = value->value; val; ) {
+      expression *next = val->next;
+      free_expression(val, free_strings);
+      val = next;
+    }
+    break;
   case O_SET_FIELD: // undefined type
     free_expression(value->value->next, free_strings);
     free_expression(value->value, free_strings);
@@ -807,7 +836,7 @@ expression *parse_expression_list(parse_state *state, size_t *count) {
 
 // TODO: array types, modifiers (like const)
 statement *parse_define_statement(parse_state *state, bool allow_init) {
-  type *define_type = parse_type(state, NULL);
+  type *define_type = parse_type(state, NULL, false);
 
   if (!define_type) {
     return NULL;

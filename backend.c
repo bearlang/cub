@@ -354,6 +354,23 @@ void backend_write(code_system *system, FILE *out) {
         case O_XOR: wbinf(out, ins, k, " != "); break;
         }
         break;*/
+      case O_NATIVE: {
+        wt(out, ins->type, "instruction", k, true);
+        wf(out, " = ");
+        w(out, ins->native_call);
+        wc(out, '(');
+
+        size_t count = ins->parameters[0];
+        if (count) {
+          wf(out, "instruction_");
+          wi(out, ins->parameters[1]);
+          for (size_t offset = 2; offset <= count; offset++) {
+            wf(out, ", instruction_");
+            wi(out, ins->parameters[offset]);
+          }
+        }
+        wc(out, ')');
+      } break;
       case O_NEGATE:
         wt(out, ins->type, "instruction", k, true);
         wf(out, " = -instruction_");
@@ -374,6 +391,13 @@ void backend_write(code_system *system, FILE *out) {
         // wi(out, k);
         // wf(out, "))");
         break;
+      case O_NEW_ARRAY:
+        fprintf(stderr, "array allocation not supported by this backend\n");
+        exit(1);
+
+        // but if it were, you'd look at parameters[0] to get the size of the
+        // array
+
       case O_NOT:
         wt(out, ins->type, "instruction", k, true);
         wf(out, " = !instruction_");

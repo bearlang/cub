@@ -59,6 +59,7 @@ expression *new_native_node(char *callee, char *set, expression *args,
   size_t arg_count);
 expression *new_negate_node(expression *value);
 expression *new_new_node(char *class_name, expression *args);
+expression *new_new_array_node(type *array_type, expression *size);
 expression *new_not_node(bool bitwise, expression *value);
 expression *new_numeric_node(numeric_type type, expression *left, expression *right);
 expression *new_numeric_assign_node(numeric_type type, expression *left, expression *right);

@@ -47,12 +47,20 @@ static void backend_write_file(char *filename, code_system *system) {
 }
 
 static block_statement *wrap_core(block_statement *root) {
-  char *suffix = "/lib/core.cub";
-  char *dir = dirname(__FILE__);
+  const char suffix[] = "/lib/core.cub";
+  size_t suffixlen = sizeof(suffix) / sizeof(*suffix) - 1;
+
+  char *file = xstrdup(__FILE__);
+  char *dir = dirname(file);
   size_t dirlen = strlen(dir);
-  char *core = xrealloc(dir, dirlen + strlen(suffix) + sizeof(char));
+  char *core = xmalloc(dirlen + suffixlen + sizeof(char));
+  strcpy(core, dir);
   strcpy(core + dirlen, suffix);
 
+  // to work around dirname weirdness
+  free(file);
+
+  printf("parsing core\n");
   block_statement *core_block = parse_file(core);
   statement **tail = &core_block->body;
   for (; *tail; tail = &(*tail)->next);
@@ -70,6 +78,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  printf("parsing userspace\n");
   root = parse_file(argv[1]);
   root = wrap_core(root);
 

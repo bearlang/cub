@@ -309,6 +309,16 @@ static void analyze_expression(block_statement *block, expression *e) {
 
     free(class_name);
   } break;
+  case O_NEW_ARRAY:
+    analyze_expression(block, e->value);
+
+    if (!is_integer(e->value->type)) {
+      fprintf(stderr, "new array size must be numeric\n");
+      exit(1);
+    }
+
+    resolve_type(block, e->type);
+    break;
   case O_NOT: {
     analyze_expression(block, e->value);
     expression *b = bool_cast(e->value);

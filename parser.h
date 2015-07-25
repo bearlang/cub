@@ -16,6 +16,9 @@ typedef uint8_t syntax_structure;
 #define G_PARAMETER ((syntax_structure) 16)
 #define G_ANY ((syntax_structure) 31)
 
+#define G_NEW_ARRAY ((syntax_structure) 1)
+#define G_NEW_OBJECT ((syntax_structure) 2)
+
 typedef struct {
   stream *in;
   size_t count, cap;
@@ -48,5 +51,6 @@ block_statement *parse(stream*);
 
 syntax_structure detect_ambiguous_statement(parse_state*);
 syntax_structure detect_ambiguous_expression(parse_state*);
+syntax_structure detect_ambiguous_new(parse_state*);
 
 #endif

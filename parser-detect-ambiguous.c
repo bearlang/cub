@@ -293,6 +293,48 @@ static syntax_structure _detect_ambiguous_expression(lookahead_state *state) {
   return G_EXPRESSION;
 }
 
+static syntax_structure _detect_ambiguous_new(lookahead_state *state) {
+  if (lookahead(state, L_TYPE)) {
+    return G_NEW_ARRAY;
+  }
+
+  if (!lookahead(state, L_IDENTIFIER)) {
+    return 0;
+  }
+
+  if (lookahead(state, L_OPEN_PAREN)) {
+    if (!lookahead(state, L_CLOSE_PAREN)) {
+      do {
+        syntax_structure restriction = detect_ambiguous_expression_ambiguous(
+          state, G_EXPRESSION | G_FUNCTION | G_PARAMETER);
+
+        switch (restriction) {
+        case 0:
+          return 0;
+        case G_PARAMETER:
+          return G_NEW_ARRAY;
+        case G_EXPRESSION:
+        case G_FUNCTION:
+          return G_NEW_OBJECT;
+        default:
+          // currently G_PARAMETER | G_EXPRESSION, so keep looking
+          break;
+        }
+      } while (lookahead(state, L_COMMA));
+
+      if (!lookahead(state, L_CLOSE_PAREN)) {
+        return 0;
+      }
+    }
+
+    if (lookahead(state, L_OPEN_PAREN)) {
+      return G_NEW_ARRAY;
+    }
+  }
+
+  return lookahead(state, L_OPEN_BRACKET) ? G_NEW_ARRAY : G_NEW_OBJECT;
+}
+
 syntax_structure detect_ambiguous_statement(parse_state *state) {
   lookahead_state stacklook, *look = &stacklook;
   init_lookahead(state, look);
@@ -309,6 +351,17 @@ syntax_structure detect_ambiguous_expression(parse_state *state) {
   init_lookahead(state, look);
 
   syntax_structure result = _detect_ambiguous_expression(look);
+
+  merge_lookahead(look);
+
+  return result;
+}
+
+syntax_structure detect_ambiguous_new(parse_state *state) {
+  lookahead_state stacklook, *look = &stacklook;
+  init_lookahead(state, look);
+
+  syntax_structure result = _detect_ambiguous_new(look);
 
   merge_lookahead(look);
 
