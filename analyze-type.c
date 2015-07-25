@@ -453,8 +453,8 @@ type_type binary_numeric_promotion(expression *value, bool allow_floats) {
   }
 }
 
-void assert_condition(type *type) {
-  if (type->type != T_BOOL && !is_integer(type)) {
+void assert_condition(type *t) {
+  if (t->type != T_BOOL && !is_integer(t)) {
     fprintf(stderr, "invalid condition\n");
     exit(1);
   }

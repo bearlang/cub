@@ -4,7 +4,7 @@
 
 #include "expression.h"
 
-expression *parse_expression_list(parse_state *state);
+expression *parse_expression_list(parse_state *state, size_t *count);
 expression *expect_expression(parse_state *state);
 statement *parse_statement(parse_state *state);
 statement *next_statement(parse_state *state);
@@ -237,7 +237,7 @@ expression *parse_interact_expression(parse_state *state) {
       left = new_get_field_node(left, right->symbol_name);
       free(right);
     } else if (consume(state, L_OPEN_PAREN)) {
-      expression *right = parse_expression_list(state);
+      expression *right = parse_expression_list(state, NULL);
       expect_consume(state, L_CLOSE_PAREN);
       left = new_call_node(left, right);
     } else if (consume(state, L_OPEN_BRACKET)) {
@@ -304,7 +304,7 @@ expression *parse_unary_expression(parse_state *state) {
     free(t);
 
     expect_consume(state, L_OPEN_PAREN);
-    expression *args = parse_expression_list(state);
+    expression *args = parse_expression_list(state, NULL);
     expect_consume(state, L_CLOSE_PAREN);
 
     return new_new_node(class_name, args);
@@ -730,6 +730,16 @@ void free_expression(expression *value, bool free_strings) {
       free(value->value_string);
     }
     break;
+  case O_NATIVE:
+    if (free_strings) {
+      free(value->symbol_name);
+    }
+    for (expression *sub = value->value; sub; ) {
+      expression *next = sub->next;
+      free_expression(sub, free_strings);
+      sub = next;
+    }
+    goto undefined_type;
   case O_NEGATE: // undefined type
   case O_POSTFIX: // undefined type
     free_expression(value->value, free_strings);
@@ -769,15 +779,27 @@ expression *expect_expression(parse_state *state) {
   return e;
 }
 
-expression *parse_expression_list(parse_state *state) {
+expression *parse_expression_list(parse_state *state, size_t *count) {
   expression *e = parse_expression(state), *tail = e;
 
   if (e == NULL) {
+    if (count) {
+      *count = 0;
+    }
     return NULL;
   }
 
-  while (consume(state, L_COMMA)) {
-    tail->next = expect_expression(state);
+  if (count) {
+    size_t num = 1;
+    while (consume(state, L_COMMA)) {
+      tail->next = expect_expression(state);
+      num++;
+    }
+    *count = num;
+  } else {
+    while (consume(state, L_COMMA)) {
+      tail->next = expect_expression(state);
+    }
   }
 
   return e;
@@ -910,21 +932,6 @@ statement *parse_statement(parse_state *state) {
 
     return s_class(the_class);
   }
-  case L_RETURN:
-    free(t);
-
-    return s_return(consume(state, L_SEMICOLON)
-      ? NULL
-      : expect_expression(state));
-  case L_OPEN_BRACE: {
-    free(t);
-
-    result = (statement*) parse_block(state);
-
-    expect_consume(state, L_CLOSE_BRACE);
-
-    return result;
-  }
   case L_IF: {
     free(t);
 
@@ -944,6 +951,47 @@ statement *parse_statement(parse_state *state) {
     }
     return result;
   }
+  case L_NATIVE: {
+    token *callee = expect(state, L_IDENTIFIER);
+    char *assign = NULL;
+
+    if (consume(state, L_ASSIGN)) {
+      assign = callee->symbol_name;
+      free(callee);
+      callee = expect(state, L_IDENTIFIER);
+    }
+
+    size_t arg_count;
+    expect_consume(state, L_OPEN_PAREN);
+    expression *args = parse_expression_list(state, &arg_count);
+    expect_consume(state, L_CLOSE_PAREN);
+    expect_consume(state, L_SEMICOLON);
+
+    expression *e = new_native_node(callee->symbol_name, assign, args,
+      arg_count);
+    free(callee);
+
+    if (assign) {
+      e = new_assign_node(new_get_symbol_node(assign), e);
+    }
+
+    return s_expression(e);
+  }
+  case L_OPEN_BRACE: {
+    free(t);
+
+    result = (statement*) parse_block(state);
+
+    expect_consume(state, L_CLOSE_BRACE);
+
+    return result;
+  }
+  case L_RETURN:
+    free(t);
+
+    return s_return(consume(state, L_SEMICOLON)
+      ? NULL
+      : expect_expression(state));
   case L_DO: {
     free(t);
 

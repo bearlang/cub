@@ -34,6 +34,10 @@ typedef struct expression_node {
     char *symbol_name;
     size_t field_index;
   };
+  // native
+  char *assign;
+  size_t arg_count;
+
   struct expression_node *next;
 } expression_node;
 
@@ -51,6 +55,8 @@ expression *new_function_node(function *fn);
 expression *new_identity_node(expression *left, expression *right);
 expression *new_literal_node(type_type type);
 expression *new_logic_node(logic_type type, expression *left, expression *right);
+expression *new_native_node(char *callee, char *set, expression *args,
+  size_t arg_count);
 expression *new_negate_node(expression *value);
 expression *new_new_node(char *class_name, expression *args);
 expression *new_not_node(bool bitwise, expression *value);

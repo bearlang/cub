@@ -254,6 +254,25 @@ static void analyze_expression(block_statement *block, expression *e) {
     }
     break;
   }
+  case O_NATIVE:
+    for (expression *val = e->value; val; val = val->next) {
+      analyze_expression(block, val);
+    }
+
+    if (e->assign) {
+      uint8_t symbol_type = ST_VARIABLE;
+      symbol_entry *entry = get_symbol(block, e->assign, &symbol_type);
+
+      if (!entry) {
+        fprintf(stderr, "unknown symbol '%s'\n", e->assign);
+        exit(1);
+      }
+
+      e->type = copy_type(entry->type);
+    } else {
+      e->type = NULL;
+    }
+    break;
   case O_NEW: {
     // TODO: constructor overloading and argument matching
     char *class_name = e->symbol_name;
@@ -324,12 +343,10 @@ static void analyze_expression(block_statement *block, expression *e) {
     e->type = new_type(binary_numeric_promotion(e, allow_floats));
     break;
   case O_NUMERIC_ASSIGN: {
-    abort();
+    expression *left = e->value, *right = left->next;
 
-    // TODO: need to handle implicit casting during assignment phase
-    // maybe store cast in e->value->next->next?
-    /*analyze_expression(block, e->value);
-    analyze_expression(block, e->value->next);
+    analyze_expression(block, left);
+    analyze_expression(block, right);
 
     bool allow_floats = true;
     switch (e->operation.numeric_type) {
@@ -347,20 +364,17 @@ static void analyze_expression(block_statement *block, expression *e) {
       break;
     }
 
-    type_type new_type = binary_numeric_promotion(e, allow_floats);
+    if (!is_integer(left->type) && (!allow_floats ||
+        !is_float(left->type))) {
+      fprintf(stderr, "numeric assignment lhs must be numeric\n");
+      exit(1);
+    }
 
-    assert_integer(e->value->type, "operate on");
-    assert_integer(e->value->next->type, "operate on");*/
+    expression *cast = implicit_cast(right, left->type);
+    cast->next = NULL;
+    left->next = cast;
 
-    // TODO: this should be in a common place closer to code generation,
-    // specifically when things are more linear and (a = a + b) is the same as
-    // (a += b)
-    /*if (integer_id(left->type) < integer_id(right->type)) {
-      fprintf(stderr, "warning: loss of precision in assignment\n");
-    }*/
-
-    // TODO: implicit cast
-    e->type = copy_type(e->value->type);
+    e->type = copy_type(left->type);
   } break;
   case O_POSTFIX:
     abort();
@@ -398,21 +412,31 @@ static void analyze_expression(block_statement *block, expression *e) {
     // TODO: implicit cast
     e->type = copy_type(e->value->type);*/
     break;
-  case O_STR_CONCAT:
-  case O_STR_CONCAT_ASSIGN:
-    analyze_expression(block, e->value);
-    analyze_expression(block, e->value->next);
+  case O_STR_CONCAT: {
+    expression *left = e->value, *right = left->next;
+    analyze_expression(block, left);
+    analyze_expression(block, right);
 
-    if (e->operation.type == O_STR_CONCAT_ASSIGN && e->value->type->type != T_STRING) {
+    if (left->type->type != T_STRING || right->type->type != T_STRING) {
+      fprintf(stderr, "string coercion not implemented\n");
+      exit(1);
+    }
+  } break;
+  case O_STR_CONCAT_ASSIGN: {
+    expression *left = e->value, *right = left->next;
+    analyze_expression(block, left);
+    analyze_expression(block, right);
+
+    if (left->type->type != T_STRING) {
       fprintf(stderr, "must concatenate a string into a string lvalue\n");
       exit(1);
     }
 
-    if (e->value->next->type->type != T_STRING) {
-      // TODO: coerce to string!
-      abort();
+    if (right->type->type != T_STRING) {
+      fprintf(stderr, "string coercion not implemented\n");
+      exit(1);
     }
-    break;
+  } break;
   case O_TERNARY: {
     analyze_expression(block, e->value);
     analyze_expression(block, e->value->next);

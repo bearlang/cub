@@ -40,5 +40,5 @@ int main(int argc, char *argv[]) {
   fflush(out);
   fclose(out);
 
-  return 0;
+  exit(0);
 }

@@ -15,6 +15,7 @@ typedef enum {
   O_INSTANCEOF,        // 2
   O_LITERAL,           // 0
   O_LOGIC,             // 2
+  O_NATIVE,
   O_NEGATE,            // 1
   O_NEW,               // 1
   O_NOT,               // 1

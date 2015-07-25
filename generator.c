@@ -801,6 +801,24 @@ static code_block *generate_expression(code_block *parent, expression *value) {
 
     return parent;
   }
+  case O_NATIVE: {
+    for (expression *val = value->value; val; val = val->next) {
+      generate_expression(parent, val);
+      push_stack(parent);
+    }
+
+    code_instruction *native = new_instruction(parent, value->arg_count + 1);
+    native->operation.type = O_NATIVE;
+    native->type = copy_type(value->type);
+
+    size_t i = value->arg_count;
+    native->parameters[0] = value->arg_count;
+    for (expression *val = value->value; val; val = val->next) {
+      native->parameters[i] = pop_stack(parent);
+      i--;
+    }
+    return parent;
+  }
   case O_NEW:
     return generate_new(parent, value);
   case O_NUMERIC_ASSIGN:

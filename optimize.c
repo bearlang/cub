@@ -84,6 +84,12 @@ static void optimize_copies(code_block *block) {
       free(ip);
       free_type(ins->type);
     } continue;
+    case O_NATIVE: {
+      size_t count = ip[0];
+      for (size_t i = 1; i <= count; i++) {
+        ip[i] = map[ip[i]];
+      }
+    } break;
     case O_SET_FIELD:
       ip[0] = map[ip[0]];
       ip[2] = map[ip[2]];

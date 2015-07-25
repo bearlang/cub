@@ -51,6 +51,7 @@ typedef enum {
   L_MOD_ASSIGN,
   L_MUL,
   L_MUL_ASSIGN,
+  L_NATIVE,
   L_NE,
   L_NEW,
   L_NOT,

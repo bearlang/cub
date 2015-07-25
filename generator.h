@@ -38,6 +38,8 @@ typedef struct /*extends code_instruction_blank*/ {
     // block reference
     size_t block_index;
   };
+  // O_NATIVE
+  char *native_call;
 } code_instruction;
 
 // TODO: actually these can't be static: functions have dynamic GOTOs to return
