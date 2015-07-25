@@ -43,7 +43,6 @@ static void consume_comment(stream *in) {
         in->line);
       exit(1);
     }
-    if (chr == '\n') in->line++;
   }
 }
 

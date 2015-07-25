@@ -41,11 +41,10 @@ typedef struct /*extends statement*/ {
 // MUST be copied due to block<->ast incompatibilities
 typedef struct symbol_entry {
   char *symbol_name;
-  bool constant;
   union {
     type *type;
     class *classtype;
-    // function *function;
+    function *function;
   };
   struct symbol_entry *next;
 
@@ -59,8 +58,8 @@ typedef struct block_statement /*extends statement*/ {
   statement *next, *parent;
   statement *body;
   function *fn_parent;
-  symbol_entry *class_head, *class_tail, *type_head, *type_tail, *variable_head,
-    *variable_tail;
+  symbol_entry *class_head, *class_tail, *function_head, *function_tail,
+    *type_head, *type_tail, *variable_head, *variable_tail;
 } block_statement;
 
 typedef struct /*extends statement*/ {

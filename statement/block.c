@@ -11,6 +11,8 @@ statement *s_block(statement *body) {
   block->class_tail = NULL;
   block->function_head = NULL;
   block->function_tail = NULL;
+  block->type_head = NULL;
+  block->type_tail = NULL;
   block->variable_head = NULL;
   block->variable_tail = NULL;
   block->next = NULL;

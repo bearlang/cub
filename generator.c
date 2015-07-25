@@ -223,6 +223,56 @@ static void set_block_tail_params(code_block *src, code_block *dest) {
   }
 }
 
+static size_t get_return_struct(code_system *system, type *return_type) {
+  if (is_void(return_type)) {
+    return 0;
+  }
+
+  size_t count = system->struct_count;
+  code_struct *return_struct;
+
+  for (size_t i = 0; i < count; i++) {
+    return_struct = &system->structs[i];
+    if (return_struct->field_count != 1) {
+      continue;
+    }
+
+    code_field *first_field = &return_struct->fields[0];
+    type *first = first_field->field_type;
+
+    if (first->type != T_BLOCKREF || !first->blocktype ||
+        !first->blocktype->next || first->blocktype->next->next) {
+      continue;
+    }
+
+    type *second = first->blocktype->next->argument_type;
+    first = first->blocktype->argument_type;
+
+    if (first->type == T_OBJECT && first->struct_index == i &&
+        equivalent_type(return_type, second)) {
+      return i;
+    }
+  }
+
+  return_struct = add_struct(system);
+  return_struct->field_count = 1;
+  return_struct->fields = xmalloc(sizeof(code_field));
+  return_struct->fields[0].field_type = new_type(T_BLOCKREF);
+
+  argument *blocktype = xmalloc(sizeof(*blocktype));
+  blocktype->symbol_name = NULL;
+  blocktype->argument_type = get_object_type(system, count);
+  return_struct->fields[0].field_type->blocktype = blocktype;
+
+  blocktype->next = xmalloc(sizeof(argument));
+  blocktype = blocktype->next;
+  blocktype->symbol_name = NULL;
+  blocktype->argument_type = copy_type(return_type);
+  blocktype->next = NULL;
+
+  return count;
+}
+
 static code_instruction *new_instruction(code_block *parent,
     size_t parameter_count) {
   code_instruction *ins = add_instruction(parent);
@@ -319,6 +369,7 @@ static code_block *generate_define(code_block*, define_statement*);
 static code_block *generate_loop(code_block*, loop_statement*);
 static code_block *generate_if(code_block*, if_statement*);
 static void generate_return(code_block*, return_statement*);
+static code_block *generate_cast(code_block*, expression*);
 static code_struct *generate_class(code_system*, class*);
 static code_struct *generate_class_stub(code_system*, class*);
 static code_block *generate_function(code_system*, function*);
@@ -621,26 +672,7 @@ static code_block *generate_function(code_system *system, function *fn) {
 }
 
 static code_block *generate_function_stub(code_system *system, function *fn) {
-  size_t struct_index = system->struct_count;
-
-  code_struct *return_struct = add_struct(system);
-  return_struct->field_count = 1;
-  return_struct->fields = xmalloc(sizeof(code_field));
-  return_struct->fields[0].field_type = xmalloc(sizeof(type));
-  return_struct->fields[0].field_type->type = T_BLOCKREF;
-
-  argument *blocktype = xmalloc(sizeof(*blocktype));
-  blocktype->symbol_name = NULL;
-  blocktype->argument_type = get_object_type(system, struct_index);
-  return_struct->fields[0].field_type->blocktype = blocktype;
-
-  if (!is_void(fn->return_type)) {
-    blocktype->next = xmalloc(sizeof(argument));
-    blocktype = blocktype->next;
-    blocktype->symbol_name = NULL;
-    blocktype->argument_type = copy_type(fn->return_type);
-  }
-  blocktype->next = NULL;
+  size_t struct_index = get_return_struct(system, fn->return_type);
 
   fn->return_struct = struct_index;
 
@@ -673,6 +705,21 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   case O_BITWISE_NOT:
   case O_NOT:
     return generate_linear(parent, value, 1);
+  case O_BLOCKREF: {
+    code_instruction *ref = add_instruction(parent);
+    ref->operation.type = O_BLOCKREF;
+    type *return_type = value->type->blocktype->argument_type;
+    size_t return_struct = get_return_struct(parent->system, return_type);
+    type *struct_type = get_object_type(parent->system, return_struct);
+    ref->type = new_type(T_BLOCKREF);
+    argument *struct_arg = xmalloc(sizeof(*struct_arg));
+    struct_arg->symbol_name = NULL;
+    struct_arg->argument_type = struct_type;
+    struct_arg->next = copy_arguments(value->type->blocktype->next, false);
+    ref->type->blocktype = struct_arg;
+    ref->block_index = value->function->block_body;
+    return parent;
+  }
   case O_NEGATE: {
     parent = generate_linear(parent, value, 1);
     code_instruction *last = &parent->instructions[last_instruction(parent) -
@@ -688,6 +735,8 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   }
   case O_CALL:
     return generate_call(parent, value);
+  case O_CAST:
+    return generate_cast(parent, value);
   case O_COMPARE:
   case O_GET_INDEX:
   case O_IDENTITY:
@@ -729,6 +778,8 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     fprintf(stderr, "no symbol '%s' post-analysis\n", symbol);
     abort();
   }
+  case O_INSTANCEOF:
+    abort();
   case O_LITERAL: {
     code_instruction *literal = add_instruction(parent);
     literal->operation.type = O_LITERAL;
@@ -936,8 +987,6 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   case O_TERNARY:
     return generate_ternary(parent, value);
 
-  case O_BLOCKREF:
-  case O_CAST:
   case O_FUNCTION:
   case O_LOGIC: // used to be generate_linear
     abort();
@@ -950,10 +999,14 @@ static code_block *generate_expression(code_block *parent, expression *value) {
 
 static code_block *generate_call(code_block *parent, expression *value) {
   code_system *system = parent->system;
-  function *fn = value->function;
-  bool non_void = !is_void(fn->return_type);
+  type *fn_type = value->value->type,
+    *return_type = fn_type->blocktype->argument_type;
+  bool non_void = !is_void(fn_type->blocktype->argument_type);
 
   code_instruction *get, *set;
+
+  // create placeholder return struct
+  size_t return_struct = get_return_struct(system, return_type);
 
   // create the return block
   size_t param_count = non_void ? 2 : 1;
@@ -964,25 +1017,28 @@ static code_block *generate_call(code_block *parent, expression *value) {
   return_block->stack_size = parent->stack_size;
 
   return_block->parameters[0].field_type = get_object_type(system,
-    fn->return_struct);
+    return_struct);
   if (non_void) {
-    return_block->parameters[1].field_type = fn->return_type;
+    return_block->parameters[1].field_type = copy_type(return_type);
   }
 
-  // generate and stack call expressions
+  // generate and stack call expressions, including the callee
   size_t value_count = 0;
   for (expression *node = value->value; node; node = node->next) {
-    generate_expression(parent, node);
+    parent = generate_expression(parent, node);
     push_stack(parent);
     value_count++;
   }
 
+  // don't include the callee
+  value_count--;
+
   // verify the parameter count is correct
-  if (value_count != fn->argument_count) {
+  /*if (value_count != fn->argument_count) {
     fprintf(stderr, "wrong parameter count to '%s' post-analysis\n",
       fn->function_name);
     abort();
-  }
+  }*/
 
   // pop call expressions and add them to the call block's tail
   size_t handoff_size = value_count + 1;
@@ -995,6 +1051,9 @@ static code_block *generate_call(code_block *parent, expression *value) {
     parent->tail.parameters[i] = pop_stack(parent);
   }
 
+  // the instruction representing the callee
+  size_t callee_instruction = pop_stack(parent);
+
   // create the context struct
   size_t context_size = parent->has_return + parent->symbol_count +
     parent->stack_size;
@@ -1002,7 +1061,7 @@ static code_block *generate_call(code_block *parent, expression *value) {
   size_t context_index;
   code_struct *context_struct;
   if (context_size == 0) {
-    context_index = fn->return_struct;
+    context_index = return_struct;
   } else {
     size_t field_count = context_size + 1;
 
@@ -1049,7 +1108,6 @@ static code_block *generate_call(code_block *parent, expression *value) {
     size_t return_context = last_instruction(return_block);
 
     // add outer context object into call block, context struct, and return block
-    size_t i = parent->has_return + 1;
     if (parent->has_return) {
       type *outer_return = instruction_type(parent, parent->return_instruction);
       context_struct->fields[1].field_type = copy_type(outer_return);
@@ -1068,6 +1126,7 @@ static code_block *generate_call(code_block *parent, expression *value) {
       get->parameters[1] = 1;
     }
 
+    size_t i = parent->has_return + 1;
     // add stack entries into the call block, context struct, and return block
     instruction_node **return_stack_tail = &return_block->stack_head;
     for (instruction_node *node = parent->stack_head; node; node = node->next) {
@@ -1123,6 +1182,7 @@ static code_block *generate_call(code_block *parent, expression *value) {
       symbol_entry *return_entry = xmalloc(sizeof(*return_entry));
       return_entry->symbol_name = entry->symbol_name;
       return_entry->type = copy_type(entry->type);
+      return_entry->exists = true;
       return_entry->instruction = last_instruction(return_block);
       *symtail = return_entry;
       symtail = &return_entry->next;
@@ -1135,21 +1195,15 @@ static code_block *generate_call(code_block *parent, expression *value) {
     cast = new_instruction(parent, 2);
     cast->operation.type = O_CAST;
     cast->operation.cast_type = O_UPCAST;
-    cast->type = get_object_type(system, fn->return_struct);
-    cast->parameters[0] = fn->return_struct;
+    cast->type = get_object_type(system, return_struct);
+    cast->parameters[0] = return_struct;
     cast->parameters[1] = object;
 
     object = last_instruction(parent);
   }
 
-  // grab blockref to function block
-  get = add_instruction(parent);
-  get->operation.type = O_BLOCKREF;
-  get->type = get_blockref_type(&system->blocks[fn->block_body]);
-  get->block_index = fn->block_body;
-
   // finish call block tail with context struct and function block
-  parent->tail.first_block = last_instruction(parent);
+  parent->tail.first_block = callee_instruction;
   parent->tail.parameters[0] = object;
 
   // grab return value from parameters
@@ -1158,6 +1212,34 @@ static code_block *generate_call(code_block *parent, expression *value) {
   }
 
   return return_block;
+}
+
+static code_block *generate_cast(code_block *parent, expression *value) {
+  switch (value->operation.cast_type) {
+  case O_DOWNCAST:
+  case O_UPCAST:
+    abort();
+  case O_FLOAT_EXTEND:
+  case O_FLOAT_TO_SIGNED:
+  case O_FLOAT_TO_UNSIGNED:
+  case O_FLOAT_TRUNCATE:
+  case O_REINTERPRET:
+  case O_SIGN_EXTEND:
+  case O_SIGNED_TO_FLOAT:
+  case O_TRUNCATE:
+  case O_UNSIGNED_TO_FLOAT:
+  case O_ZERO_EXTEND: {
+    parent = generate_expression(parent, value->value);
+
+    code_instruction *cast = new_instruction(parent, 1);
+    cast->operation.type = O_CAST;
+    cast->operation.cast_type = value->operation.cast_type;
+    cast->type = copy_type(value->type);
+    cast->parameters[0] = last_instruction(parent) - 1;
+  } break;
+  }
+
+  return parent;
 }
 
 // TODO: is using the expression value chain good enough?
@@ -1268,6 +1350,18 @@ code_system *generate(block_statement *root) {
   system->block_count = 0;
   system->block_cap = 0;
   system->blocks = NULL;
+
+  code_struct *void_return_struct = add_struct(system);
+  void_return_struct->field_count = 1;
+  void_return_struct->fields = xmalloc(sizeof(code_field));
+  void_return_struct->fields[0].field_type = new_type(T_BLOCKREF);
+
+  argument *blocktype = xmalloc(sizeof(*blocktype));
+  blocktype->symbol_name = NULL;
+  blocktype->argument_type = get_object_type(system, 0);
+  blocktype->next = NULL;
+  void_return_struct->fields[0].field_type->blocktype = blocktype;
+
   code_block *block = create_block(system);
 
   code_block *tail_block = generate_block(block, root);

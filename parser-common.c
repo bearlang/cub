@@ -88,9 +88,13 @@ bool consume(parse_state *state, token_type type) {
 }
 
 token *expect(parse_state *state, token_type type) {
-  token *t = accept(state, type);
+  token *t = parse_shift(state);
   if (t == NULL) {
     expected(t, "token '%s', found EOF", token_string(type));
+  }
+  if (t->type != type) {
+    expected(t, "token '%s', found token '%s'", token_string(type),
+      token_string(t->type));
   }
   return t;
 }

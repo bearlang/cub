@@ -223,6 +223,38 @@ void backend_write(code_system *system, FILE *out) {
           wf(out, ") instruction_");
           wi(out, ins->parameters[1]);
           break;
+        case O_FLOAT_EXTEND:
+        case O_FLOAT_TRUNCATE:
+        case O_FLOAT_TO_SIGNED:
+        case O_FLOAT_TO_UNSIGNED:
+        case O_SIGNED_TO_FLOAT:
+        case O_UNSIGNED_TO_FLOAT:
+        case O_TRUNCATE:
+        case O_SIGN_EXTEND:
+        case O_ZERO_EXTEND:
+          wt(out, ins->type, "instruction", k, true);
+          wf(out, " = (");
+          wt(out, ins->type, NULL, 0, true);
+          wf(out, ") instruction_");
+          wi(out, ins->parameters[0]);
+          break;
+        case O_REINTERPRET:
+          wf(out, "union {\n    ");
+          wt(out, instruction_type(block, ins->parameters[0]), "sub", 0, false);
+          wf(out, ";\n    ");
+          wt(out, ins->type, "sub", 1, false);
+          wf(out, ";\n  } union_");
+          wi(out, k);
+          wf(out, ";\n  union_");
+          wi(out, k);
+          wf(out, ".sub0 = instruction_");
+          wi(out, ins->parameters[0]);
+          wf(out, ";\n  ");
+          wt(out, ins->type, "instruction", k, true);
+          wf(out, " = union_");
+          wi(out, k);
+          wf(out, ".sub1");
+          break;
         }
         break;
       case O_COMPARE: {
@@ -259,6 +291,9 @@ void backend_write(code_system *system, FILE *out) {
         break;
       case O_IDENTITY:
         fprintf(stderr, "this backend does not support identity checking\n");
+        exit(1);
+      case O_INSTANCEOF:
+        fprintf(stderr, "this backend does not support instanceof checking\n");
         exit(1);
       case O_LITERAL:
         wt(out, ins->type, "instruction", k, true);

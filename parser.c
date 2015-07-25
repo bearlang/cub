@@ -33,6 +33,8 @@ static type *parse_type(parse_state *state, type **first_type) {
 
   type *return_type = new_type_from_token(first_token);
 
+  free(first_token);
+
   while (consume(state, L_OPEN_PAREN)) {
     if (consume(state, L_CLOSE_PAREN)) {
       return_type = new_function_type(return_type, NULL);
@@ -136,7 +138,8 @@ function *parse_function(parse_state *state, bool allow_anonymous) {
   if (consume(state, L_OPEN_PAREN)) {
     parse_args(state, fn, first_type);
     expect_consume(state, L_CLOSE_PAREN);
-  } else if (!name_token && !return_type->blocktype->next) {
+  } else if (!name_token && return_type->type == T_BLOCKREF &&
+      !return_type->blocktype->next) {
     type *real_return_type = return_type->blocktype->argument_type;
     free(return_type->blocktype);
     free(return_type);
@@ -145,7 +148,12 @@ function *parse_function(parse_state *state, bool allow_anonymous) {
     fn->argument_count = 0;
     fn->argument = NULL;
   } else {
-    unexpected_token(parse_peek(state), NULL);
+    if (name_token) {
+      unexpected_token(parse_peek(state), "expected function name");
+    } else {
+      unexpected_token(parse_peek(state),
+        "expected function name or arguments");
+    }
   }
 
   expect_consume(state, L_OPEN_BRACE);
@@ -161,9 +169,7 @@ expression *parse_base_expression(parse_state *state) {
 
   if (consume(state, L_OPEN_PAREN)) {
     e = parse_expression(state);
-    if (e == NULL) {
-      unexpected_token(parse_peek(state), "expecting expression");
-    }
+    check_expression(state, e);
 
     expect_consume(state, L_CLOSE_PAREN);
 
@@ -184,6 +190,7 @@ expression *parse_base_expression(parse_state *state) {
     case T_U64: e->value_u64 = t->value_u64; break;
     case T_OBJECT:
       // gotta be null
+      e->type->classtype = NULL;
       break;
     default:
       fprintf(stderr, "literal handoff not implemented for this type\n");
@@ -780,11 +787,12 @@ expression *parse_expression_list(parse_state *state) {
 statement *parse_define_statement(parse_state *state, bool allow_init) {
   type *define_type = parse_type(state, NULL);
 
-  token *symbol_token = accept(state, L_IDENTIFIER);
-
-  if (!symbol_token) {
+  if (!define_type) {
     return NULL;
   }
+
+  // TODO: is this right?
+  token *symbol_token = expect(state, L_IDENTIFIER);
 
   char *symbol = symbol_token->symbol_name;
   if (is_void(define_type)) {
@@ -860,29 +868,32 @@ statement *parse_statement(parse_state *state) {
     char *class_name = t->symbol_name;
     free(t);
 
-    class *class = xmalloc(sizeof(*class));
+    class *the_class = xmalloc(sizeof(*the_class));
     define_statement *define;
 
-    class->class_name = class_name;
+    the_class->class_name = class_name;
+
+    field **tail = &the_class->field;
 
     size_t count = 0;
     while ((define = (define_statement*) parse_define_statement(state, false))
         != NULL) {
       expect_consume(state, L_SEMICOLON);
 
+      bool is_first = true;
+      type *define_type = define->symbol_type;
       define_clause *clause = define->clause;
-      field *tail = NULL;
       while (clause != NULL) {
-        field *field = xmalloc(sizeof(*field));
-        field->field_type = define->symbol_type;
-        field->symbol_name = clause->symbol_name;
-        field->next = NULL;
-        if (tail == NULL) {
-          class->field = field;
+        field *entry = xmalloc(sizeof(*entry));
+        if (is_first) {
+          is_first = false;
         } else {
-          tail->next = field;
+          define_type = copy_type(define_type);
         }
-        tail = field;
+        entry->field_type = define_type;
+        entry->symbol_name = clause->symbol_name;
+        *tail = entry;
+        tail = &entry->next;
 
         count++;
         define_clause *tmp = clause->next;
@@ -891,12 +902,13 @@ statement *parse_statement(parse_state *state) {
       }
       free(define);
     }
+    *tail = NULL;
 
-    class->field_count = count;
+    the_class->field_count = count;
 
     expect_consume(state, L_CLOSE_BRACE);
 
-    return s_class(class);
+    return s_class(the_class);
   }
   case L_RETURN:
     free(t);
@@ -919,6 +931,7 @@ statement *parse_statement(parse_state *state) {
     expect_consume(state, L_OPEN_PAREN);
     expression *condition = parse_expression(state);
     check_expression(state, condition);
+    expect_consume(state, L_CLOSE_PAREN);
     statement *first = expect_statement(state), *second = consume(state, L_ELSE)
       ? expect_statement(state) : NULL;
 

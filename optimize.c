@@ -40,11 +40,31 @@ static void optimize_copies(code_block *block) {
 
     switch (ins->operation.type) {
     case O_BITWISE_NOT:
-    case O_CAST:
     case O_GET_FIELD:
+    case O_INSTANCEOF:
     case O_NEGATE:
     case O_NOT:
       ip[0] = map[ip[0]];
+      break;
+    case O_CAST:
+      switch (ins->operation.cast_type) {
+      case O_UPCAST:
+      case O_DOWNCAST:
+        ip[1] = map[ip[1]];
+        break;
+      case O_FLOAT_EXTEND:
+      case O_FLOAT_TRUNCATE:
+      case O_FLOAT_TO_SIGNED:
+      case O_FLOAT_TO_UNSIGNED:
+      case O_SIGNED_TO_FLOAT:
+      case O_UNSIGNED_TO_FLOAT:
+      case O_SIGN_EXTEND:
+      case O_TRUNCATE:
+      case O_ZERO_EXTEND:
+      case O_REINTERPRET:
+        ip[0] = map[ip[0]];
+        break;
+      }
       break;
     case O_COMPARE:
     case O_IDENTITY:
@@ -61,6 +81,7 @@ static void optimize_copies(code_block *block) {
       break;
     case O_GET_SYMBOL: {
       map[j] = map[ip[0]];
+      free(ip);
       free_type(ins->type);
     } continue;
     case O_SET_FIELD:
@@ -97,7 +118,8 @@ static void optimize_copies(code_block *block) {
   }
 
   block->instruction_count = offset;
-  xrealloc(block->instructions, sizeof(code_instruction) * offset);
+  block->instructions = xrealloc(block->instructions, sizeof(code_instruction) *
+    offset);
 
   if (!block->is_final) {
     block->tail.first_block = map[block->tail.first_block];

@@ -1,6 +1,9 @@
-#include "analyze.h"
+#include <string.h>
 
-static block_statement *parent_scope(block_statement *block, bool *escape) {
+#include "analyze.h"
+#include "xalloc.h"
+
+block_statement *parent_scope(block_statement *block, bool *escape) {
   statement *parent = block->parent;
 
   while (parent) {
@@ -64,7 +67,7 @@ loop_statement *get_label(control_statement *control) {
   return NULL;
 }
 
-static symbol_entry **find_entry(const symbol_entry **head,
+static symbol_entry **find_entry(symbol_entry **head,
     const char *symbol_name) {
   symbol_entry **entry = head;
   for (; *entry; entry = &(*entry)->next) {
@@ -76,19 +79,18 @@ static symbol_entry **find_entry(const symbol_entry **head,
   return entry;
 }
 
-symbol_entry *get_entry(const symbol_entry *head, const char *symbol_name) {
+symbol_entry *get_entry(symbol_entry *head, const char *symbol_name) {
   return *find_entry(&head, symbol_name);
 }
 
-symbol_entry *new_symbol_entry(char *symbol_name, bool constant) {
+symbol_entry *new_symbol_entry(char *symbol_name) {
   symbol_entry *entry = xmalloc(sizeof(*entry));
   entry->symbol_name = symbol_name;
-  entry->constant = constant;
   entry->next = NULL;
   return entry;
 }
 
-symbol_entry *add_symbol(block_statement *block, symbol_type type,
+symbol_entry *add_symbol(block_statement *block, uint8_t type,
     char *symbol_name) {
   symbol_entry **entry, **tail;
 
@@ -97,9 +99,14 @@ symbol_entry *add_symbol(block_statement *block, symbol_type type,
     entry = &block->class_head;
     tail = &block->class_tail;
     break;
+  case ST_FUNCTION:
+    entry = &block->function_head;
+    tail = &block->function_tail;
+    break;
   case ST_TYPE:
     entry = &block->type_head;
     tail = &block->type_tail;
+    break;
   case ST_VARIABLE:
     entry = &block->variable_head;
     tail = &block->variable_tail;
@@ -113,7 +120,12 @@ symbol_entry *add_symbol(block_statement *block, symbol_type type,
     exit(1);
   }
 
-  return *tail = *entry = new_symbol_entry(symbol_name, false);
+  symbol_entry *new = new_symbol_entry(symbol_name);
+
+  *entry = new;
+  *tail = new;
+
+  return new;
 }
 
 symbol_entry *get_symbol(block_statement *block, char *symbol_name,
@@ -122,10 +134,10 @@ symbol_entry *get_symbol(block_statement *block, char *symbol_name,
 
   bool escape = false;
   do {
-    uint8_t symbol_types[] = {ST_VARIABLE, ST_CLASS, ST_TYPE};
+    uint8_t symbol_types[] = {ST_FUNCTION, ST_VARIABLE, ST_CLASS, ST_TYPE};
 
     for (size_t i = 0; i < sizeof(symbol_types) / sizeof(*symbol_types); i++) {
-      uint8_t compare_symbol_type = symbol_types[i]
+      uint8_t compare_symbol_type = symbol_types[i];
 
       if (!(compare_symbol_type & symtype)) {
         continue;
@@ -133,8 +145,9 @@ symbol_entry *get_symbol(block_statement *block, char *symbol_name,
 
       symbol_entry *entry;
 
-      switch (symbol_types) {
+      switch (compare_symbol_type) {
       case ST_CLASS: entry = block->class_head; break;
+      case ST_FUNCTION: entry = block->function_head; break;
       case ST_TYPE: entry = block->type_head; break;
       case ST_VARIABLE: entry = block->variable_head; break;
       }

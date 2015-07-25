@@ -48,15 +48,15 @@ bool equivalent_type(type *left, type *right) {
   case T_BLOCKREF: {
     // TODO: allow casting between "compatible" function references?
     argument *la = left->blocktype, *ra = right->blocktype;
-    while (la && lb) {
-      if (!equivalent_type(la->argument_type, lb->argument_type)) {
+    while (la && ra) {
+      if (!equivalent_type(la->argument_type, ra->argument_type)) {
         return false;
       }
 
       la = la->next;
-      lb = lb->next;
+      ra = ra->next;
     }
-    return !la && !lb;
+    return !la && !ra;
   }
   case T_OBJECT:
     return right->type == T_OBJECT && left->classtype == right->classtype;
@@ -162,26 +162,28 @@ type *new_blockref_type(function *fn) {
   return new_function_type(copy_type(fn->return_type), fn->argument);
 }
 
-type *new_class_type(class *c) {
+type *new_object_type(class *c) {
   type *new = new_type(T_OBJECT);
   new->classtype = c;
   return new;
 }
 
 void copy_type_into(type *src, type *dest) {
-  switch (t->type) {
+  dest->type = src->type;
+
+  switch (src->type) {
   case T_ARRAY:
-    new->arraytype = copy_type(t->arraytype);
+    dest->arraytype = copy_type(src->arraytype);
     break;
   case T_BLOCKREF:
-    new->blocktype = copy_arguments(t->blocktype, false);
+    dest->blocktype = copy_arguments(src->blocktype, false);
     break;
   case T_OBJECT:
-    new->classtype = t->classtype;
-    new->struct_index = t->struct_index;
+    dest->classtype = src->classtype;
+    dest->struct_index = src->struct_index;
     break;
   case T_REF:
-    new->symbol_name = t->symbol_name;
+    dest->symbol_name = xstrdup(src->symbol_name);
     break;
   default:
     break;
@@ -206,6 +208,7 @@ void free_type(type *t) {
   switch (t->type) {
   case T_ARRAY: free_type(t->arraytype); break;
   case T_BLOCKREF: free_arguments(t->blocktype); break;
+  case T_REF: free(t->symbol_name);
   default: break;
   }
 

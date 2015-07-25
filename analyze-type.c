@@ -1,6 +1,9 @@
 #include "analyze.h"
+#include "xalloc.h"
 
-static void no_floats() __attribute__ ((noreturn)) {
+static void no_floats() __attribute__ ((noreturn));
+
+static void no_floats() {
   fprintf(stderr, "floats are not allowed\n");
   exit(1);
 }
@@ -17,7 +20,7 @@ static void replace_cast(expression **value, cast_type cast, type_type target) {
 
 expression *bool_cast(expression *value) {
   type t = {.type = T_BOOL};
-  implicit_cast(value, &t);
+  return implicit_cast(value, &t);
 }
 
 // caller is responsible for correctly assigning next field of return value if
@@ -167,6 +170,10 @@ expression *implicit_cast(expression *value, type *expected) {
     fprintf(stderr, "incompatible function type\n");
     exit(1);
   case (T_OBJECT << 8) | T_OBJECT:
+    if (!value->type->classtype) {
+      // it's ok, we're assigning a null literal to an object variable
+      return value;
+    }
     // TODO: implicit upcasting
     fprintf(stderr, "incompatible object\n");
     exit(1);
@@ -203,12 +210,12 @@ expression *implicit_cast(expression *value, type *expected) {
   expression *cast = xmalloc(sizeof(*cast));
   cast->operation.type = O_CAST;
   cast->operation.cast_type = cmethod;
-  cast->type = new_type(expected);
+  cast->type = copy_type(expected);
   cast->value = value;
   return cast;
 }
 
-void numeric_promotion(expression *value, bool allow_floats) {
+expression *numeric_promotion(expression *value, bool allow_floats) {
   type_type ctype;
   cast_type cmethod;
   switch (value->type->type) {
@@ -221,8 +228,7 @@ void numeric_promotion(expression *value, bool allow_floats) {
   case T_S64:
   case T_U32:
   case T_U64:
-    value->type = copy_type(value->value->type);
-    return;
+    return value;
   case T_S8:
   case T_S16:
     ctype = T_S32;
@@ -238,8 +244,13 @@ void numeric_promotion(expression *value, bool allow_floats) {
     exit(1);
   }
 
-  replace_cast(&value->value, cmethod, ctype);
-  value->type = new_type(ctype);
+  expression *cast = xmalloc(sizeof(*cast));
+  cast->operation.type = O_CAST;
+  cast->operation.cast_type = cmethod;
+  cast->type = new_type(ctype);
+  cast->value = value;
+  cast->next = NULL;
+  return cast;
 }
 
 type_type binary_numeric_promotion(expression *value, bool allow_floats) {
@@ -442,7 +453,7 @@ type_type binary_numeric_promotion(expression *value, bool allow_floats) {
   }
 }
 
-static void assert_condition(type *type) {
+void assert_condition(type *type) {
   if (type->type != T_BOOL && !is_integer(type)) {
     fprintf(stderr, "invalid condition\n");
     exit(1);
@@ -450,28 +461,29 @@ static void assert_condition(type *type) {
 }
 
 // mutates
-type *resolve_type(block_statement *block, type *type) {
+type *resolve_type(block_statement *block, type *t) {
   // TODO: static types as properties (module support)
-  switch (type->type) {
+  switch (t->type) {
   case T_ARRAY:
-    resolve_type(block, type->arraytype);
+    resolve_type(block, t->arraytype);
     break;
   case T_BLOCKREF:
-    for (argument *arg = type->blocktype; arg; arg = arg->next) {
+    for (argument *arg = t->blocktype; arg; arg = arg->next) {
       resolve_type(block, arg->argument_type);
     }
     break;
   case T_REF:
   case T_OBJECT: {
     // any type stored in the type symbol chain should already be resolved
-    symbol_entry *entry = get_symbol(block, ST_TYPE, type->symbol_name);
+    uint8_t symbol_type = ST_TYPE;
+    symbol_entry *entry = get_symbol(block, t->symbol_name, &symbol_type);
 
-    free(type->symbol_name);
+    free(t->symbol_name);
 
-    copy_type_into(entry->type, type);
+    copy_type_into(entry->type, t);
   } break;
   default:
     break;
   }
-  return type;
+  return t;
 }

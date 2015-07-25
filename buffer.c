@@ -24,7 +24,8 @@ buffer *new_buffer() {
 
 // assumes min_add will not exceed reasonable buffer size
 void buffer_realloc(buffer *buffer, size_t min_add) {
-  size_t new_size = buffer->total || 16, min_size = min_add + buffer->used;
+  size_t new_size = buffer->total ? buffer->total : 16,
+    min_size = min_add + buffer->used;
 
   if (buffer->data != NULL && new_size >= min_size) {
     return;

@@ -2,17 +2,20 @@
 #include <string.h>
 
 #include "analyze.h"
+#include "parser.h"
 #include "xalloc.h"
 
 static void analyze_expression(block_statement *block, expression *e) {
   switch (e->operation.type) {
-  case O_BITWISE_NOT:
+  case O_BITWISE_NOT: {
     analyze_expression(block, e->value);
-    numeric_promotion(e->value, false);
-    break;
+    e->value = numeric_promotion(e->value, false);
+    e->type = copy_type(e->value->type);
+  } break;
   case O_NEGATE:
     analyze_expression(block, e->value);
-    numeric_promotion(e->value, true);
+    e->value = numeric_promotion(e->value, true);
+    e->type = copy_type(e->value->type);
     break;
   case O_CALL: {
     // TODO: function overloading and argument matching
@@ -20,7 +23,7 @@ static void analyze_expression(block_statement *block, expression *e) {
 
     type *fntype = e->value->type;
 
-    if (fntype->type != T_BLOCKTYPE) {
+    if (fntype->type != T_BLOCKREF) {
       fprintf(stderr, "type not callable\n");
       exit(1);
     }
@@ -33,10 +36,10 @@ static void analyze_expression(block_statement *block, expression *e) {
     for (size_t i = 0; arg && *argvalue; i++) {
       analyze_expression(block, *argvalue);
 
-      expression *cast = implicit_cast(*argvalue, arg->type);
+      expression *cast = implicit_cast(*argvalue, arg->argument_type);
       if (!cast) {
-        fprintf(stderr, "function '%s' called with incompatible argument %zi\n",
-          fn_name, i + 1);
+        fprintf(stderr, "function called with incompatible argument %zi\n",
+          i + 1);
         exit(1);
       }
 
@@ -50,8 +53,7 @@ static void analyze_expression(block_statement *block, expression *e) {
     }
 
     if ((!*argvalue) != (!arg)) {
-      fprintf(stderr, "function '%s' called with wrong number of arguments\n",
-        fn_name);
+      fprintf(stderr, "function called with wrong number of arguments\n");
       exit(1);
     }
 
@@ -79,17 +81,23 @@ static void analyze_expression(block_statement *block, expression *e) {
     }
 
     if (right->operation.type == O_GET_SYMBOL) {
-      uint8_t symbol_type = ST_VARIABLE | ST_TYPE;
+      uint8_t symbol_type = ST_FUNCTION | ST_VARIABLE | ST_TYPE;
       symbol_entry *entry;
 
-      // marks all variable dependencies while resolving the symbol
-      entry = get_symbol(block, right->symbol_name, &symbol_type, ST_VARIABLE);
+      entry = get_symbol(block, right->symbol_name, &symbol_type);
+
+      if (symbol_type == ST_FUNCTION) {
+        // TODO: this should be supported so you can check if two function
+        // references have the same closure
+        fprintf(stderr, "cannot check identity of function\n");
+        exit(1);
+      }
 
       if (symbol_type == ST_TYPE) {
         // TODO: support more than just T_OBJECT
         e->operation.type = O_INSTANCEOF;
         e->classtype = entry->type->classtype;
-        free_expression(right);
+        free_expression(right, true);
         break;
       }
 
@@ -149,19 +157,13 @@ static void analyze_expression(block_statement *block, expression *e) {
     for (field *field = class->field; field; field = field->next, ++i) {
       if (strcmp(name, field->symbol_name) == 0) {
         e->field_index = i;
-        if (e->operation.type == O_GET_FIELD) {
-          e->type = copy_type(field->field_type);
-        } else {
+        e->type = copy_type(field->field_type);
+        if (e->operation.type == O_SET_FIELD) {
           analyze_expression(block, e->value->next);
-          e->type = NULL;
-          free_type(e->value->next->type);
-          e->value->next->type = NULL;
-          // TODO: implicit cast
-          if (!compatible_type(entry->type, e-value->next->type)) {
-            fprintf(stderr, "incompatible types for '%s' field assignment\n",
-              name);
-            exit(1);
-          }
+          expression *cast = implicit_cast(e->value->next, e->type);
+
+          cast->next = NULL;
+          e->value->next = cast;
         }
         free(name);
         return;
@@ -194,7 +196,8 @@ static void analyze_expression(block_statement *block, expression *e) {
       }
 
       analyze_expression(block, e->value->next->next);
-      expression *cast = implicit_cast(e->value->next, e->value->type->arraytype);
+      expression *cast = implicit_cast(e->value->next->next,
+        e->value->type->arraytype);
 
       cast->next = NULL;
       e->value->next->next = cast;
@@ -209,29 +212,46 @@ static void analyze_expression(block_statement *block, expression *e) {
   case O_GET_SYMBOL:
   case O_SET_SYMBOL: {
     // O_GET_SYMBOL also implemented in O_IDENTITY :|
-    symbol_entry *entry = get_variable_symbol(block, e->symbol_name);
+    uint8_t symbol_type = ST_FUNCTION | ST_VARIABLE;
+    symbol_entry *entry = get_symbol(block, e->symbol_name, &symbol_type);
 
-    if (e->operation.type == O_SET_SYMBOL) {
-      if (entry->constant && entry->exists) {
-        fprintf(stderr, "cannot reassign variable '%s'\n", e->symbol_name);
-        exit(1);
-      }
-
-      expression *cast = implicit_cast(e->value, entry->type);
-      if (!cast) {
-        fprintf(stderr, "incompatible type for '%s' assignment\n",
-          e->symbol_name);
-        exit(1);
-      }
-
-      // not initialized by implicit_cast
-      cast->next = NULL;
-
-      // might already be the same
-      e->value = cast;
+    if (!entry) {
+      fprintf(stderr, "unknown symbol '%s'\n", e->symbol_name);
+      exit(1);
     }
 
-    e->type = copy_type(entry->type);
+    if (symbol_type == ST_FUNCTION) {
+      if (e->operation.type == O_SET_SYMBOL) {
+        fprintf(stderr, "cannot reassign function '%s'\n", e->symbol_name);
+        exit(1);
+      }
+
+      free(e->symbol_name);
+
+      e->operation.type = O_BLOCKREF;
+      e->function = entry->function;
+
+      e->type = new_blockref_type(entry->function);
+    } else {
+      if (e->operation.type == O_SET_SYMBOL) {
+        analyze_expression(block, e->value);
+
+        expression *cast = implicit_cast(e->value, entry->type);
+        if (!cast) {
+          fprintf(stderr, "incompatible type for '%s' assignment\n",
+            e->symbol_name);
+          exit(1);
+        }
+
+        // not initialized by implicit_cast
+        cast->next = NULL;
+
+        // might already be the same
+        e->value = cast;
+      }
+
+      e->type = copy_type(entry->type);
+    }
     break;
   }
   case O_NEW: {
@@ -239,31 +259,30 @@ static void analyze_expression(block_statement *block, expression *e) {
     char *class_name = e->symbol_name;
     e->symbol_name = NULL;
 
-    symbol_entry *entry = get_symbol(block, ST_CLASS, class_name);
+    uint8_t symbol_type = ST_TYPE;
+    symbol_entry *entry = get_symbol(block, class_name, &symbol_type);
 
     class *class = entry->classtype;
 
     e->type->classtype = class;
 
-    expression *argvalue = e->value;
+    expression **argvalue = &e->value;
     field *field = class->field;
     size_t i = 0;
-    while (argvalue && field) {
-      analyze_expression(block, argvalue);
+    while (field && *argvalue) {
+      analyze_expression(block, *argvalue);
 
       // TODO: implicit cast
-      if (!compatible_type(field->field_type, argvalue->type)) {
-        fprintf(stderr, "constructor for '%s' called with bad argument %zi\n",
-          class_name, i);
-        exit(1);
-      }
-
-      argvalue = argvalue->next;
+      expression *next = (*argvalue)->next;
+      (*argvalue)->next = NULL;
+      *argvalue = implicit_cast(*argvalue, field->field_type);
+      (*argvalue)->next = next;
+      argvalue = &(*argvalue)->next;
       field = field->next;
       ++i;
     }
 
-    if ((!argvalue) != (!field)) {
+    if ((!*argvalue) != (!field)) {
       fprintf(stderr, "constructor for '%s' called with wrong number of"
         " arguments\n", class_name);
       exit(1);
@@ -271,67 +290,18 @@ static void analyze_expression(block_statement *block, expression *e) {
 
     free(class_name);
   } break;
-  case O_NOT:
+  case O_NOT: {
     analyze_expression(block, e->value);
+    expression *b = bool_cast(e->value);
 
-    expression *literal;
-    switch (e->value->type->type) {
-    case T_BOOL:
-      literal = new_literal_node(T_BOOL);
-      literal->value_bool = false;
-      break;
-    case T_S8:
-      literal = new_literal_node(T_S8);
-      literal->value_s8 = 0;
-      break;
-    case T_S16:
-      literal = new_literal_node(T_S16);
-      literal->value_s16 = 0;
-      break;
-    case T_S32:
-      literal = new_literal_node(T_S32);
-      literal->value_s32 = 0;
-      break;
-    case T_S64:
-      literal = new_literal_node(T_S64);
-      literal->value_s64 = 0;
-      break;
-    case T_U8:
-      literal = new_literal_node(T_U8);
-      literal->value_u8 = 0;
-      break;
-    case T_U16:
-      literal = new_literal_node(T_U16);
-      literal->value_u16 = 0;
-      break;
-    case T_U32:
-      literal = new_literal_node(T_U32);
-      literal->value_u32 = 0;
-      break;
-    case T_U64:
-      literal = new_literal_node(T_U64);
-      literal->value_u64 = 0;
-      break;
-    case T_ARRAY:
-      fprintf(stderr, "cannot coerce array to bool\n");
-      exit(1);
-    case T_BLOCKREF:
-      fprintf(stderr, "cannot coerce function to bool\n");
-      exit(1);
-    case T_OBJECT:
-      fprintf(stderr, "cannot coerce object to bool\n");
-      exit(1);
-    case T_STRING:
-      fprintf(stderr, "cannot coerce string to bool\n");
-      exit(1);
-    case T_REF:
-    case T_VOID:
-      abort();
-    }
+    expression *literal = new_literal_node(T_BOOL);
+    literal->value_bool = false;
+
     e->operation.type = O_COMPARE;
     e->operation.compare_type = O_EQ;
-    e->value->next = literal;
-    break;
+    e->value = b;
+    b->next = literal;
+  } break;
   case O_NUMERIC:
     analyze_expression(block, e->value);
     analyze_expression(block, e->value->next);
@@ -353,12 +323,12 @@ static void analyze_expression(block_statement *block, expression *e) {
     }
     e->type = new_type(binary_numeric_promotion(e, allow_floats));
     break;
-  case O_NUMERIC_ASSIGN:
+  case O_NUMERIC_ASSIGN: {
     abort();
 
     // TODO: need to handle implicit casting during assignment phase
     // maybe store cast in e->value->next->next?
-    analyze_expression(block, e->value);
+    /*analyze_expression(block, e->value);
     analyze_expression(block, e->value->next);
 
     bool allow_floats = true;
@@ -376,11 +346,11 @@ static void analyze_expression(block_statement *block, expression *e) {
       allow_floats = false;
       break;
     }
+
     type_type new_type = binary_numeric_promotion(e, allow_floats);
 
-
     assert_integer(e->value->type, "operate on");
-    assert_integer(e->value->next->type, "operate on");
+    assert_integer(e->value->next->type, "operate on");*/
 
     // TODO: this should be in a common place closer to code generation,
     // specifically when things are more linear and (a = a + b) is the same as
@@ -391,37 +361,42 @@ static void analyze_expression(block_statement *block, expression *e) {
 
     // TODO: implicit cast
     e->type = copy_type(e->value->type);
-    break;
+  } break;
   case O_POSTFIX:
     abort();
 
     // TODO: need to handle implicit casting during assignment phase
     analyze_expression(block, e->value);
 
-    numeric_promotion(e, true);
+    e->value = numeric_promotion(e->value, true);
     e->type = copy_type(e->value->type);
     break;
-  case O_SHIFT:
-    analyze_expression(block, e->value);
-    analyze_expression(block, e->value->next);
+  case O_SHIFT: {
+    expression *left = e->value, *right = left->next;
+    left->next = NULL;
+    analyze_expression(block, left);
+    analyze_expression(block, right);
 
-    numeric_promotion(e, false);
-    numeric_promotion(e->?, false);
+    left = numeric_promotion(left, false);
+    right = numeric_promotion(right, false);
+
+    e->value = left;
+    left->next = right;
 
     e->type = copy_type(e->value->type);
-    break;
+  } break;
   case O_SHIFT_ASSIGN:
     abort();
 
     // TODO: need to handle implicit casting during assignment phase
-    analyze_expression(block, e->value);
+    /*analyze_expression(block, e->value);
     analyze_expression(block, e->value->next);
 
     assert_integer(e->value->type, "shift on");
     assert_integer(e->value->next->type, "shift with");
 
     // TODO: implicit cast
-    e->type = copy_type(e->value->type);
+    e->type = copy_type(e->value->type);*/
     break;
   case O_STR_CONCAT:
   case O_STR_CONCAT_ASSIGN:
@@ -438,7 +413,7 @@ static void analyze_expression(block_statement *block, expression *e) {
       abort();
     }
     break;
-  case O_TERNARY:
+  case O_TERNARY: {
     analyze_expression(block, e->value);
     analyze_expression(block, e->value->next);
     analyze_expression(block, e->value->next->next);
@@ -458,9 +433,10 @@ static void analyze_expression(block_statement *block, expression *e) {
     }
 
     e->type = e->value->next->type;
-    break;
+  } break;
   case O_BLOCKREF:
   case O_CAST: // TODO: implement me!
+  case O_INSTANCEOF:
     abort();
   }
 
@@ -487,7 +463,27 @@ static void analyze_inner(block_statement *block, statement **node) {
       free(control->label);
       control->target = loop;
     } else {
+      block_statement *parent = block;
       control->target = NULL;
+      do {
+        if (parent->parent && (parent->parent->type == S_WHILE ||
+            parent->parent->type == S_DO_WHILE)) {
+          control->target = (loop_statement*) parent->parent;
+          break;
+        }
+
+        bool escape = false;
+        parent = parent_scope(parent, &escape);
+        if (escape) {
+          break;
+        }
+      } while (parent);
+
+      if (control->target == NULL) {
+        fprintf(stderr, "%s statement must be inside a loop\n",
+          (*node)->type == S_BREAK ? "break" : "continue");
+        exit(1);
+      }
     }
   } break;
   case S_DEFINE: {
@@ -503,10 +499,8 @@ static void analyze_inner(block_statement *block, statement **node) {
       if (clause->value) {
         analyze_expression(block, clause->value);
 
-        if (!compatible_type(define_type, clause->value->type)) {
-          fprintf(stderr, "initialization clause type mismatch\n");
-          exit(1);
-        }
+        expression *cast = implicit_cast(clause->value, define_type);
+        clause->value = cast;
       }
 
       clause = clause->next;
@@ -517,8 +511,12 @@ static void analyze_inner(block_statement *block, statement **node) {
     analyze_expression(block, if_s->condition);
     assert_condition(if_s->condition->type);
 
-    analyze(if_s->first);
-    analyze(if_s->second);
+    if (if_s->first) {
+      analyze(if_s->first);
+    }
+    if (if_s->second) {
+      analyze(if_s->second);
+    }
   } break;
   case S_DO_WHILE:
   case S_WHILE: {
@@ -533,11 +531,13 @@ static void analyze_inner(block_statement *block, statement **node) {
     block_statement *body = fn->body;
     body->parent = (statement*) block;
 
+    fn->return_type = resolve_type(block, fn->return_type);
+
     // add arguments to symbol table
     for (argument *arg = fn->argument; arg; arg = arg->next) {
       type *arg_type = resolve_type(block, arg->argument_type);
       add_symbol(body, ST_VARIABLE, arg->symbol_name)
-        ->type = arg_type;
+        ->type = copy_type(arg_type);
       arg->argument_type = arg_type;
     }
 
@@ -585,18 +585,15 @@ static void analyze_inner(block_statement *block, statement **node) {
 return_loop_escape:;
 
     return_statement *ret = (return_statement*) *node;
-    expression *value = ret->value;
     ret->target = fn;
 
-    if (!compatible_type(fn->return_type, value ? value->type : NULL)) {
-      fprintf(stderr, "return type mismatch\n");
-      exit(1);
-    }
+    analyze_expression(block, ret->value);
+    ret->value = implicit_cast(ret->value, fn->return_type);
   } break;
   case S_CLASS: {
     class *class = ((class_statement*) *node)->classtype;
     for (field *item = class->field; item; item = item->next) {
-      resolve_type(item->field_type);
+      resolve_type(block, item->field_type);
     }
   } break;
   }
@@ -610,6 +607,8 @@ void analyze(block_statement *block) {
       class_statement *c = (class_statement*) node;
       add_symbol(block, ST_TYPE, c->symbol_name)
         ->type = new_object_type(c->classtype);
+      add_symbol(block, ST_CLASS, c->symbol_name)
+        ->classtype = c->classtype;
     } break;
 
     // TODO: functions should be *immutable* variables, not separate
@@ -617,9 +616,10 @@ void analyze(block_statement *block) {
     // resolved in appropriate scopes
     case S_FUNCTION: {
       function_statement *f = (function_statement*) node;
-      symbol_entry *fn_entry = add_symbol(block, ST_VARIABLE, f->symbol_name);
-      fn_entry->type = new_blockref_type(f->function);
-      fn_entry->constant = true;
+      add_symbol(block, ST_VARIABLE, f->symbol_name)
+        ->type = new_blockref_type(f->function);
+      add_symbol(block, ST_FUNCTION, f->symbol_name)
+        ->function = f->function;
     } break;
 
     default:
