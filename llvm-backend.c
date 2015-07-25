@@ -89,6 +89,9 @@ void backend_write(code_system *system, FILE *out) {
     pf("\n\n");
   }
 
+  pf("declare i8* @allocate(i64) nounwind\n");
+  pf("declare void @exit(i32) nounwind noreturn\n\n");
+
   pf("define fastcc i32 @main() {\n"
           "  tail call fastcc void @block_0()\n"
           "  ret i32 0\n"
@@ -120,7 +123,7 @@ void backend_write(code_system *system, FILE *out) {
 
     for (size_t k = 0; k < offset + block->instruction_count; k++) {
       char *tmp = malloc(64);
-      snprintf(tmp, 64, "%%%zu", k);
+      snprintf(tmp, 64, k < offset ? "%%%zu" : "%%n%zu", k);
       ref[k] = tmp;
       alloced[k] = true;
     }
@@ -131,7 +134,7 @@ void backend_write(code_system *system, FILE *out) {
 
       switch (ins->operation.type) {
       case O_BITWISE_NOT:
-        pf("  %%%zu = xor ", k);
+        pf("  %%n%zu = xor ", k);
         wt(out, ins->type);
         pf(" %s, -1", RP(0));
         break;
@@ -144,17 +147,52 @@ void backend_write(code_system *system, FILE *out) {
         ref[k] = tmp;
         alloced[k] = true;
       } break;
-      case O_CAST:
+      case O_CAST: {
+        type *typ = ins->type;
+        const char *name = NULL;
+        int np = 0;
         switch (ins->operation.cast_type) {
         case O_UPCAST:
         case O_DOWNCAST: // TODO: check downcasts
-          pf("  %%%zu = bitcast ", k);
-          wt(out, TP(1));
-          pf(" %s to ", RP(1));
-          wt(out, &(type) {.type=T_OBJECT, .struct_index = ins->parameters[0]});
+          name = "bitcast";
+          typ = &(type) {.type=T_OBJECT, .struct_index = ins->parameters[np++]};
+          break;
+        case O_FLOAT_EXTEND:
+          name = "fpext";
+          break;
+        case O_FLOAT_TRUNCATE:
+          name = "fptrunc";
+          break;
+        case O_FLOAT_TO_SIGNED:
+          name = "fptosi";
+          break;
+        case O_FLOAT_TO_UNSIGNED:
+          name = "fptoui";
+          break;
+        case O_SIGNED_TO_FLOAT:
+          name = "sitofp";
+          break;
+        case O_UNSIGNED_TO_FLOAT:
+          name = "uitofp";
+          break;
+        case O_SIGN_EXTEND:
+          name = "sext";
+          break;
+        case O_ZERO_EXTEND:
+          name = "zext";
+          break;
+        case O_TRUNCATE:
+          name = "trunc";
+          break;
+        case O_REINTERPRET:
+          name = "bitcast";
           break;
         }
-        break;
+        pf("  %%n%zu = %s ", k, name);
+        wt(out, TP(np));
+        pf(" %s to ", RP(np));
+        wt(out, typ);
+      } break;
       case O_COMPARE: {
         const char *op;
         switch (ins->operation.compare_type) {
@@ -165,8 +203,8 @@ void backend_write(code_system *system, FILE *out) {
         case O_LTE: op = "icmp ule"; break;
         case O_NE: op = "icmp ne"; break;
         }
-        pf("  %%%zu = %s ", k, op);
-        wt(out, ins->type);
+        pf("  %%n%zu = %s ", k, op);
+        wt(out, TP(0));
         pf(" %s, %s", RP(0), RP(1));
       } break;
       case O_GET_FIELD:
@@ -176,9 +214,7 @@ void backend_write(code_system *system, FILE *out) {
         wt(out, TP(0));
         pf(" %s, i64 0, i32 %zu\n", RP(0), ins->parameters[1]);
 
-        pf("  %%%zu = load ", k);
-        wt(out, ins->type);
-        pf(", ");
+        pf("  %%n%zu = load ", k);
         wt(out, ins->type);
         pf("* %%temp.%zu, align 1", k);
         break;
@@ -187,20 +223,21 @@ void backend_write(code_system *system, FILE *out) {
 //        wt(out, TP(0));
 //        pf(", ");
         wt(out, TP(0));
-        pf(" %s, i64 %%%zu\n", RP(0), ins->parameters[1]);
+        pf(" %s, i64 %%n%zu\n", RP(0), ins->parameters[1]);
 
-        pf("  %%%zu = load ", k);
-        wt(out, ins->type);
-        pf(", ");
+        pf("  %%n%zu = load ", k);
         wt(out, ins->type);
         pf("* %%temp.%zu, align 1", k);
         break;
       case O_GET_SYMBOL:
         // TODO: fix
-        pf("  %%%zu = %s", k, RP(0));
+        pf("  %%n%zu = %s", k, RP(0));
         break;
       case O_IDENTITY:
         fprintf(stderr, "this backend does not support identity checking\n");
+        exit(1);
+      case O_INSTANCEOF:
+        fprintf(stderr, "this backend does not support instanceof checking\n");
         exit(1);
       case O_LITERAL:
         if (alloced[k]) {
@@ -280,7 +317,7 @@ void backend_write(code_system *system, FILE *out) {
         wt(out, TP(1));
         pf(" %s, 0\n", RP(1));
 
-        pf("  %%%zu = ", k);
+        pf("  %%n%zu = ", k);
         switch (ins->operation.logic_type) {
         case O_AND:
           pf("and");
@@ -297,7 +334,7 @@ void backend_write(code_system *system, FILE *out) {
         pf(" i1 %%a.%zu, %%b.%zu", k, k);
       } break;
       case O_NEGATE:
-        pf("  %%%zu = sub ", k);
+        pf("  %%n%zu = sub ", k);
         wt(out, ins->type);
         pf(" 0, %s", RP(0));
         break;
@@ -306,10 +343,10 @@ void backend_write(code_system *system, FILE *out) {
         pf("  %%psize.%zu = getelementptr " /* "%%struct.%zu, " */ "%%struct.%zu* %%zptr.%zu, i64 1\n", k, /* ins->type->struct_index, */ ins->type->struct_index, k);
         pf("  %%size.%zu = ptrtoint %%struct.%zu* %%psize.%zu to i64\n", k, ins->type->struct_index, k); // TODO: is i64 too long for 32-bit?
         pf("  %%raw.%zu = call ccc i8* @allocate(i64 %%size.%zu)\n", k, k); // TODO: garbage collection
-        pf("  %%%zu = bitcast i8* %%raw.%zu to %%struct.%zu*", k, k, ins->type->struct_index);
+        pf("  %%n%zu = bitcast i8* %%raw.%zu to %%struct.%zu*", k, k, ins->type->struct_index);
         break;
       case O_NOT:
-        pf("  %%%zu = icmp eq ", k);
+        pf("  %%n%zu = icmp eq ", k);
         wt(out, TP(0));
         pf(" %s, 0", RP(0));
         break;
@@ -326,7 +363,7 @@ void backend_write(code_system *system, FILE *out) {
         case O_SUB: op = "sub"; break;
         default: abort();
         }
-        pf("  %%%zu = %s ", k, op);
+        pf("  %%n%zu = %s ", k, op);
         wt(out, ins->type);
         pf(" %s, %s", RP(0), RP(1));
       } break;
@@ -355,7 +392,7 @@ void backend_write(code_system *system, FILE *out) {
 //        wt(out, TP(0));
 //        pf(", ");
         wt(out, TP(0));
-        pf(" %s, i64 %%%zu\n", RP(0), ins->parameters[1]);
+        pf(" %s, i64 %%n%zu\n", RP(0), ins->parameters[1]);
 
         type *et = t->arraytype;
 
@@ -380,7 +417,7 @@ void backend_write(code_system *system, FILE *out) {
         default:
           abort();
         }
-        pf("  %%%zu = %s ", k, op);
+        pf("  %%n%zu = %s ", k, op);
         wt(out, ins->type);
         pf(" %s, %s", RP(0), RP(1));
       } break;
@@ -390,6 +427,7 @@ void backend_write(code_system *system, FILE *out) {
       case O_CALL:
       case O_FUNCTION:
       case O_NUMERIC_ASSIGN:
+      case O_POSTFIX:
       case O_SET_SYMBOL:
       case O_SHIFT_ASSIGN:
       case O_STR_CONCAT_ASSIGN:
@@ -400,11 +438,11 @@ void backend_write(code_system *system, FILE *out) {
     }
 
     if (block->is_final) {
-      pf("  call ccc void @exit() noreturn\n");
+      pf("  call ccc void @exit(i32 0) noreturn\n");
     } else {
       switch (block->tail.type) {
       case GOTO: {
-        pf("  musttail call fastcc void %s(", ref[block->tail.first_block]);
+        pf("  tail call fastcc void %s(", ref[block->tail.first_block]);
         size_t params = block->tail.parameter_count;
         if (params) {
           wt(out, TYPEOF(block->tail.parameters[0]));
@@ -421,7 +459,7 @@ void backend_write(code_system *system, FILE *out) {
       case BRANCH: {
         pf("  br i1 %s, label %%iftrue, label %%iffalse\n", ref[block->tail.condition]);
         pf("iftrue:\n");
-        pf("  musttail call fastcc void %s(", ref[block->tail.first_block]);
+        pf("  tail call fastcc void %s(", ref[block->tail.first_block]);
         size_t params = block->tail.parameter_count; // TODO: less code duplication
         if (params) {
           wt(out, TYPEOF(block->tail.parameters[0]));
@@ -437,7 +475,7 @@ void backend_write(code_system *system, FILE *out) {
         pf("  ret void\n");
 
         pf("iffalse:\n");
-        pf("  musttail call fastcc void %s(", ref[block->tail.second_block]);
+        pf("  tail call fastcc void %s(", ref[block->tail.second_block]);
         if (params) {
           wt(out, TYPEOF(block->tail.parameters[0]));
           pf(" %s", ref[block->tail.parameters[0]]);
