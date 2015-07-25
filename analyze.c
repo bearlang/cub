@@ -270,7 +270,7 @@ static void analyze_expression(block_statement *block, expression *e) {
 
       e->type = copy_type(entry->type);
     } else {
-      e->type = NULL;
+      e->type = new_type(T_VOID);
     }
     break;
   case O_NEW: {
