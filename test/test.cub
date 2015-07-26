@@ -1,19 +1,19 @@
 class A {
-	u32 x;
+  u32 x;
 }
 
 u64 fib(u64 index) {
-	u64 a = 0, b = 1;
+  u64 a = 0, b = 1;
 
-	while ((--index) > 0) {
-    	u64 t = b;
-	    b += a;
-    	a = t;
-	}
+  while ((--index) > 0) {
+    u64 t = b;
+    b += a;
+    a = t;
+  }
 
-	A y = new A(0);
+  A y = new A(0);
 
-	return b;
+  return b;
 }
 
 A x = new A(0);
