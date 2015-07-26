@@ -40,7 +40,7 @@
     'conditions': [
       ['OS=="linux"', {
         'cflags': [
-          '-Wall', '-std=c11', '-fdiagnostics-color'
+          '-Wall', '-Wextra', '-std=c11', '-fdiagnostics-color'
         ],
         'defines': ['_POSIX_SOURCE', '_GNU_SOURCE']
       }]
