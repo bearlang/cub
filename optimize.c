@@ -208,7 +208,7 @@ static void optimize_copies(code_block *block) {
 
 void optimize(code_system *system) {
   for (size_t i = 0; i < system->block_count; i++) {
-    code_block *block = &system->blocks[i];
+    code_block *block = get_code_block(system, i);
     optimize_copies(block);
   }
 }

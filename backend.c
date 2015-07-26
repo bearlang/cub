@@ -133,7 +133,7 @@ void backend_write(code_system *system, FILE *out) {
     wc(out, '\n');
 
     for (size_t i = 0; i < system->struct_count; i++) {
-      code_struct *str = &system->structs[i];
+      code_struct *str = get_code_struct(system, i);
 
       wf(out, "\nstruct struct_");
       wi(out, i);
@@ -150,7 +150,7 @@ void backend_write(code_system *system, FILE *out) {
 
   wf(out, "\n\n");
   for (size_t i = 0; i < system->block_count; i++) {
-    code_block *block = &system->blocks[i];
+    code_block *block = get_code_block(system, i);
 
     wf(out, "static void block_");
     wi(out, i);
@@ -174,7 +174,7 @@ void backend_write(code_system *system, FILE *out) {
 
   wc(out, '\n');
   for (size_t i = 0; i < system->block_count; i++) {
-    code_block *block = &system->blocks[i];
+    code_block *block = get_code_block(system, i);
 
     wf(out, "\nstatic void block_");
     wi(out, i);

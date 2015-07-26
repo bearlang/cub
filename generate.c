@@ -21,16 +21,20 @@ type *instruction_type(code_block *parent, size_t src) {
 
 static code_block *add_block(code_system *system) {
   resize(system->block_count, &system->block_cap, (void**) &system->blocks,
-    sizeof(code_block));
+    sizeof(code_block*));
 
-  return &system->blocks[system->block_count++];
+  code_block *block = xmalloc(sizeof(*block));
+  system->blocks[system->block_count++] = block;
+  return block;
 }
 
 static code_struct *add_struct(code_system *system) {
   resize(system->struct_count, &system->struct_cap, (void**) &system->structs,
     sizeof(code_struct));
 
-  return &system->structs[system->struct_count++];
+  code_struct *cstruct = xmalloc(sizeof(*cstruct));
+  system->structs[system->struct_count++] = cstruct;
+  return cstruct;
 }
 
 code_instruction *add_instruction(code_block *block) {
@@ -60,6 +64,14 @@ static symbol_entry *add_symbol(code_block *block, const char *symbol_name,
   (*entry)->symbol_name = (char*) symbol_name;
   (*entry)->type = NULL;
   return *entry;
+}
+
+code_block *get_code_block(code_system *system, size_t block_index) {
+  return system->blocks[block_index];
+}
+
+code_struct *get_code_struct(code_system *system, size_t struct_index) {
+  return system->structs[struct_index];
 }
 
 static type *resolve_type(code_system *system, type *t) {
@@ -154,10 +166,6 @@ static code_block *create_child_block(code_block *parent) {
   return block;
 }
 
-static size_t get_block_index(code_block *block) {
-  return block - block->system->blocks;
-}
-
 static type *get_blockref_type(code_block *block) {
   type *t = xmalloc(sizeof(*t));
   t->type = T_BLOCKREF;
@@ -240,7 +248,7 @@ static size_t get_return_struct(code_system *system, type *return_type) {
   code_struct *return_struct;
 
   for (size_t i = 0; i < count; i++) {
-    return_struct = &system->structs[i];
+    return_struct = get_code_struct(system, i);
     if (return_struct->field_count != 1) {
       continue;
     }
@@ -288,11 +296,11 @@ static code_instruction *new_instruction(code_block *parent,
   return ins;
 }
 
-static void make_blockref(code_block *src, code_block *dest) {
+static void make_blockref_index(code_block *src, size_t dest_block) {
   code_instruction *get = add_instruction(src);
   get->operation.type = O_BLOCKREF;
-  get->type = get_blockref_type(dest);
-  get->block_index = get_block_index(dest);
+  get->type = get_blockref_type(get_code_block(src->system, dest_block));
+  get->block_index = dest_block;
 }
 
 static size_t last_instruction(code_block *block) {
@@ -303,16 +311,12 @@ static size_t next_instruction(code_block *block) {
   return block->parameter_count + block->instruction_count;
 }
 
-static void goto_block(code_block *src, code_block *dest) {
-  make_blockref(src, dest);
+static void goto_id(code_block *src, size_t dest) {
+  make_blockref_index(src, dest);
 
   src->tail.type = GOTO;
   src->tail.first_block = last_instruction(src);
-  set_block_tail_params(src, dest);
-}
-
-static void goto_id(code_block *src, size_t dest) {
-  goto_block(src, &src->system->blocks[dest]);
+  set_block_tail_params(src, get_code_block(src->system, dest));
 }
 
 static void push_stack_from(code_block *block, size_t src) {
@@ -411,12 +415,14 @@ static code_block *generate_block(code_block *parent, block_statement *block) {
   for (statement *node = block->body; node; node = node->next) {
     switch (node->type) {
     case S_BLOCK: {
-      code_block *body_block = create_child_block(parent),
-        *result_block = create_child_block(parent);
+      size_t body_block_id = parent->system->block_count;
+      code_block *body_block = create_child_block(parent);
+      size_t result_block_id = parent->system->block_count;
+      code_block *result_block = create_child_block(parent);
 
-      goto_block(parent, body_block);
+      goto_id(parent, body_block_id);
       body_block = generate_block(body_block, (block_statement*) node);
-      goto_block(body_block, result_block);
+      goto_id(body_block, result_block_id);
 
       parent = result_block;
     } break;
@@ -497,10 +503,11 @@ static code_block *generate_loop(code_block *parent, loop_statement *loop) {
 
   size_t condition_block = parent->system->block_count;
   condition = create_child_block(parent);
+  size_t body_block = parent->system->block_count;
   body = create_child_block(parent);
   post = create_child_block(parent);
 
-  goto_block(parent, loop->type == S_WHILE ? condition : body);
+  goto_id(parent, loop->type == S_WHILE ? condition_block : body_block);
 
   // available for the body generation
   loop->block_head = condition_block;
@@ -531,7 +538,7 @@ static code_block *generate_loop(code_block *parent, loop_statement *loop) {
   code_block *body_end = generate_block(body, loop->body);
 
   if (body_end != NULL) {
-    goto_block(body_end, condition);
+    goto_id(body_end, condition_block);
     loop->tail_used = true;
   }
 
@@ -582,14 +589,15 @@ static code_block *generate_if(code_block *parent, if_statement *branch) {
     return NULL;
   }
 
+  size_t post_block = parent->system->block_count;
   code_block *post = create_child_block(parent);
 
   if (first_end) {
-    goto_block(first_end, post);
+    goto_id(first_end, post_block);
   }
 
   if (second_end) {
-    goto_block(second_end, post);
+    goto_id(second_end, post_block);
   }
 
   return post;
@@ -619,8 +627,9 @@ static void generate_return(code_block *parent, return_statement *ret) {
   parent->tail.parameters[0] = 0;
   parent->tail.first_block = next_instruction(parent);
 
-  size_t return_struct_index = instruction_type(parent, 0)->struct_index;
-  type *return_block_type = parent->system->structs[return_struct_index].fields[0].field_type;
+  size_t return_index = instruction_type(parent, 0)->struct_index;
+  code_struct *return_struct = get_code_struct(parent->system, return_index);
+  type *return_block_type = return_struct->fields[0].field_type;
 
   code_instruction *unwrap = new_instruction(parent, 2);
   unwrap->operation.type = O_GET_FIELD;
@@ -632,7 +641,7 @@ static void generate_return(code_block *parent, return_statement *ret) {
 // STRUCTURE AND CLASS GENERATION
 
 static code_struct *generate_class(code_system *system, class *the_class) {
-  code_struct *cstruct = &system->structs[the_class->struct_index];
+  code_struct *cstruct = get_code_struct(system, the_class->struct_index);
   cstruct->field_count = the_class->field_count;
 
   if (the_class->field_count) {
@@ -657,7 +666,7 @@ static code_struct *generate_class_stub(code_system *system, class *the_class) {
 }
 
 static code_block *generate_function(code_system *system, function *fn) {
-  code_block *start_block = &system->blocks[fn->block_body];
+  code_block *start_block = get_code_block(system, fn->block_body);
 
   code_block *block = generate_block(start_block, fn->body);
 
@@ -760,7 +769,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     parent = generate_expression(parent, value->value);
 
     class *class = value->value->type->classtype;
-    code_struct *target = &(parent->system->structs[class->struct_index]);
+    code_struct *target = get_code_struct(parent->system, class->struct_index);
 
     code_instruction *get = new_instruction(parent, 2);
     get->operation.type = O_GET_FIELD;
@@ -1019,11 +1028,9 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   }
   case O_SET_INDEX: {
     parent = generate_expression(parent, value->value);
-
     push_stack(parent);
 
     parent = generate_expression(parent, value->value->next);
-
     push_stack(parent);
 
     parent = generate_expression(parent, value->value->next->next);
@@ -1055,15 +1062,18 @@ static code_block *generate_expression(code_block *parent, expression *value) {
       }
     }
 
-    // crap
-    fprintf(stderr, "YOU CHECKED THIS :(\n");
+    fprintf(stderr, "symbol not found post-analysis\n");
     abort();
   }
   case O_TERNARY:
     return generate_ternary(parent, value);
 
   case O_FUNCTION:
-  case O_LOGIC: // used to be generate_linear
+    fprintf(stderr, "function expressions not implemented in code generation\n");
+    exit(1);
+
+  // gets translated to control flow in analysis
+  case O_LOGIC:
     abort();
   }
 
@@ -1295,7 +1305,9 @@ static code_block *generate_cast(code_block *parent, expression *value) {
   switch (value->operation.cast_type) {
   case O_DOWNCAST:
   case O_UPCAST:
-    abort();
+    fprintf(stderr, "class inheritance is not implemented, so object casting "
+      "not supported\n");
+    exit(1);
   case O_FLOAT_EXTEND:
   case O_FLOAT_TO_SIGNED:
   case O_FLOAT_TO_UNSIGNED:
@@ -1388,15 +1400,17 @@ static code_block *generate_new(code_block *parent, expression *value) {
 static code_block *generate_ternary(code_block *parent, expression *value) {
   parent = generate_expression(parent, value->value);
 
-  code_block *first = create_child_block(parent),
-    *second = create_child_block(parent);
+  size_t first_block = parent->system->block_count;
+  code_block *first = create_child_block(parent);
+  size_t second_block = parent->system->block_count;
+  code_block *second = create_child_block(parent);
 
   parent->tail.type = BRANCH;
   parent->tail.condition = last_instruction(parent);
   set_block_tail_params(parent, first);
-  make_blockref(parent, first);
+  make_blockref_index(parent, first_block);
   parent->tail.first_block = last_instruction(parent);
-  make_blockref(parent, second);
+  make_blockref_index(parent, second_block);
   parent->tail.second_block = last_instruction(parent);
 
   first = generate_expression(first, value->value->next);
@@ -1405,10 +1419,11 @@ static code_block *generate_ternary(code_block *parent, expression *value) {
   second = generate_expression(second, value->value->next->next);
   push_stack(second);
 
+  size_t after_block = parent->system->block_count;
   code_block *after = create_child_block(first);
 
-  goto_block(first, after);
-  goto_block(second, after);
+  goto_id(first, after_block);
+  goto_id(second, after_block);
 
   size_t result = pop_stack(after);
 

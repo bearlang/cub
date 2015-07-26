@@ -83,12 +83,14 @@ typedef struct {
 typedef struct code_system {
   // TODO: byte arrays in one constant block referenced in slices from the code
   size_t struct_count, struct_cap;
-  code_struct *structs;
+  code_struct **structs;
   size_t block_count, block_cap;
-  code_block *blocks;
+  code_block **blocks;
 } code_system;
 
 code_system *generate(block_statement *root);
+code_block *get_code_block(code_system*, size_t block_index);
+code_struct *get_code_struct(code_system*, size_t struct_index);
 type *instruction_type(code_block*, size_t);
 
 #endif
