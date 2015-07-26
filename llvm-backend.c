@@ -232,7 +232,8 @@ void backend_write(code_system *system, FILE *out) {
 		pf("\n\n");
 	}
 
-	pf("declare i8* @allocate(i64) nounwind\n");
+	pf("declare i8* @bear_allocate(i64) nounwind\n");
+	pf("declare i1 @bear_streq(i8*, i8*) nounwind\n");
 	pf("declare void @exit(i32) nounwind noreturn\n\n");
 
 	size_t natid = 0, natcap = 10;
@@ -411,22 +412,86 @@ void backend_write(code_system *system, FILE *out) {
 			} break;
 			case O_COMPARE: {
 				const char *op;
-				switch (ins->operation.compare_type) {
-				case O_EQ: op = "icmp eq"; break;
-				case O_GT: op = "icmp ugt"; break; // TODO: check signs
-				case O_GTE: op = "icmp uge"; break;
-				case O_LT: op = "icmp ult"; break;
-				case O_LTE: op = "icmp ule"; break;
-				case O_NE: op = "icmp ne"; break;
+				type *left = TP(0), *right = TP(1);
+				if (left->type != right->type) {
+					fputs("comparison type mismatch\n", stderr);
+					exit(1);
 				}
-				SET("%s ", op);
-				wt(TP(0));
-				pf(" %s, %s", RP(0), RP(1));
+				bool is_signed = false, done = false;
+				switch (left->type) {
+				case T_S8:
+				case T_S16:
+				case T_S32:
+				case T_S64:
+					is_signed = true;
+				case T_U8:
+				case T_U16:
+				case T_U32:
+				case T_U64:
+				case T_BOOL:
+					switch (ins->operation.compare_type) {
+					case O_EQ: op = "icmp eq"; break;
+					case O_GT: op = is_signed ? "icmp sgt" : "icmp ugt"; break;
+					case O_GTE: op = is_signed ? "icmp sge" : "icmp uge"; break;
+					case O_LT: op = is_signed ? "icmp_slt" : "icmp ult"; break;
+					case O_LTE: op = is_signed ? "icmp_sle" : "icmp ule"; break;
+					case O_NE: op = "icmp ne"; break;
+					}
+					break;
+				case T_F32:
+				case T_F64:
+				case T_F128:
+					switch (ins->operation.compare_type) {
+					case O_EQ: op = "fcmp oeq"; break;
+					case O_GT: op = "fcmp ogt"; break;
+					case O_GTE: op = "fcmp oge"; break;
+					case O_LT: op = "fcmp olt"; break;
+					case O_LTE: op = "fcmp ole"; break;
+					case O_NE: op = "fcmp one"; break;
+					}
+					break;
+				case T_OBJECT:
+				case T_BLOCKREF:
+					switch (ins->operation.compare_type) {
+					case O_EQ: op = "icmp eq"; break;
+					case O_NE: op = "icmp ne"; break;
+					case O_GT:
+					case O_GTE:
+					case O_LT:
+					case O_LTE:
+						abort();
+					}
+					break;
+				case T_STRING:
+					switch (ins->operation.compare_type) {
+					case O_EQ:
+						SET("call i1 @bear_streq(i8* %s, i8* %s)", RP(0), RP(1));
+						done = true;
+						break;
+					case O_NE:
+						pf("  %%temp.%zu_%zu = call i1 @bear_streq(i8* %s, i8* %s)\n", i, k, RP(0), RP(1));
+						SET("icmp eq i1 %%temp.%zu_%zu, 0", i, k);
+						done = true;
+						break;
+					case O_GT:
+					case O_GTE:
+					case O_LT:
+					case O_LTE:
+						abort();
+					}
+					break;
+				default:
+					fputs("unsupported type to compare\n", stderr);
+					exit(1);
+				}
+				if (!done) {
+					SET("%s ", op);
+					wt(left);
+					pf(" %s, %s", RP(0), RP(1));
+				}
 			} break;
 			case O_GET_FIELD:
 				pf("  %%temp.%zu_%zu = getelementptr inbounds ", i, k);
-//				wt(TP(0));
-//				pf(", ");
 				wt(TP(0));
 				pf(" %s, i64 0, i32 %zu\n", RP(0), ins->parameters[1]);
 
@@ -436,8 +501,6 @@ void backend_write(code_system *system, FILE *out) {
 				break;
 			case O_GET_INDEX:
 				pf("  %%temp.%zu_%zu = getelementptr inbounds ", i, k);
-//				wt(TP(0));
-//				pf(", ");
 				wt(TP(0));
 				pf(" %s, i64 %s\n", RP(0), RP(1));
 
@@ -546,7 +609,7 @@ void backend_write(code_system *system, FILE *out) {
 				pf("  %%zptr.%zu_%zu = inttoptr i32 0 to %%struct.%zu*\n", i, k, ins->type->struct_index);
 				pf("  %%psize.%zu_%zu = getelementptr %%struct.%zu* %%zptr.%zu_%zu, i64 1\n", i, k, ins->type->struct_index, i, k);
 				pf("  %%size.%zu_%zu = ptrtoint %%struct.%zu* %%psize.%zu_%zu to i64\n", i, k, ins->type->struct_index, i, k); // TODO: is i64 too long for 32-bit?
-				pf("  %%raw.%zu_%zu = call ccc i8* @allocate(i64 %%size.%zu_%zu)\n", i, k, i, k); // TODO: garbage collection
+				pf("  %%raw.%zu_%zu = call ccc i8* @bear_allocate(i64 %%size.%zu_%zu)\n", i, k, i, k); // TODO: garbage collection
 				SET("bitcast i8* %%raw.%zu_%zu to %%struct.%zu*", i, k, ins->type->struct_index);
 				break;
 			case O_NEW_ARRAY:
@@ -558,7 +621,7 @@ void backend_write(code_system *system, FILE *out) {
 				pf("  %%size.%zu_%zu = ptrtoint", i, k)
 				wt(ins->type->arraytype);
 				pf("* %%psize.%zu_%zu to i64\n", i, k); // TODO: is i64 too long for 32-bit?
-				pf("  %%raw.%zu_%zu = call ccc i8* @allocate(i64 %%size.%zu_%zu)\n", i, k, i, k); // TODO: garbage collection
+				pf("  %%raw.%zu_%zu = call ccc i8* @bear_allocate(i64 %%size.%zu_%zu)\n", i, k, i, k); // TODO: garbage collection
 				SET("bitcast i8* %%raw.%zu_%zu to ", i, k);
 				wt(ins->type);
 				break;
