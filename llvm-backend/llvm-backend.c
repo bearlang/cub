@@ -371,8 +371,7 @@ void backend_write(code_system *system, FILE *out) {
 
 	for (size_t i = 0; i < system->block_count; i++) {
 		code_block *block = get_code_block(system, i);
-
-		pf("Block%zu:\n", i);
+		size_t offset = block->parameter_count;
 
 		struct patchvar **ref = allrefs[i];
 
@@ -386,8 +385,20 @@ void backend_write(code_system *system, FILE *out) {
 #define SET(x, ...) pf("  %%b%zu_%zu = " x, i, k, __VA_ARGS__)
 #define SETR(x) SET("%s", x)
 
-		// parameters via PHI
-		size_t offset = block->parameter_count;
+		bool any_possible_sources = false;
+		for (size_t k = 0; k < system->block_count; k++) {
+			if (check_prototypes(get_code_block(system, k), block, i)) {
+				any_possible_sources = true;
+				break;
+			}
+		}
+
+		if (!any_possible_sources && i != 0) {
+			continue;
+		}
+
+		pf("Block%zu:\n", i);
+		// parameters via PHI nodes
 		for (size_t k = 0; k < offset; k++) {
 			SETR("phi ");
 			wt(block->parameters[k].field_type);
