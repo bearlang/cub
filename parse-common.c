@@ -39,6 +39,7 @@ token *parse_peek(parse_state *state) {
   if (t == NULL) {
     return NULL;
   }
+  resize(state->count, &state->cap, (void**) &state->buffer, sizeof(token*));
   state->buffer[0] = t;
   state->count++;
   return t;
@@ -61,10 +62,7 @@ void shift_consume(parse_state *state) {
 }
 
 void parse_push(parse_state *state, token *push_token) {
-  if (state->count == state->cap) {
-    state->cap *= 2;
-    state->buffer = xrealloc(state->buffer, sizeof(token*) * state->cap);
-  }
+  resize(state->count, &state->cap, (void**) &state->buffer, sizeof(token*));
   state->buffer[state->count] = push_token;
   state->count++;
 }

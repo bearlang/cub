@@ -1230,8 +1230,9 @@ block_statement *parse(stream *in) {
   parse_state state;
   state.in = in;
   state.count = 0;
-  state.cap = 16;
-  state.buffer = xmalloc(sizeof(token*) * state.cap);
+  state.cap = 0;
+  state.buffer = NULL;
+  resize(state.count, &state.cap, (void**) &state.buffer, sizeof(token*));
   block_statement *body = parse_block(&state);
 
   token *t = parse_peek(&state);
