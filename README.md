@@ -11,6 +11,7 @@ Install [gyp](https://code.google.com/p/gyp/) for building, and [llvm](http://ll
 Compile and run the fibonacci test program, which prints out the [8th fibonacci number](http://wolfr.am/63QUgOux):
 
 ```
+$ gyp -f make --depth=.
 $ make
 $ ./cub test/test.cub test/test
 $ ./test/test
