@@ -62,11 +62,55 @@ static void analyze_expression(block_statement *block, expression *e) {
   case O_LITERAL:
     break;
   // type already declared
-  case O_COMPARE:
-    analyze_expression(block, e->value);
-    analyze_expression(block, e->value->next);
-    binary_numeric_promotion(e, true);
-    break;
+  case O_COMPARE: {
+    expression *left = e->value, *right = left->next;
+    analyze_expression(block, left);
+    analyze_expression(block, right);
+
+    type *lt = left->type, *rt = right->type;
+    type_type ltype = lt->type, rtype = rt->type;
+
+    if (ltype == T_ARRAY && rtype == T_ARRAY) {
+      fprintf(stderr, "array comparison not supported\n");
+      exit(1);
+    } else if (ltype == T_BLOCKREF && rtype == T_BLOCKREF) {
+      // TODO: optimize for incompatible types
+      switch (e->operation.compare_type) {
+      case O_GT:
+      case O_GTE:
+      case O_LT:
+      case O_LTE:
+        fprintf(stderr, "relative function comparison not supported\n");
+        exit(1);
+      default:
+        break;
+      }
+    } else if (ltype == T_OBJECT && rtype == T_OBJECT) {
+      switch (e->operation.compare_type) {
+      case O_GT:
+      case O_GTE:
+      case O_LT:
+      case O_LTE:
+        fprintf(stderr, "relative object comparison not supported\n");
+        exit(1);
+      default:
+        break;
+      }
+    } else if (ltype == T_STRING && rtype == T_STRING) {
+      switch (e->operation.compare_type) {
+      case O_GT:
+      case O_GTE:
+      case O_LT:
+      case O_LTE:
+        fprintf(stderr, "relative string comparison not supported\n");
+        exit(1);
+      default:
+        break;
+      }
+    } else if (ltype != T_BOOL && rtype != T_BOOL) {
+      binary_numeric_promotion(e, true);
+    }
+  } break;
   case O_IDENTITY: {
     // only applies to objects/classes:
     // obj is Class
@@ -125,6 +169,7 @@ static void analyze_expression(block_statement *block, expression *e) {
 
     e->value = left;
     if (op->logic_type == O_XOR) {
+      // TODO: reinterpret_cast for this?
       op->type = O_NUMERIC;
       op->numeric_type = O_BXOR;
       left->next = right;
@@ -446,25 +491,20 @@ static void analyze_expression(block_statement *block, expression *e) {
     }
   } break;
   case O_TERNARY: {
-    analyze_expression(block, e->value);
-    analyze_expression(block, e->value->next);
-    analyze_expression(block, e->value->next->next);
+    expression *cond = e->value, *left = cond->next, *right = left->next;
+    analyze_expression(block, cond);
+    analyze_expression(block, left);
+    analyze_expression(block, right);
 
-    expression *b = bool_cast(e->value);
+    expression *b = bool_cast(cond);
 
-    if (b != e->value) {
-      b->next = e->value->next;
-      e->value->next = NULL;
+    if (b != cond) {
+      b->next = left;
+      cond->next = NULL;
       e->value = b;
     }
 
-    // TODO: implicit cast
-    if (!compatible_type(e->value->next->type, e->value->next->next->type)) {
-      fprintf(stderr, "ternary cannot decide between incompatible values\n");
-      exit(1);
-    }
-
-    e->type = e->value->next->type;
+    ternary_numeric_promotion(e);
   } break;
   case O_BLOCKREF:
   case O_CAST: // TODO: implement me!

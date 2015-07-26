@@ -15,6 +15,7 @@ static void replace_cast(expression **value, cast_type cast, type_type target) {
   new_cast->type = new_type(target);
   new_cast->value = *value;
   new_cast->next = (*value)->next;
+  (*value)->next = NULL;
   *value = new_cast;
 }
 
@@ -451,6 +452,248 @@ type_type binary_numeric_promotion(expression *value, bool allow_floats) {
     fprintf(stderr, "unsupported types in binary operation\n");
     exit(1);
   }
+}
+
+void ternary_numeric_promotion(expression *value) {
+  expression *cond = value->value, *left = cond->next, *right = left->next;
+  type_type ltype = left->type->type, rtype = right->type->type, ftype;
+
+  switch ((((uint8_t) ltype) << 8) | (uint8_t) rtype) {
+  case (T_OBJECT << 8) | T_OBJECT:
+    if (!left->type->classtype) {
+      value->type = copy_type(right->type);
+      return;
+    }
+    if (!right->type->classtype) {
+      value->type = copy_type(left->type);
+      return;
+    }
+    // fallthrough
+  case (T_ARRAY << 8) | T_ARRAY:
+  case (T_BLOCKREF << 8) | T_BLOCKREF:
+    if (equivalent_type(left->type, right->type)) {
+      value->type = copy_type(left->type);
+      return;
+    }
+    goto unsupported;
+  case (T_F32 << 8) | T_F64:
+  case (T_F32 << 8) | T_F128:
+  case (T_F64 << 8) | T_F128:
+    replace_cast(&cond->next, O_FLOAT_EXTEND, rtype);
+    ftype = rtype;
+    break;
+  case (T_F64 << 8) | T_F32:
+  case (T_F128 << 8) | T_F32:
+  case (T_F128 << 8) | T_F64:
+    replace_cast(&left->next, O_FLOAT_EXTEND, ltype);
+    ftype = ltype;
+    break;
+  case (T_F32 << 8) | T_S8:
+  case (T_F32 << 8) | T_S16:
+  case (T_F32 << 8) | T_S32:
+  case (T_F64 << 8) | T_S8:
+  case (T_F64 << 8) | T_S16:
+  case (T_F64 << 8) | T_S32:
+  case (T_F64 << 8) | T_S64:
+  case (T_F128 << 8) | T_S8:
+  case (T_F128 << 8) | T_S16:
+  case (T_F128 << 8) | T_S32:
+  case (T_F128 << 8) | T_S64:
+    replace_cast(&left->next, O_SIGNED_TO_FLOAT, ltype);
+    ftype = ltype;
+    break;
+  case (T_F32 << 8) | T_U8:
+  case (T_F32 << 8) | T_U16:
+  case (T_F32 << 8) | T_U32:
+  case (T_F64 << 8) | T_U8:
+  case (T_F64 << 8) | T_U16:
+  case (T_F64 << 8) | T_U32:
+  case (T_F64 << 8) | T_U64:
+  case (T_F128 << 8) | T_U8:
+  case (T_F128 << 8) | T_U16:
+  case (T_F128 << 8) | T_U32:
+  case (T_F128 << 8) | T_U64:
+    replace_cast(&left->next, O_UNSIGNED_TO_FLOAT, ltype);
+    ftype = ltype;
+    break;
+  case (T_S8 << 8) | T_F32:
+  case (T_S16 << 8) | T_F32:
+  case (T_S32 << 8) | T_F32:
+  case (T_S8 << 8) | T_F64:
+  case (T_S16 << 8) | T_F64:
+  case (T_S32 << 8) | T_F64:
+  case (T_S64 << 8) | T_F64:
+  case (T_S8 << 8) | T_F128:
+  case (T_S16 << 8) | T_F128:
+  case (T_S32 << 8) | T_F128:
+  case (T_S64 << 8) | T_F128:
+    replace_cast(&cond->next, O_SIGNED_TO_FLOAT, rtype);
+    ftype = rtype;
+    break;
+  case (T_U8 << 8) | T_F32:
+  case (T_U16 << 8) | T_F32:
+  case (T_U32 << 8) | T_F32:
+  case (T_U8 << 8) | T_F64:
+  case (T_U16 << 8) | T_F64:
+  case (T_U32 << 8) | T_F64:
+  case (T_U64 << 8) | T_F64:
+  case (T_U8 << 8) | T_F128:
+  case (T_U16 << 8) | T_F128:
+  case (T_U32 << 8) | T_F128:
+  case (T_U64 << 8) | T_F128:
+    replace_cast(&cond->next, O_UNSIGNED_TO_FLOAT, rtype);
+    ftype = rtype;
+    break;
+  case (T_F32 << 8) | T_S64:
+    replace_cast(&left->next, O_SIGNED_TO_FLOAT, T_F64);
+    replace_cast(&cond->next, O_FLOAT_EXTEND, T_F64);
+    ftype = T_F64;
+    break;
+  case (T_F32 << 8) | T_U64:
+    replace_cast(&left->next, O_UNSIGNED_TO_FLOAT, T_F64);
+    replace_cast(&cond->next, O_FLOAT_EXTEND, T_F64);
+    ftype = T_F64;
+    break;
+  case (T_S64 << 8) | T_F32:
+    replace_cast(&left->next, O_FLOAT_EXTEND, T_F64);
+    replace_cast(&cond->next, O_SIGNED_TO_FLOAT, T_F64);
+    ftype = T_F64;
+    break;
+  case (T_U64 << 8) | T_F32:
+    replace_cast(&left->next, O_FLOAT_EXTEND, T_F64);
+    replace_cast(&cond->next, O_UNSIGNED_TO_FLOAT, T_F64);
+    ftype = T_F64;
+    break;
+  case (T_F128 << 8) | T_F128:
+  case (T_F64 << 8) | T_F64:
+  case (T_F32 << 8) | T_F32:
+    // fallthrough
+  case (T_BOOL << 8) | T_BOOL:
+  case (T_STRING << 8) | T_STRING:
+  case (T_S32 << 8) | T_S32:
+  case (T_S64 << 8) | T_S64:
+  case (T_U32 << 8) | T_U32:
+  case (T_U64 << 8) | T_U64:
+    // no casting necessary!
+    ftype = ltype;
+    break;
+  case (T_S8 << 8) | T_S8:
+  case (T_S8 << 8) | T_S16:
+  case (T_S16 << 8) | T_S8:
+  case (T_S16 << 8) | T_S16:
+  case (T_S8 << 8) | T_U8:
+  case (T_S8 << 8) | T_U16:
+  case (T_S16 << 8) | T_U8:
+  case (T_S16 << 8) | T_U16:
+  case (T_U8 << 8) | T_S8:
+  case (T_U8 << 8) | T_S16:
+  case (T_U16 << 8) | T_S8:
+  case (T_U16 << 8) | T_S16:
+    replace_cast(&left->next, O_SIGN_EXTEND, T_S32);
+    replace_cast(&cond->next, O_SIGN_EXTEND, T_S32);
+    ftype = T_S32;
+    break;
+  case (T_S8 << 8) | T_S32:
+  case (T_S8 << 8) | T_S64:
+  case (T_S16 << 8) | T_S32:
+  case (T_S16 << 8) | T_S64:
+  case (T_S32 << 8) | T_S64:
+    replace_cast(&cond->next, O_SIGN_EXTEND, rtype);
+    ftype = rtype;
+    break;
+  case (T_S32 << 8) | T_S8:
+  case (T_S32 << 8) | T_S16:
+  case (T_S64 << 8) | T_S8:
+  case (T_S64 << 8) | T_S16:
+  case (T_S64 << 8) | T_S32:
+    replace_cast(&left->next, O_SIGN_EXTEND, ltype);
+    ftype = ltype;
+    break;
+  case (T_U8 << 8) | T_U8:
+  case (T_U8 << 8) | T_U16:
+  case (T_U16 << 8) | T_U8:
+  case (T_U16 << 8) | T_U16:
+    replace_cast(&left->next, O_ZERO_EXTEND, T_U32);
+    replace_cast(&cond->next, O_ZERO_EXTEND, T_U32);
+    ftype = T_U32;
+    break;
+  case (T_U8 << 8) | T_S32:
+  case (T_U8 << 8) | T_S64:
+  case (T_U8 << 8) | T_U32:
+  case (T_U8 << 8) | T_U64:
+  case (T_U16 << 8) | T_S32:
+  case (T_U16 << 8) | T_S64:
+  case (T_U16 << 8) | T_U32:
+  case (T_U16 << 8) | T_U64:
+  case (T_U32 << 8) | T_S64:
+  case (T_U32 << 8) | T_U64:
+    replace_cast(&cond->next, O_ZERO_EXTEND, rtype);
+    ftype = rtype;
+    break;
+  case (T_S32 << 8) | T_U8:
+  case (T_S32 << 8) | T_U16:
+  case (T_S64 << 8) | T_U8:
+  case (T_S64 << 8) | T_U16:
+  case (T_S64 << 8) | T_U32:
+  case (T_U32 << 8) | T_U8:
+  case (T_U32 << 8) | T_U16:
+  case (T_U64 << 8) | T_U8:
+  case (T_U64 << 8) | T_U16:
+  case (T_U64 << 8) | T_U32:
+    replace_cast(&left->next, O_ZERO_EXTEND, ltype);
+    ftype = ltype;
+    break;
+  case (T_S8 << 8) | T_U32:
+  case (T_S16 << 8) | T_U32:
+    replace_cast(&left->next, O_REINTERPRET, T_S32);
+    replace_cast(&cond->next, O_SIGN_EXTEND, T_S32);
+    ftype = T_S32;
+    break;
+  case (T_S8 << 8) | T_U64:
+  case (T_S16 << 8) | T_U64:
+  case (T_S32 << 8) | T_U64:
+    replace_cast(&left->next, O_REINTERPRET, T_S64);
+    replace_cast(&cond->next, O_SIGN_EXTEND, T_S64);
+    ftype = T_S64;
+    break;
+  case (T_S32 << 8) | T_U32:
+  case (T_S64 << 8) | T_U64:
+    replace_cast(&left->next, O_REINTERPRET, ltype);
+    ftype = ltype;
+    break;
+  case (T_U32 << 8) | T_S8:
+  case (T_U32 << 8) | T_S16:
+    replace_cast(&left->next, O_SIGN_EXTEND, T_S32);
+    replace_cast(&cond->next, O_REINTERPRET, T_S32);
+    ftype = T_S32;
+    break;
+  case (T_U64 << 8) | T_S8:
+  case (T_U64 << 8) | T_S16:
+  case (T_U64 << 8) | T_S32:
+    replace_cast(&left->next, O_SIGN_EXTEND, T_S64);
+    replace_cast(&cond->next, O_REINTERPRET, T_S64);
+    ftype = T_S64;
+    break;
+  case (T_U32 << 8) | T_S32:
+  case (T_U64 << 8) | T_S64:
+    replace_cast(&cond->next, O_REINTERPRET, rtype);
+    ftype = rtype;
+    break;
+  default:
+    if (ltype == T_VOID || rtype == T_VOID) {
+      value->type = new_type(T_VOID);
+      return;
+    }
+
+    goto unsupported;
+  }
+
+  value->type = new_type(ftype);
+  return;
+
+unsupported:
+  fprintf(stderr, "unsupported types in binary operation\n");
+  exit(1);
 }
 
 void assert_condition(type *t) {

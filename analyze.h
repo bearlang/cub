@@ -12,6 +12,7 @@ expression *bool_cast(expression *value);
 expression *implicit_cast(expression *value, type *expected);
 expression *numeric_promotion(expression*, bool allow_floats);
 type_type binary_numeric_promotion(expression *value, bool allow_floats);
+void ternary_numeric_promotion(expression *value);
 type *resolve_type(block_statement *block, type *type);
 void assert_condition(type *type);
 
