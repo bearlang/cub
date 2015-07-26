@@ -51,7 +51,7 @@ static void optimize_copies(code_block *block) {
       switch (ins->operation.cast_type) {
       case O_UPCAST:
       case O_DOWNCAST:
-        ip[1] = map[ip[1]];
+        ip[0] = map[ip[0]];
         break;
       case O_FLOAT_EXTEND:
       case O_FLOAT_TRUNCATE:

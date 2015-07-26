@@ -218,11 +218,11 @@ void backend_write(code_system *system, FILE *out) {
           wf(out, " = (");
           type t = {
             .type = T_OBJECT,
-            .struct_index = ins->parameters[0]
+            .struct_index = ins->type->struct_index
           };
           wt(out, &t, NULL, 0, true);
           wf(out, ") instruction_");
-          wi(out, ins->parameters[1]);
+          wi(out, ins->parameters[0]);
           break;
         case O_FLOAT_EXTEND:
         case O_FLOAT_TRUNCATE:

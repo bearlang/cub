@@ -1191,8 +1191,7 @@ static code_block *generate_call(code_block *parent, expression *value) {
     cast->operation.type = O_CAST;
     cast->operation.cast_type = O_DOWNCAST;
     cast->type = copy_type(new->type);
-    cast->parameters[0] = cast->type->struct_index;
-    cast->parameters[1] = 0;
+    cast->parameters[0] = 0;
 
     size_t return_context = last_instruction(return_block);
 
@@ -1285,8 +1284,7 @@ static code_block *generate_call(code_block *parent, expression *value) {
     cast->operation.type = O_CAST;
     cast->operation.cast_type = O_UPCAST;
     cast->type = get_object_type(system, return_struct);
-    cast->parameters[0] = return_struct;
-    cast->parameters[1] = object;
+    cast->parameters[0] = object;
 
     object = last_instruction(parent);
   }
