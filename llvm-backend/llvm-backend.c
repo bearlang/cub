@@ -542,7 +542,7 @@ void backend_write(code_system *system, FILE *out) {
 				}
 				SET("%s ", name);
 				wt(TP(0));
-				pf(" %s to ", RP(np));
+				pf(" %s to ", RP(0));
 				wt(ins->type);
 			} break;
 			case O_COMPARE: {
