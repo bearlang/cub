@@ -8,7 +8,7 @@ Quickstart
 
 Install [llvm](http://llvm.org/).
 
-Compile and run the fibonacci test program, which prints out the 8th fibonacci number:
+Compile and run the fibonacci test program, which prints out the [8th fibonacci number](http://wolfr.am/63QUgOux):
 
 ```
 $ make
