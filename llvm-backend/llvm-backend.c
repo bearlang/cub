@@ -248,8 +248,7 @@ void backend_write(code_system *system, FILE *out) {
 				if (j != 0) {
 					pf(", ");
 				}
-				type *type = str->fields[j].field_type;
-				wt(type);
+				wt(str->fields[j].field_type);
 			}
 			pf(" }\n");
 			pf("; types: ");
@@ -289,7 +288,6 @@ void backend_write(code_system *system, FILE *out) {
 
 	pf("declare i8* @bear_allocate(i64, i32, i8*) nounwind\n");
 	pf("declare i1 @bear_streq(i8*, i8*) nounwind\n");
-	pf("declare void @exit(i32) nounwind noreturn\n\n");
 
 	pf("declare i8* @llvm.stacksave()\n");
 	pf("declare void @llvm.stackrestore(i8* %%ptr)\n\n");
@@ -447,11 +445,7 @@ void backend_write(code_system *system, FILE *out) {
 				ULP(0)
 				break;
 			case O_CAST:
-				if (ins->operation.cast_type == O_UPCAST || ins->operation.cast_type == O_DOWNCAST) {
-					ULP(1);
-				} else {
-					ULP(0);
-				}
+				ULP(0);
 				break;
 			case O_COMPARE:
 			case O_GET_INDEX:
@@ -509,14 +503,11 @@ void backend_write(code_system *system, FILE *out) {
 				vf(ref[k], "blockaddress(@main, %%Block%zu)", ins->block_index);
 				break;
 			case O_CAST: {
-				type *typ = ins->type;
 				const char *name = NULL;
-				int np = 0;
 				switch (ins->operation.cast_type) {
 				case O_UPCAST:
 				case O_DOWNCAST: // TODO: check downcasts
 					name = "bitcast";
-					typ = &(type) {.type=T_OBJECT, .struct_index = ins->parameters[np++]};
 					break;
 				case O_FLOAT_EXTEND:
 					name = "fpext";
@@ -550,9 +541,9 @@ void backend_write(code_system *system, FILE *out) {
 					break;
 				}
 				SET("%s ", name);
-				wt(TP(np));
+				wt(TP(0));
 				pf(" %s to ", RP(np));
-				wt(typ);
+				wt(ins->type);
 			} break;
 			case O_COMPARE: {
 				const char *op;
@@ -577,8 +568,8 @@ void backend_write(code_system *system, FILE *out) {
 					case O_EQ: op = "icmp eq"; break;
 					case O_GT: op = is_signed ? "icmp sgt" : "icmp ugt"; break;
 					case O_GTE: op = is_signed ? "icmp sge" : "icmp uge"; break;
-					case O_LT: op = is_signed ? "icmp_slt" : "icmp ult"; break;
-					case O_LTE: op = is_signed ? "icmp_sle" : "icmp ule"; break;
+					case O_LT: op = is_signed ? "icmp slt" : "icmp ult"; break;
+					case O_LTE: op = is_signed ? "icmp sle" : "icmp ule"; break;
 					case O_NE: op = "icmp ne"; break;
 					}
 					break;
@@ -731,7 +722,7 @@ void backend_write(code_system *system, FILE *out) {
 					wt(TP(1));
 					pf(" %s", RP(1));
 					for (size_t i = 2; i <= count; i++) {
-						pf(",");
+						pf(", ");
 						wt(TP(i));
 						pf(" %s", RP(i));
 					}
