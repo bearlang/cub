@@ -99,9 +99,11 @@ static code_block *create_child_block(code_block *parent) {
   code_block *block = add_block(parent->system);
   block->system = parent->system;
   block->parameter_count = params;
-  block->parameters = xmalloc(sizeof(code_field) * params);
+  block->parameters = NULL;
   block->symbol_count = parent->symbol_count;
+  block->symbol_head = NULL;
   block->stack_size = parent->stack_size;
+  block->stack_head = NULL;
   block->accepts_return = parent->has_return;
   block->has_return = parent->has_return;
   block->return_instruction = 0;
@@ -112,36 +114,42 @@ static code_block *create_child_block(code_block *parent) {
   block->tail.parameter_count = 0;
   block->tail.parameters = NULL;
 
-  if (parent->has_return) {
-    type *ret_type = instruction_type(parent, parent->return_instruction);
-    block->parameters[0].field_type = copy_type(ret_type);
-  }
+  if (params > 0) {
+    block->parameters = xmalloc(sizeof(code_field) * params);
 
-  size_t i = parent->has_return;
-  symbol_entry *entry = parent->symbol_head, **tail = &block->symbol_head;
-  for (; entry; i++, entry = entry->next) {
-    block->parameters[i].field_type = copy_type(entry->type);
-    symbol_entry *new = xmalloc(sizeof(*new));
-    new->exists = true;
-    new->instruction = i;
-    new->symbol_name = entry->symbol_name;
-    new->type = copy_type(entry->type);
-    *tail = new;
-    tail = &new->next;
-  }
-  *tail = NULL;
+    if (parent->has_return) {
+      type *ret_type = instruction_type(parent, parent->return_instruction);
+      block->parameters[0].field_type = copy_type(ret_type);
+    }
 
-  // TODO: stack passed in sort of the wrong order
-  instruction_node *node = parent->stack_head, **ntail = &block->stack_head;
-  for (; node; i++, node = node->next) {
-    type *node_type = instruction_type(parent, node->instruction);
-    block->parameters[i].field_type = copy_type(node_type);
-    instruction_node *new = xmalloc(sizeof(*new));
-    new->instruction = i;
-    *ntail = new;
-    ntail = &new->next;
+    size_t i = parent->has_return;
+    symbol_entry *entry = parent->symbol_head, **tail = &block->symbol_head;
+    for (; entry; i++, entry = entry->next) {
+      block->parameters[i].field_type = copy_type(entry->type);
+      symbol_entry *new = xmalloc(sizeof(*new));
+      new->exists = true;
+      new->instruction = i;
+      new->symbol_name = entry->symbol_name;
+      new->type = copy_type(entry->type);
+      *tail = new;
+      tail = &new->next;
+    }
+    *tail = NULL;
+
+    instruction_node *node = parent->stack_head;
+    for (; node; i++, node = node->next) {
+      type *node_type = instruction_type(parent, node->instruction);
+      block->parameters[i].field_type = copy_type(node_type);
+    }
+
+    i = 1;
+    for (node = parent->stack_head; node; i++, node = node->next) {
+      instruction_node *new = xmalloc(sizeof(*new));
+      new->instruction = params - i;
+      new->next = block->stack_head;
+      block->stack_head = new;
+    }
   }
-  *ntail = NULL;
 
   return block;
 }
@@ -212,8 +220,9 @@ static void set_block_tail_params(code_block *src, code_block *dest) {
     src->tail.parameters[i++] = from->instruction;
   }
 
-  for (instruction_node *node = dest->stack_head; node; node = node->next) {
-    src->tail.parameters[i++] = node->instruction;
+  for (instruction_node *node = src->stack_head; node; node = node->next) {
+    src->tail.parameters[i] = node->instruction;
+    i++;
   }
 
   if (i != params) {
@@ -1398,12 +1407,12 @@ static code_block *generate_ternary(code_block *parent, expression *value) {
 
   code_block *after = create_child_block(first);
 
+  goto_block(first, after);
+  goto_block(second, after);
+
   size_t result = pop_stack(after);
 
   mirror_instruction(after, result);
-
-  goto_block(first, after);
-  goto_block(second, after);
 
   return after;
 }
