@@ -21,7 +21,7 @@ static block_statement *parse_file(char *filename) {
 
   src = fopen(filename, "r");
   if (src == NULL) {
-    fprintf(stderr, "compiler: no such file or directory\n");
+    fprintf(stderr, "cub: no such file or directory\n");
     exit(1);
   }
   in = open_stream(src);
@@ -37,7 +37,7 @@ static void backend_write_file(char *filename, code_system *system) {
 
   dest = fopen(filename, "w");
   if (dest == NULL) {
-    fprintf(stderr, "compiler: error opening output-file\n");
+    fprintf(stderr, "cub: error opening output-file\n");
     exit(1);
   }
 
@@ -50,7 +50,7 @@ static void backend_write_file(char *filename, code_system *system) {
 static block_statement *wrap_core(block_statement *root) {
   FILE *src = fmemopen(lib_core_cub, lib_core_cub_len, "r");
   if (src == NULL) {
-    fprintf(stderr, "compiler: unable to open embedded library as file\n");
+    fprintf(stderr, "cub: unable to open embedded library as file\n");
     exit(1);
   }
   stream *in = open_stream(src);
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
   code_system *system;
 
   if (argc < 3) {
-    fprintf(stderr, "usage: compiler <input-file> <output-file>\n");
+    fprintf(stderr, "usage: cub <input-file> <output-file>\n");
     return 1;
   }
 
@@ -86,6 +86,7 @@ int main(int argc, char *argv[]) {
   system = generate(root);
   optimize(system);
 
+  // TODO: backend_write_file | llc | gcc -xassembler - out/lib/llvm-harness.s -o argv[2]
   backend_write_file(argv[2], system);
 
   // http://stackoverflow.com/q/31622764/345645
