@@ -233,7 +233,7 @@ void backend_write(code_system *system, FILE *out) {
 
 	if (system->struct_count) {
 		for (size_t i = 0; i < system->struct_count; i++) {
-			code_struct *str = &system->structs[i];
+			code_struct *str = get_code_struct(system, i);
 
 			size_t mf_count = 0;
 			for (size_t j = 0; j < str->field_count; j++) {
@@ -305,7 +305,7 @@ void backend_write(code_system *system, FILE *out) {
 
 	// constant and prototype extraction
 	for (size_t i = 0; i < system->block_count; i++) {
-		code_block *block = &system->blocks[i];
+		code_block *block = get_code_block(system, i);
 		for (size_t j = 0; j < block->instruction_count; j++) {
 			code_instruction *insr = &block->instructions[j];
 			if (insr->operation.type == O_NATIVE) {
@@ -359,7 +359,8 @@ void backend_write(code_system *system, FILE *out) {
 	struct patchvar **allrefs[system->block_count];
 
 	for (size_t i = 0; i < system->block_count; i++) {
-		size_t len = system->blocks[i].parameter_count + system->blocks[i].instruction_count;
+		code_block *block = get_code_block(system, i);
+		size_t len = block->parameter_count + block->instruction_count;
 		allrefs[i] = malloc(sizeof(struct patchvar *) * len);
 		if (allrefs[i] == NULL) {
 			fputs("alloc failed\n", stderr);
@@ -371,7 +372,7 @@ void backend_write(code_system *system, FILE *out) {
 	}
 
 	for (size_t i = 0; i < system->block_count; i++) {
-		code_block *block = &system->blocks[i];
+		code_block *block = get_code_block(system, i);
 
 		pf("Block%zu:\n", i);
 
@@ -394,7 +395,7 @@ void backend_write(code_system *system, FILE *out) {
 			wt(block->parameters[k].field_type);
 			bool first = true;
 			for (size_t l = 0; l < system->block_count; l++) {
-				code_block *from = &system->blocks[l];
+				code_block *from = get_code_block(system, l);
 				// we want to limit the number of source possibilities - so we make sure the prototype matches.
 				if (check_prototypes(from, block, i)) {
 					size_t sourceid = from->tail.parameters[k];
@@ -879,7 +880,7 @@ void backend_write(code_system *system, FILE *out) {
 				wt(t);
 				pf(" %s, i64 0, i32 %zu\n", RP(0), ins->parameters[1]);
 
-				type *ft = system->structs[t->struct_index].fields[ins->parameters[1]].field_type;
+				type *ft = get_code_struct(system, t->struct_index)->fields[ins->parameters[1]].field_type;
 
 				pf("  store ");
 				wt(ft);
@@ -972,7 +973,7 @@ void backend_write(code_system *system, FILE *out) {
 			if (needs_indirection) {
 				bool first = true;
 				for (size_t j = 0; j < system->block_count; j++) {
-					if (check_prototypes(block, &system->blocks[j], j)) {
+					if (check_prototypes(block, get_code_block(system, j), j)) {
 						if (first) {
 							first = false;
 						} else {
