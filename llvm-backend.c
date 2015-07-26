@@ -169,6 +169,11 @@ static void wt(type *t) {
 		break;
 	case T_STRING:
 		pf("i8*");
+		// Despite what this looks like, it's actually not a C string.
+		// It's a length-prefixed string: the length is stored as the first 64 bits (sans the first bit)
+		// The length counts the number of bytes following those 64 bits.
+		// There is no null terminator.
+		// The first bit is set to 1 if the string is statically-allocated instead of heap-allocated.
 		break;
 	case T_VOID:
 		pf("void");
@@ -210,31 +215,85 @@ bool check_prototypes(code_block *from, code_block *to, size_t toindex) {
 	return true;
 }
 
+#define IS_GC_ABLE(tp) ((tp)->type == T_OBJECT || (tp)->type == T_ARRAY || (tp)->type == T_STRING)
+
 void backend_write(code_system *system, FILE *out) {
 	pt_reset();
 
 	pf("target datalayout = \"e-m:e-i64:64-f80:128-n8:16:32:64-S128\"\n"
 		 "target triple = \"x86_64-unknown-linux-gnu\"\n\n\n");
 
+	// metafield: linked list: offset of field, type of field, next
+	pf("%%metafield = type { i32, %%metastruct*, %%metafield* }\n");
+
+	// metastruct: META_TAG, metanode*
+	// tags: 0 = STRUCT, 1 = STRING, (future: 2 = ARRAY?)
+	pf("%%metastruct = type { i8, %%metafield* }\n");
+
+	pf("@meta.string = unnamed_addr constant %%metastruct { i8 1, %%metafield* null }\n\n");
+
 	if (system->struct_count) {
 		for (size_t i = 0; i < system->struct_count; i++) {
 			code_struct *str = &system->structs[i];
 
+			size_t mf_count = 0;
+			for (size_t j = 0; j < str->field_count; j++) {
+				type *type = str->fields[j].field_type;
+				if (IS_GC_ABLE(type)) {
+					mf_count++;
+				}
+			}
+			size_t mfi = 0;
 			pf("%%struct.%zu = type { ", i);
 			for (size_t j = 0; j < str->field_count; j++) {
 				if (j != 0) {
 					pf(", ");
 				}
-				wt(str->fields[j].field_type);
+				type *type = str->fields[j].field_type;
+				wt(type);
 			}
-			pf(" };\n");
+			pf(" }\n");
+			pf("; types: ");
+			for (size_t j = 0; j < str->field_count; j++) {
+				pf("%u ", str->fields[j].field_type->type);
+			}
+			pf("\n")
+			for (size_t j = 0; j < str->field_count; j++) {
+				type *type = str->fields[j].field_type;
+				if (IS_GC_ABLE(type)) {
+					pf("@mf.%zu_%zu = unnamed_addr constant %%metafield { i32 ptrtoint(", i, mfi);
+					wt(type);
+					pf("* getelementptr(%%struct.%zu* inttoptr(i32 0 to %%struct.%zu*), i64 0, i32 %zu) to i32), ", i, i, j);
+					if (type->type == T_OBJECT) {
+						pf("%%metastruct* @meta.%zu, ", type->struct_index);
+					} else if (type->type == T_STRING) {
+						pf("%%metastruct* @meta.string, ");
+					} else {
+						abort();
+					}
+					mfi++;
+					if (mfi == mf_count) { // we're the last
+						pf("%%metafield* null }\n");
+					} else {
+						pf("%%metafield* @mf.%zu_%zu }\n", i, mfi);
+					}
+				}
+			}
+			if (mf_count == 0) {
+				pf("@meta.%zu = unnamed_addr constant %%metastruct { i8 0, %%metafield* null }\n", i);
+			} else {
+				pf("@meta.%zu = unnamed_addr constant %%metastruct { i8 0, %%metafield* @mf.%zu_0 }\n", i, i);
+			}
 		}
 		pf("\n\n");
 	}
 
-	pf("declare i8* @bear_allocate(i64) nounwind\n");
+	pf("declare i8* @bear_allocate(i64, i32, i8*) nounwind\n");
 	pf("declare i1 @bear_streq(i8*, i8*) nounwind\n");
 	pf("declare void @exit(i32) nounwind noreturn\n\n");
+
+	pf("declare i8* @llvm.stacksave()\n");
+	pf("declare void @llvm.stackrestore(i8* %%ptr)\n\n");
 
 	size_t natid = 0, natcap = 10;
 	char **natives = malloc(natcap * sizeof(char*));
@@ -278,7 +337,10 @@ void backend_write(code_system *system, FILE *out) {
 					pf(") nounwind\n")
 				}
 			} else if (insr->operation.type == O_LITERAL && insr->type->type == T_STRING) {
-				pf("@str_%zu_%zu = private unnamed_addr constant [%zu x i8] c\"", i, j, strlen(insr->value_string) + 1);
+				pf("@str_%zu_%zu = private unnamed_addr constant [%zu x i8] c\"", i, j, strlen(insr->value_string) + 8);
+				// TODO: check endianness
+				uint64_t len = strlen(insr->value_string) | 0x8000000000000000; // specify that it's statically-allocated.
+				pf("\\%02hhx\\%02hhx\\%02hhx\\%02hhx\\%02hhx\\%02hhx\\%02hhx\\%02hhx", (uint8_t) len, (uint8_t) (len >> 8), (uint8_t) (len >> 16), (uint8_t) (len >> 24), (uint8_t) (len >> 32), (uint8_t) (len >> 40), (uint8_t) (len >> 48), (uint8_t) (len >> 56));
 				for (char *s = insr->value_string; *s; s++) {
 					char c = *s;
 					if (c >= 32 && c <= 126 && c != '"' && c != '\\') {
@@ -287,12 +349,12 @@ void backend_write(code_system *system, FILE *out) {
 						pf("\\%02hhx", c);
 					}
 				}
-				pf("\\00\"");
+				pf("\"\n");
 			}
 		}
 	}
 
-	pf("\ndefine i32 @main() {\n");
+	pf("\ndefine i32 @main() gc \"\" {\n");
 	pf("  br label %%Block0\n");
 
 	struct patchvar **allrefs[system->block_count];
@@ -317,7 +379,6 @@ void backend_write(code_system *system, FILE *out) {
 		struct patchvar **ref = allrefs[i];
 
 #define RP(n) pt_fetch(ref[ins->parameters[(n)]])
-#define PR(n) pv(ref[ins->parameters[(n)]]);
 #define TP(n) (TYPEOF(ins->parameters[(n)]))
 
 		for (size_t k = 0; k < block->parameter_count + block->instruction_count; k++) {
@@ -344,11 +405,90 @@ void backend_write(code_system *system, FILE *out) {
 						pf(",");
 					}
 					pf(" [ ")
-					pv(allrefs[l][sourceid]);
+					pv(allrefs[l][sourceid]); // this works despite the possibility of the ref changing over the course of a block because other blocks only see the final refs
 					pf(", %%Block%zu ]", l);
 				}
 			}
 			pf("\n");
+		}
+
+		size_t last_used_map[block->parameter_count + block->instruction_count];
+		for (size_t j = 0; j < block->parameter_count; j++) {
+			last_used_map[j] = -1;
+		}
+		for (size_t j = 0; j < block->instruction_count; j++) {
+			last_used_map[block->parameter_count + j] = j;
+		}
+		switch (block->tail.type) {
+		case GOTO:
+			last_used_map[block->tail.first_block] = block->instruction_count;
+			break;
+		case BRANCH:
+			last_used_map[block->tail.first_block] = block->instruction_count;
+			last_used_map[block->tail.second_block] = block->instruction_count;
+			break;
+		}
+		for (size_t j = 0; j < block->instruction_count; j++) {
+			code_instruction *ins = &block->instructions[j];
+
+#define ULP(x) last_used_map[ins->parameters[x]] = j;
+
+			switch (ins->operation.type) {
+			case O_LITERAL:
+			case O_BLOCKREF:
+			case O_NEW:
+			case O_NEW_ARRAY:
+				break;
+			case O_BITWISE_NOT:
+			case O_GET_FIELD:
+			case O_GET_SYMBOL:
+			case O_NEGATE:
+			case O_NOT:
+				ULP(0)
+				break;
+			case O_CAST:
+				if (ins->operation.cast_type == O_UPCAST || ins->operation.cast_type == O_DOWNCAST) {
+					ULP(1);
+				} else {
+					ULP(0);
+				}
+				break;
+			case O_COMPARE:
+			case O_GET_INDEX:
+			case O_NUMERIC:
+			case O_LOGIC:
+			case O_SHIFT:
+				ULP(0);
+				ULP(1);
+				break;
+			case O_SET_FIELD:
+				ULP(0);
+				ULP(2);
+				break;
+			case O_SET_INDEX:
+				ULP(0);
+				ULP(1);
+				ULP(2);
+				break;
+			case O_NATIVE: {
+				size_t count = ins->parameters[0];
+				for (size_t i = 1; i <= count; i++) {
+					ULP(i);
+				}
+			} break;
+			case O_IDENTITY:
+			case O_INSTANCEOF:
+			case O_STR_CONCAT:
+			case O_CALL:
+			case O_FUNCTION:
+			case O_NUMERIC_ASSIGN:
+			case O_POSTFIX:
+			case O_SET_SYMBOL:
+			case O_SHIFT_ASSIGN:
+			case O_STR_CONCAT_ASSIGN:
+			case O_TERNARY:
+				abort();
+			}
 		}
 
 		for (size_t j = 0; j < block->instruction_count; j++) {
@@ -512,12 +652,6 @@ void backend_write(code_system *system, FILE *out) {
 				// TODO: fix
 				SET("%s", RP(0));
 				break;
-			case O_IDENTITY:
-				fprintf(stderr, "this backend does not support identity checking\n");
-				exit(1);
-			case O_INSTANCEOF:
-				fprintf(stderr, "this backend does not support instanceof checking\n");
-				exit(1);
 			case O_LITERAL:
 			switch (ins->type->type) {
 				case T_ARRAY:
@@ -540,7 +674,7 @@ void backend_write(code_system *system, FILE *out) {
 					vf(ref[k], "null");
 					break;
 				case T_STRING:
-					SET("getelementptr [%zu x i8]* @str_%zu_%zu, i64 0, i64 0", strlen(ins->value_string) + 1, i, j);
+					SET("getelementptr [%zu x i8]* @str_%zu_%zu, i64 0, i64 0", strlen(ins->value_string) + 8, i, j);
 					break;
 				case T_U8:
 					vf(ref[k], "%hhu", ins->value_u8);
@@ -605,26 +739,111 @@ void backend_write(code_system *system, FILE *out) {
 				wt(ins->type);
 				pf(" 0, %s", RP(0));
 				break;
-			case O_NEW:
-				pf("  %%zptr.%zu_%zu = inttoptr i32 0 to %%struct.%zu*\n", i, k, ins->type->struct_index);
-				pf("  %%psize.%zu_%zu = getelementptr %%struct.%zu* %%zptr.%zu_%zu, i64 1\n", i, k, ins->type->struct_index, i, k);
-				pf("  %%size.%zu_%zu = ptrtoint %%struct.%zu* %%psize.%zu_%zu to i64\n", i, k, ins->type->struct_index, i, k); // TODO: is i64 too long for 32-bit?
-				pf("  %%raw.%zu_%zu = call ccc i8* @bear_allocate(i64 %%size.%zu_%zu)\n", i, k, i, k); // TODO: garbage collection
-				SET("bitcast i8* %%raw.%zu_%zu to %%struct.%zu*", i, k, ins->type->struct_index);
-				break;
-			case O_NEW_ARRAY:
+			case O_NEW: { // TODO: check with GC before save-restoring to see if we need to.
+				struct patchvar *strref = pt_def();
+				size_t refcnt = 0;
+				for (size_t ssa = 0; ssa < offset + block->instruction_count; ssa++) { // TODO: deduplicate
+					size_t start = ssa - offset;
+					size_t end = last_used_map[ssa];
+					if (start < j && end > j) { // might be relocated
+						type *tp = TYPEOF(ssa);
+						if (IS_GC_ABLE(tp)) {
+							// TODO: make sure that string literals aren't saved
+							if (refcnt == 0) {
+								pf("  %%save.%zu_%zu = call i8* @llvm.stacksave()\n", i, k);
+								pf("  %%pass.%zu_%zu = alloca ", i, k);
+								pv(strref);
+								pf("\n");
+							}
+							pf("  ; save %zu (%zu - %zu - %zu)\n", ssa, start, j, end);
+
+							// address of saved pointer
+							pf("  %%prestore.%zu_%zu_%zu = getelementptr ", i, k, refcnt);
+							pv(strref);
+							pf("* %%pass.%zu_%zu, i64 0, i32 %zu\n", i, k, refcnt * 2 + 1);
+
+							// address of saved metastruct
+							pf("  %%meta.%zu_%zu_%zu = getelementptr ", i, k, refcnt);
+							pv(strref);
+							pf("* %%pass.%zu_%zu, i64 0, i32 %zu\n", i, k, refcnt * 2);
+
+							pf("  %%cast.%zu_%zu_%zu = bitcast ", i, k, refcnt);
+							wt(tp);
+							pf(" %s to i8*\n", pt_fetch(ref[ssa]));
+							pf("  store i8* %%cast.%zu_%zu_%zu, i8** %%prestore.%zu_%zu_%zu\n", i, k, refcnt, i, k, refcnt);
+
+							pf("  store %%metastruct* ");
+							if (tp->type == T_STRING) {
+								pf("@meta.string");
+							} else if (tp->type == T_OBJECT) {
+								pf("@meta.%zu", tp->struct_index);
+							} else {
+								abort();
+							}
+							pf(", %%metastruct** %%meta.%zu_%zu_%zu\n\n", i, k, refcnt);
+							refcnt++;
+						}
+					}
+				}
+				if (refcnt) {
+					const char *single = ", %metastruct*, i8*";
+					size_t siz = strlen(single);
+					char cr[siz * refcnt + 1];
+					for (size_t i = 0; i < refcnt; i++) {
+						strcpy(cr + siz * i, single);
+					}
+					printf("INITALIZING %zu\n", i);
+					vf(strref, "{ %s }", cr + 2); // add two to get rid of leading ", "
+				} else {
+					printf("NOT INITALIZING %zu, %zu\n", i, refcnt);
+				}
 				pf("  %%zptr.%zu_%zu = inttoptr i32 0 to ", i, k);
-				wt(ins->type->arraytype);
+				wt(ins->type);
 				pf("*\n  %%psize.%zu_%zu = getelementptr ", i, k);
-				wt(ins->type->arraytype);
+				wt(ins->type);
 				pf("* %%zptr.%zu_%zu, i64 %zu\n", i, k, ins->parameters[0]);
-				pf("  %%size.%zu_%zu = ptrtoint", i, k)
-				wt(ins->type->arraytype);
+				pf("  %%size.%zu_%zu = ptrtoint ", i, k)
+				wt(ins->type);
 				pf("* %%psize.%zu_%zu to i64\n", i, k); // TODO: is i64 too long for 32-bit?
-				pf("  %%raw.%zu_%zu = call ccc i8* @bear_allocate(i64 %%size.%zu_%zu)\n", i, k, i, k); // TODO: garbage collection
+				pf("  %%passi8.%zu_%zu = bitcast ", i, k);
+				if (refcnt) {
+					pv(strref);
+					pf("* %%pass.%zu_%zu to i8*\n", i, k);
+				} else {
+					pf("i8* null to i8*\n");
+				}
+				pf("  %%raw.%zu_%zu = call ccc i8* @bear_allocate(i64 %%size.%zu_%zu, i32 %zu, i8* %%passi8.%zu_%zu )\n", i, k, i, k, refcnt, i, k);
 				SET("bitcast i8* %%raw.%zu_%zu to ", i, k);
 				wt(ins->type);
-				break;
+				pf("\n");
+
+				if (refcnt) {
+					refcnt = 0;
+					for (size_t ssa = 0; ssa < offset + block->instruction_count; ssa++) { // TODO: deduplicate
+						size_t start = ssa - offset;
+						size_t end = last_used_map[ssa];
+						type *tp = TYPEOF(ssa);
+						if (start < j && end > j) { // might be relocated
+							if (IS_GC_ABLE(tp)) {
+								// TODO: make sure that string literals aren't saved
+								pf("\n  ; restore %zu (%zu - %zu - %zu)\n", ssa, start, j, end);
+								// pf("  %%prestore.%zu_%zu_%zu = getelementptr ", i, k, ssa);
+								pf("  %%postload.%zu_%zu_%zu = load i8** %%prestore.%zu_%zu_%zu\n", i, k, refcnt, i, k, refcnt);
+								pf("  %%restored.%zu_%zu.%zu = bitcast i8* %%postload.%zu_%zu_%zu to ", i, k, ssa, i, k, refcnt);
+								wt(tp);
+								pf("\n")
+								vf(ref[ssa], "%%restored.%zu_%zu.%zu", i, k, ssa);
+								refcnt++;
+							}
+						} else if (start < j && IS_GC_ABLE(tp)) {
+							pf("  ; NOTE: busting %zu (%zu - %zu - %zu)\n", ssa, start, j, end);
+							vf(ref[ssa], "BUSTED"); // not moved forward. if this ever shows up, then maybe it should have been.
+						}
+					}
+					pf("  call void @llvm.stackrestore(i8* %%save.%zu_%zu)", i, k);
+				}
+				// ins->parameters[0] is the length of O_NEW_ARRAY
+			} break;
 			case O_NOT:
 				SETR("icmp eq ");
 				wt(TP(0));
@@ -697,9 +916,10 @@ void backend_write(code_system *system, FILE *out) {
 				wt(ins->type);
 				pf(" %s, %s", RP(0), RP(1));
 			} break;
+			case O_NEW_ARRAY:
 			case O_STR_CONCAT:
-				fprintf(stderr, "this backend does not support string concatenation\n");
-				exit(1);
+			case O_IDENTITY:
+			case O_INSTANCEOF:
 			case O_CALL:
 			case O_FUNCTION:
 			case O_NUMERIC_ASSIGN:
