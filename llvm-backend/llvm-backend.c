@@ -214,7 +214,7 @@ bool check_prototypes(code_block *from, code_block *to, size_t toindex) {
 	return true;
 }
 
-#define IS_GC_ABLE(tp) ((tp)->type == T_OBJECT || (tp)->type == T_ARRAY || (tp)->type == T_STRING)
+#define IS_GC_ABLE(tp) ((tp) != NULL && ((tp)->type == T_OBJECT || (tp)->type == T_ARRAY || (tp)->type == T_STRING))
 
 void backend_write(code_system *system, FILE *out) {
 	pt_reset();
@@ -493,6 +493,10 @@ void backend_write(code_system *system, FILE *out) {
 		for (size_t j = 0; j < block->instruction_count; j++) {
 			size_t k = j + offset;
 			code_instruction *ins = &block->instructions[j];
+
+#ifdef TRACE_EXECUTION
+			pf("    call void @bear_print_number(i64 %zu)\n", 10000 * i + 100 * j);
+#endif
 
 			switch (ins->operation.type) {
 			case O_BITWISE_NOT:
@@ -798,12 +802,12 @@ void backend_write(code_system *system, FILE *out) {
 				}
 				pf("  %%zptr.%zu_%zu = inttoptr i32 0 to ", i, k);
 				wt(ins->type);
-				pf("*\n  %%psize.%zu_%zu = getelementptr ", i, k);
+				pf("\n  %%psize.%zu_%zu = getelementptr ", i, k);
 				wt(ins->type);
-				pf("* %%zptr.%zu_%zu, i64 %zu\n", i, k, ins->parameters[0]);
+				pf(" %%zptr.%zu_%zu, i64 1\n", i, k);
 				pf("  %%size.%zu_%zu = ptrtoint ", i, k)
 				wt(ins->type);
-				pf("* %%psize.%zu_%zu to i64\n", i, k); // TODO: is i64 too long for 32-bit?
+				pf(" %%psize.%zu_%zu to i64\n", i, k); // TODO: is i64 too long for 32-bit?
 				pf("  %%passi8.%zu_%zu = bitcast ", i, k);
 				if (refcnt) {
 					pv(strref);
