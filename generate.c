@@ -1069,8 +1069,10 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     return generate_ternary(parent, value);
 
   case O_FUNCTION:
-    fprintf(stderr, "function expressions not implemented in code generation\n");
-    exit(1);
+    generate_function_stub(parent->system, value->function);
+    generate_function(parent->system, value->function);
+    make_blockref_index(parent, value->function->block_body);
+    return parent;
 
   // gets translated to control flow in analysis
   case O_LOGIC:

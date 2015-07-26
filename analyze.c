@@ -5,6 +5,23 @@
 #include "parse.h"
 #include "xalloc.h"
 
+static void analyze_function(block_statement *block, function *fn) {
+  block_statement *body = fn->body;
+  body->parent = (statement*) block;
+
+  fn->return_type = resolve_type(block, fn->return_type);
+
+  // add arguments to symbol table
+  for (argument *arg = fn->argument; arg; arg = arg->next) {
+    type *arg_type = resolve_type(block, arg->argument_type);
+    add_symbol(body, ST_VARIABLE, arg->symbol_name)
+      ->type = copy_type(arg_type);
+    arg->argument_type = arg_type;
+  }
+
+  analyze(body);
+}
+
 static void analyze_expression(block_statement *block, expression *e) {
   switch (e->operation.type) {
   case O_BITWISE_NOT: {
@@ -188,9 +205,8 @@ static void analyze_expression(block_statement *block, expression *e) {
     }
   } break;
   case O_FUNCTION:
-    // TODO: support
-    fprintf(stderr, "anonymous functions not supported\n");
-    exit(1);
+    analyze_function(block, e->function);
+    break;
   case O_GET_FIELD:
   case O_SET_FIELD: {
     analyze_expression(block, e->value);
@@ -608,23 +624,9 @@ static void analyze_inner(block_statement *block, statement **node) {
 
     analyze(loop->body);
   } break;
-  case S_FUNCTION: {
-    function *fn = ((function_statement*) *node)->function;
-    block_statement *body = fn->body;
-    body->parent = (statement*) block;
-
-    fn->return_type = resolve_type(block, fn->return_type);
-
-    // add arguments to symbol table
-    for (argument *arg = fn->argument; arg; arg = arg->next) {
-      type *arg_type = resolve_type(block, arg->argument_type);
-      add_symbol(body, ST_VARIABLE, arg->symbol_name)
-        ->type = copy_type(arg_type);
-      arg->argument_type = arg_type;
-    }
-
-    analyze(body);
-  } break;
+  case S_FUNCTION:
+    analyze_function(block, ((function_statement*) *node)->function);
+    break;
   case S_EXPRESSION:
     analyze_expression(block, ((expression_statement*) *node)->value);
     break;
