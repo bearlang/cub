@@ -979,6 +979,8 @@ statement *parse_statement(parse_state *state) {
     return result;
   }
   case L_NATIVE: {
+    free(t);
+
     token *callee = expect(state, L_IDENTIFIER);
     char *assign = NULL;
 
