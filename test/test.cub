@@ -1,13 +1,28 @@
-u64 fib(u64 index) {
-  u64 a = 0, b = 1;
-
-  while ((--index) > 0) {
-    u64 t = b;
-    b += a;
-    a = t;
-  }
-
-  return b;
+class A {
+	u32 x;
 }
 
+u64 fib(u64 index) {
+	u64 a = 0, b = 1;
+
+	while ((--index) > 0) {
+    	u64 t = b;
+	    b += a;
+    	a = t;
+	}
+
+	A y = new A(0);
+
+	return b;
+}
+
+A x = new A(0);
+
+A z = new A(0);
+
+x.x = 10;
+
 print(fib(8));
+
+x.x = 10;
+z.x = 10;
