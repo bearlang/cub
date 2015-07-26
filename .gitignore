@@ -1,0 +1,5 @@
+compiler
+test/test.ll
+test/test.s
+test/test.o
+test/test
