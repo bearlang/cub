@@ -3,10 +3,10 @@ MAIN_BACKEND=llvm-backend/llvm-backend.c
 CFLAGS=-fdiagnostics-color -Wall -g3 -std=c11 -lm
 
 compiler: $(MAIN_SRCS) $(MAIN_BACKEND) compile.c
-	gcc $(CFLAGS) $< -o compiler 2>&1
+	gcc $(CFLAGS) $(MAIN_SRCS) $(MAIN_BACKEND) compile.c -o compiler 2>&1
 test/backend-test: $(MAIN_SRCS) backend.c test/backend-test.c
-	gcc $(CFLAGS) $< -o $@ 2>&1
+	gcc $(CFLAGS) $(MAIN_SRCS) backend.c test/backend-test.c -o $@ 2>&1
 test/llvm-backend-test: $(MAIN_SRCS) llvm-backend/llvm-backend.c test/backend-test.c
-	gcc $(CFLAGS) $< -o $@ 2>&1
+	gcc $(CFLAGS) $(MAIN_SRCS) llvm-backend/llvm-backend.c test/backend-test.c -o $@ 2>&1
 clean:
 	rm -f compiler backend-test llvm-backend-test
