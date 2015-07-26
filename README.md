@@ -6,13 +6,13 @@ cub is a statically typed language.
 Quickstart
 ----------
 
-Install [llvm](http://llvm.org/).
+Install [gyp](https://code.google.com/p/gyp/) for building, and [llvm](http://llvm.org/) for compiling.
 
 Compile and run the fibonacci test program, which prints out the [8th fibonacci number](http://wolfr.am/63QUgOux):
 
 ```
 $ make
-$ ./compile test/test.cub test/test.ll
+$ ./out/Debug/cub test/test.cub test/test.ll
 $ llc test/test.ll -o test/test.s
 $ gcc test/test.s llvm-backend/llvm-harness.c -o test/test
 $ ./test/test

@@ -1,4 +1,3 @@
-#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +11,8 @@
 #include "generate.h"
 #include "backend.h"
 #include "optimize.h"
+
+#include "out/lib/core.h"
 
 static block_statement *parse_file(char *filename) {
   FILE *src;
@@ -47,21 +48,18 @@ static void backend_write_file(char *filename, code_system *system) {
 }
 
 static block_statement *wrap_core(block_statement *root) {
-  const char suffix[] = "/lib/core.cub";
-  size_t suffixlen = sizeof(suffix) / sizeof(*suffix) - 1;
-
-  char *file = xstrdup(__FILE__);
-  char *dir = dirname(file);
-  size_t dirlen = strlen(dir);
-  char *core = xmalloc(dirlen + suffixlen + sizeof(char));
-  strcpy(core, dir);
-  strcpy(core + dirlen, suffix);
-
-  // to work around dirname weirdness
-  free(file);
+  FILE *src = fmemopen(lib_core_cub, lib_core_cub_len, "r");
+  if (src == NULL) {
+    fprintf(stderr, "compiler: unable to open embedded library as file\n");
+    exit(1);
+  }
+  stream *in = open_stream(src);
 
   printf("parsing core\n");
-  block_statement *core_block = parse_file(core);
+  block_statement *core_block = parse(in);
+  close_stream(in);
+  fclose(src);
+
   statement **tail = &core_block->body;
   for (; *tail; tail = &(*tail)->next);
   *tail = (statement*) root;

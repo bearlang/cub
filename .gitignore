@@ -1,5 +1,5 @@
-compiler
-test/test.ll
-test/test.s
-test/test.o
-test/test
+/test/test.ll
+/test/test.s
+/test/test.o
+/test/test
+/out
