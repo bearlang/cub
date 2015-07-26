@@ -214,14 +214,6 @@ void inspect_statement(statement *node, uint8_t depth) {
     printf("}\n");
     break;
   }
-  case S_DECLARE: {
-    declare_statement *decl = (declare_statement*) node;
-    pad(depth);
-    printf("DECLARE VAR ");
-    inspect_type(decl->symbol_type);
-    printf(" %s\n", decl->symbol_name);
-    break;
-  }
   case S_DEFINE:
     fprintf(stderr, "define statement\n");
     exit(1);

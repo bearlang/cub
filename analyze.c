@@ -652,10 +652,10 @@ static void analyze_inner(block_statement *block, statement **node) {
       case S_BREAK:
       case S_CLASS:
       case S_CONTINUE:
-      // case S_DECLARE:
       case S_DEFINE:
       case S_EXPRESSION:
       case S_RETURN:
+      case S_TYPEDEF:
         abort();
       }
 
@@ -673,6 +673,11 @@ return_loop_escape:;
 
     analyze_expression(block, ret->value);
     ret->value = implicit_cast(ret->value, fn->return_type);
+  } break;
+  case S_TYPEDEF: {
+    typedef_statement *tdef = (typedef_statement*) *node;
+    add_symbol(block, ST_TYPE, tdef->alias)
+      ->type = resolve_type(block, copy_type(tdef->typedef_type));
   } break;
   case S_CLASS: {
     class *class = ((class_statement*) *node)->classtype;

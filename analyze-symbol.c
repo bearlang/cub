@@ -23,6 +23,7 @@ block_statement *parent_scope(block_statement *block, bool *escape) {
     // shouldn't ever be a parent
     case S_BREAK:
     case S_CONTINUE:
+    case S_TYPEDEF:
     // shouldn't currently be a parent
     case S_CLASS:
       abort();
@@ -60,6 +61,7 @@ loop_statement *get_label(control_statement *control) {
     case S_DEFINE:
     case S_EXPRESSION:
     case S_RETURN:
+    case S_TYPEDEF:
       abort();
     }
   }

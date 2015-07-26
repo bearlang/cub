@@ -84,6 +84,7 @@
       'statement/if.c',
       'statement/loop.c',
       'statement/return.c',
+      'statement/type.c',
       'xalloc.c',
       'token.c',
       'buffer.c',

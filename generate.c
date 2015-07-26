@@ -452,6 +452,7 @@ static code_block *generate_block(code_block *parent, block_statement *block) {
     // already processed
     case S_CLASS:
     case S_FUNCTION:
+    case S_TYPEDEF:
       break;
     }
 
@@ -1047,8 +1048,6 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     return parent;
   }
   case O_SET_SYMBOL: {
-    // TODO: revert to using define instead of declare and expression otherwise
-    // we'll have a lot of uninitialized symbol_entry.instruction problems
     parent = generate_expression(parent, value->value);
 
     const char *symbol = value->symbol_name;

@@ -249,6 +249,7 @@ static token *scan_string(stream *in, char match) {
 }
 
 const char *keywords[] = {
+  "as",
   "break",
   "case",
   "class",
@@ -264,6 +265,7 @@ const char *keywords[] = {
   "while"
 };
 const token_type keyword_map[] = {
+  L_AS,
   L_BREAK,
   L_CASE,
   L_CLASS,

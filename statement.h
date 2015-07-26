@@ -10,13 +10,13 @@ typedef enum {
   S_BREAK,
   S_CLASS,
   S_CONTINUE,
-  // S_DECLARE, // individualized, without initialization, for generation
-  S_DEFINE, // from parser
+  S_DEFINE,
   S_DO_WHILE,
   S_EXPRESSION,
   S_FUNCTION,
   S_IF,
   S_RETURN,
+  S_TYPEDEF,
   S_WHILE
 } statement_type;
 
@@ -80,13 +80,6 @@ typedef struct /*extends statement*/ {
   };
 } control_statement;
 
-// typedef struct /*extends statement*/ {
-//   statement_type type;
-//   statement *next, *parent;
-//   type *symbol_type;
-//   char *symbol_name;
-// } declare_statement;
-
 typedef struct define_clause {
   char *symbol_name;
   expression *value;
@@ -127,11 +120,17 @@ typedef struct /*extends statement*/ {
   function *target;
 } return_statement;
 
+typedef struct /*extends statement*/ {
+  statement_type type;
+  statement *next, *parent;
+  type *typedef_type;
+  char *alias;
+} typedef_statement;
+
 statement *s_block(statement *body);
 statement *s_break(char *label);
 statement *s_class(class *classtype);
 statement *s_continue(char *label);
-statement *s_declare(type *type, char *name);
 statement *s_define(type *type, define_clause *clause);
 statement *s_expression(expression *value);
 statement *s_function(function *function);
@@ -140,5 +139,6 @@ statement *s_if(expression *condition, block_statement *first,
 statement *s_loop(statement_type type, expression *condition,
   block_statement *body);
 statement *s_return(expression *value);
+statement *s_typedef(type*, char *alias);
 
 #endif

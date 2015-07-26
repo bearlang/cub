@@ -10,6 +10,7 @@ typedef enum {
   L_ADD,
   L_ADD_ASSIGN,
   L_AND,
+  L_AS,
   L_ASHIFT,
   L_ASHIFT_ASSIGN,
   L_ASSIGN,

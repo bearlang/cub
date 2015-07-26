@@ -1021,6 +1021,18 @@ statement *parse_statement(parse_state *state) {
     return s_return(consume(state, L_SEMICOLON)
       ? NULL
       : expect_expression(state));
+  case L_TYPEDEF: {
+    free(t);
+
+    type *left = parse_type(state, NULL, false);
+
+    expect_consume(state, L_AS);
+
+    token *right = expect(state, L_IDENTIFIER);
+    char *alias = right->symbol_name;
+    free(right);
+    return s_typedef(left, alias);
+  }
   case L_DO: {
     free(t);
 
