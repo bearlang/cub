@@ -2,7 +2,7 @@
 #include <string.h>
 
 #include "analyze.h"
-#include "parser.h"
+#include "parse.h"
 #include "xalloc.h"
 
 static void analyze_expression(block_statement *block, expression *e) {

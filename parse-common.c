@@ -1,7 +1,7 @@
 #include "xalloc.h"
 #include "token.h"
-#include "lexer.h"
-#include "parser.h"
+#include "lex.h"
+#include "parse.h"
 
 void _expected(token *t) {
   if (t) {

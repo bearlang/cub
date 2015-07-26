@@ -2,7 +2,7 @@
 #include <string.h>
 
 #include "xalloc.h"
-#include "generator.h"
+#include "generate.h"
 
 // GENERATION UTILITIES
 

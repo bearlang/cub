@@ -7,9 +7,9 @@
 #include "xalloc.h"
 #include "expression.h"
 #include "stream.h"
-#include "parser.h"
+#include "parse.h"
 #include "analyze.h"
-#include "generator.h"
+#include "generate.h"
 #include "backend.h"
 #include "optimize.h"
 

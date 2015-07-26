@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lexer.h"
+#include "lex.h"
 
 #include "bool.h"
 #include "xalloc.h"

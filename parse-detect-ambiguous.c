@@ -1,8 +1,8 @@
 #include <string.h>
 
 #include "xalloc.h"
-#include "lexer.h"
-#include "parser.h"
+#include "lex.h"
+#include "parse.h"
 
 typedef struct lookahead_state lookahead_state;
 

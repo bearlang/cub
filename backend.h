@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#include "generator.h"
+#include "generate.h"
 
 void backend_write(code_system*, FILE *out);
 

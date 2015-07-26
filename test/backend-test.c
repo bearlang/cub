@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "expression.h"
-#include "stream.h"
-#include "parser.h"
-#include "analyze.h"
-#include "generator.h"
-#include "backend.h"
-#include "optimize.h"
+#include "../expression.h"
+#include "../stream.h"
+#include "../parse.h"
+#include "../analyze.h"
+#include "../generate.h"
+#include "../optimize.h"
+#include "../backend.h"
 
 int main(int argc, char *argv[]) {
   if (argc < 3) {

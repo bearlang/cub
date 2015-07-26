@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "expression.h"
-#include "stream.h"
-#include "parser.h"
-#include "analyze.h"
+#include "../expression.h"
+#include "../stream.h"
+#include "../parse.h"
+#include "../analyze.h"
 
 static inline void pad(uint8_t depth) {
   printf("%*s", depth, "");

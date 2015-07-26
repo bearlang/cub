@@ -1,7 +1,7 @@
 #ifndef OPTIMIZE_H
 #define OPTIMIZE_H
 
-#include "generator.h"
+#include "generate.h"
 
 void optimize(code_system*);
 
