@@ -1,0 +1,9 @@
+#!/bin/bash
+if [ "$#" -lt 2 ]; then
+  echo "usage: cub <input-file> <output-file>" >&2
+  exit 1
+fi
+
+mkdir -p ./out/lib/
+gcc -S llvm-backend/llvm-harness.c -o ./out/lib/llvm-harness.s
+./out/Debug/cub "$1" >(llc | gcc -xassembler - ./out/lib/llvm-harness.s -o "$2")
