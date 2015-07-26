@@ -436,7 +436,6 @@ static code_block *generate_block(code_block *parent, block_statement *block) {
       break;
     // already processed
     case S_CLASS:
-    // case S_DECLARE:
     case S_FUNCTION:
       break;
     }
@@ -475,7 +474,7 @@ static code_block *generate_define(code_block *parent,
     }
 
     symbol_entry *entry = add_symbol(parent, clause->symbol_name, value);
-    entry->type = copy_type(define_type);
+    entry->type = resolve_type(parent->system, copy_type(define_type));
     entry->exists = !!clause->value;
 
     clause = clause->next;
@@ -623,26 +622,28 @@ static void generate_return(code_block *parent, return_statement *ret) {
 
 // STRUCTURE AND CLASS GENERATION
 
-static code_struct *generate_class(code_system *system, class *class) {
-  code_struct *cstruct = &system->structs[class->struct_index];
+static code_struct *generate_class(code_system *system, class *the_class) {
+  code_struct *cstruct = &system->structs[the_class->struct_index];
+  cstruct->field_count = the_class->field_count;
 
-  size_t index = 0;
-  for (field *entry = class->field; entry; entry = entry->next) {
-    type *field_type = resolve_type(system, entry->field_type);
-    cstruct->fields[index].field_type = copy_type(field_type);
-    ++index;
+  if (the_class->field_count) {
+    cstruct->fields = xmalloc(sizeof(code_field) * the_class->field_count);
+
+    size_t index = 0;
+    for (field *entry = the_class->field; entry; entry = entry->next) {
+      type *field_type = resolve_type(system, copy_type(entry->field_type));
+      cstruct->fields[index].field_type = field_type;
+      ++index;
+    }
   }
 
   return cstruct;
 }
 
-static code_struct *generate_class_stub(code_system *system, class *class) {
+static code_struct *generate_class_stub(code_system *system, class *the_class) {
+  the_class->struct_index = system->struct_count;
   code_struct *cstruct = add_struct(system);
-  cstruct->field_count = class->field_count;
-  cstruct->fields = xmalloc(sizeof(code_field) * class->field_count);
-
-  class->struct_index = system->struct_count - 1;
-
+  cstruct->field_count = 0;
   return cstruct;
 }
 
@@ -691,8 +692,8 @@ static code_block *generate_function_stub(code_system *system, function *fn) {
 
   size_t i = 0;
   for (argument *arg = fn->argument; arg; arg = arg->next) {
-    type *arg_type = resolve_type(system, arg->argument_type);
-    start_block->parameters[++i].field_type = copy_type(arg_type);
+    type *arg_type = resolve_type(system, copy_type(arg->argument_type));
+    start_block->parameters[++i].field_type = arg_type;
     symbol_entry *entry = add_symbol(start_block, arg->symbol_name, i);
     entry->type = copy_type(arg_type);
   }
@@ -1343,19 +1344,19 @@ static code_block *generate_new(code_block *parent, expression *value) {
     param_count++;
   }
 
-  class *class = value->type->classtype;
-  size_t field_count = class->field_count;
+  class *the_class = value->type->classtype;
+  size_t field_count = the_class->field_count;
 
   if (param_count != field_count) {
     fprintf(stderr, "wrong parameter count to '%s' constructor post-analysis\n",
-      class->class_name);
+      the_class->class_name);
     abort();
   }
 
   code_instruction *new = new_instruction(parent, 1);
   new->operation.type = O_NEW;
-  new->type = get_object_type(parent->system, class->struct_index);
-  new->parameters[0] = class->struct_index;
+  new->type = get_object_type(parent->system, the_class->struct_index);
+  new->parameters[0] = the_class->struct_index;
 
   size_t object = last_instruction(parent);
 
