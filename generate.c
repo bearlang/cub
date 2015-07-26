@@ -20,7 +20,6 @@ type *instruction_type(code_block *parent, size_t src) {
 }
 
 static code_block *add_block(code_system *system) {
-  printf("add_block\n");
   resize(system->block_count, &system->block_cap, (void**) &system->blocks,
     sizeof(code_block));
 
