@@ -564,35 +564,23 @@ void ternary_numeric_promotion(expression *value) {
     replace_cast(&cond->next, O_UNSIGNED_TO_FLOAT, T_F64);
     ftype = T_F64;
     break;
+  case (T_BOOL << 8) | T_BOOL:
   case (T_F128 << 8) | T_F128:
   case (T_F64 << 8) | T_F64:
   case (T_F32 << 8) | T_F32:
-    // fallthrough
-  case (T_BOOL << 8) | T_BOOL:
   case (T_STRING << 8) | T_STRING:
+  case (T_S8 << 8) | T_S8:
+  case (T_S16 << 8) | T_S16:
   case (T_S32 << 8) | T_S32:
   case (T_S64 << 8) | T_S64:
+  case (T_U8 << 8) | T_U8:
+  case (T_U16 << 8) | T_U16:
   case (T_U32 << 8) | T_U32:
   case (T_U64 << 8) | T_U64:
     // no casting necessary!
     ftype = ltype;
     break;
-  case (T_S8 << 8) | T_S8:
   case (T_S8 << 8) | T_S16:
-  case (T_S16 << 8) | T_S8:
-  case (T_S16 << 8) | T_S16:
-  case (T_S8 << 8) | T_U8:
-  case (T_S8 << 8) | T_U16:
-  case (T_S16 << 8) | T_U8:
-  case (T_S16 << 8) | T_U16:
-  case (T_U8 << 8) | T_S8:
-  case (T_U8 << 8) | T_S16:
-  case (T_U16 << 8) | T_S8:
-  case (T_U16 << 8) | T_S16:
-    replace_cast(&left->next, O_SIGN_EXTEND, T_S32);
-    replace_cast(&cond->next, O_SIGN_EXTEND, T_S32);
-    ftype = T_S32;
-    break;
   case (T_S8 << 8) | T_S32:
   case (T_S8 << 8) | T_S64:
   case (T_S16 << 8) | T_S32:
@@ -601,6 +589,7 @@ void ternary_numeric_promotion(expression *value) {
     replace_cast(&cond->next, O_SIGN_EXTEND, rtype);
     ftype = rtype;
     break;
+  case (T_S16 << 8) | T_S8:
   case (T_S32 << 8) | T_S8:
   case (T_S32 << 8) | T_S16:
   case (T_S64 << 8) | T_S8:
@@ -609,16 +598,10 @@ void ternary_numeric_promotion(expression *value) {
     replace_cast(&left->next, O_SIGN_EXTEND, ltype);
     ftype = ltype;
     break;
-  case (T_U8 << 8) | T_U8:
-  case (T_U8 << 8) | T_U16:
-  case (T_U16 << 8) | T_U8:
-  case (T_U16 << 8) | T_U16:
-    replace_cast(&left->next, O_ZERO_EXTEND, T_U32);
-    replace_cast(&cond->next, O_ZERO_EXTEND, T_U32);
-    ftype = T_U32;
-    break;
+  case (T_U8 << 8) | T_S16:
   case (T_U8 << 8) | T_S32:
   case (T_U8 << 8) | T_S64:
+  case (T_U8 << 8) | T_U16:
   case (T_U8 << 8) | T_U32:
   case (T_U8 << 8) | T_U64:
   case (T_U16 << 8) | T_S32:
@@ -630,11 +613,13 @@ void ternary_numeric_promotion(expression *value) {
     replace_cast(&cond->next, O_ZERO_EXTEND, rtype);
     ftype = rtype;
     break;
+  case (T_S16 << 8) | T_U8:
   case (T_S32 << 8) | T_U8:
   case (T_S32 << 8) | T_U16:
   case (T_S64 << 8) | T_U8:
   case (T_S64 << 8) | T_U16:
   case (T_S64 << 8) | T_U32:
+  case (T_U16 << 8) | T_U8:
   case (T_U32 << 8) | T_U8:
   case (T_U32 << 8) | T_U16:
   case (T_U64 << 8) | T_U8:
@@ -642,6 +627,11 @@ void ternary_numeric_promotion(expression *value) {
   case (T_U64 << 8) | T_U32:
     replace_cast(&left->next, O_ZERO_EXTEND, ltype);
     ftype = ltype;
+    break;
+  case (T_S8 << 8) | T_U16:
+    replace_cast(&left->next, O_REINTERPRET, T_S16);
+    replace_cast(&cond->next, O_SIGN_EXTEND, T_S16);
+    ftype = T_S16;
     break;
   case (T_S8 << 8) | T_U32:
   case (T_S16 << 8) | T_U32:
@@ -656,10 +646,17 @@ void ternary_numeric_promotion(expression *value) {
     replace_cast(&cond->next, O_SIGN_EXTEND, T_S64);
     ftype = T_S64;
     break;
+  case (T_S8 << 8) | T_U8:
+  case (T_S16 << 8) | T_U16:
   case (T_S32 << 8) | T_U32:
   case (T_S64 << 8) | T_U64:
     replace_cast(&left->next, O_REINTERPRET, ltype);
     ftype = ltype;
+    break;
+  case (T_U16 << 8) | T_S8:
+    replace_cast(&left->next, O_SIGN_EXTEND, T_S16);
+    replace_cast(&cond->next, O_REINTERPRET, T_S16);
+    ftype = T_S16;
     break;
   case (T_U32 << 8) | T_S8:
   case (T_U32 << 8) | T_S16:
@@ -674,6 +671,8 @@ void ternary_numeric_promotion(expression *value) {
     replace_cast(&cond->next, O_REINTERPRET, T_S64);
     ftype = T_S64;
     break;
+  case (T_U8 << 8) | T_S8:
+  case (T_U16 << 8) | T_S16:
   case (T_U32 << 8) | T_S32:
   case (T_U64 << 8) | T_S64:
     replace_cast(&cond->next, O_REINTERPRET, rtype);
