@@ -12,10 +12,10 @@ Compile and run the fibonacci test program, which prints out the [8th fibonacci 
 
 ```
 $ make
-$ ./compile test/test.cub test.ll
-$ llc test.ll -o test.s
-$ gcc test/test.s llvm-harness.c -o test
-$ ./test
+$ ./compile test/test.cub test/test.ll
+$ llc test/test.ll -o test/test.s
+$ gcc test/test.s llvm-backend/llvm-harness.c -o test/test
+$ ./test/test
 21
 ```
 
