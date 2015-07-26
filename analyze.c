@@ -326,12 +326,22 @@ static void analyze_expression(block_statement *block, expression *e) {
     uint8_t symbol_type = ST_TYPE;
     symbol_entry *entry = get_symbol(block, class_name, &symbol_type);
 
-    class *class = entry->classtype;
+    if (!entry) {
+      fprintf(stderr, "class '%s' not defined\n", class_name);
+      exit(1);
+    }
 
-    e->type->classtype = class;
+    if (entry->type->type != T_OBJECT) {
+      fprintf(stderr, "type '%s' not a class\n", class_name);
+      exit(1);
+    }
+
+    class *the_class = entry->type->classtype;
+
+    e->type->classtype = the_class;
 
     expression **argvalue = &e->value;
-    field *field = class->field;
+    field *field = the_class->field;
     size_t i = 0;
     while (field && *argvalue) {
       analyze_expression(block, *argvalue);
