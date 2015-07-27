@@ -338,7 +338,7 @@ static code_block *generate_do_while(code_block *parent, loop_statement *loop) {
   }
 
   if (!loop->continue_node && !loop->break_node) {
-    fprintf(stderr, "do-while condition and post-loop not reachable\n");
+    fprintf(stderr, "do-while condition not reachable\n");
 
     return NULL;
   }
@@ -411,7 +411,6 @@ static code_block *generate_if(code_block *parent, if_statement *branch) {
   case 2: // the second block exists
     return rejoin_block(parent, second);
   case 3:
-    fprintf(stderr, "post if-else not reachable\n");
     return NULL;
   }
 
@@ -612,7 +611,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     }
 
     // crap
-    fprintf(stderr, "no symbol '%s' post-analysis\n", symbol);
+    fprintf(stderr, "no symbol '%s' in get-symbol post-analysis\n", symbol);
     abort();
   }
   case O_INSTANCEOF:
@@ -821,7 +820,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
         }
       }
 
-      fprintf(stderr, "YOU CHECKED THIS :(\n");
+      fprintf(stderr, "no symbol '%s' in get-symbol post-analysis\n", symbol);
       // fallthrough
     }
     default:
@@ -881,7 +880,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
       }
     }
 
-    fprintf(stderr, "symbol not found post-analysis\n");
+    fprintf(stderr, "no symbol '%s' in set-symbol post-analysis\n", symbol);
     abort();
   }
   case O_TERNARY:
