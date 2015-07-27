@@ -17,6 +17,7 @@ block_statement *parent_scope(block_statement *block, bool *escape) {
     case S_DO_WHILE:
     case S_EXPRESSION:
     case S_IF:
+    case S_LET:
     case S_RETURN:
     case S_WHILE:
       break;
@@ -60,6 +61,7 @@ loop_statement *get_label(control_statement *control) {
     case S_CONTINUE:
     case S_DEFINE:
     case S_EXPRESSION:
+    case S_LET:
     case S_RETURN:
     case S_TYPEDEF:
       abort();

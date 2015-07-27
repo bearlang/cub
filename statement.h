@@ -16,6 +16,7 @@ typedef enum {
   S_EXPRESSION,
   S_FUNCTION,
   S_IF,
+  S_LET,
   S_RETURN,
   S_TYPEDEF,
   S_WHILE
@@ -125,6 +126,12 @@ typedef struct /*extends statement*/ {
 typedef struct /*extends statement*/ {
   statement_type type;
   statement *next, *parent;
+  define_clause *clause;
+} let_statement;
+
+typedef struct /*extends statement*/ {
+  statement_type type;
+  statement *next, *parent;
   expression *value;
   function *target;
 } return_statement;
@@ -145,6 +152,7 @@ statement *s_expression(expression *value);
 statement *s_function(function *function);
 statement *s_if(expression *condition, block_statement *first,
   block_statement *second);
+statement *s_let(define_clause *clause);
 statement *s_loop(statement_type type, expression *condition,
   block_statement *body);
 statement *s_return(expression *value);

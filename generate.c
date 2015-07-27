@@ -175,6 +175,7 @@ static void mirror_instruction(code_block *parent, size_t src) {
 static code_block *generate_block(code_block*, block_statement*);
 static void generate_control(code_block*, control_statement*);
 static code_block *generate_define(code_block*, define_statement*);
+static code_block *generate_let(code_block*, let_statement*);
 static code_block *generate_loop(code_block*, loop_statement*);
 static code_block *generate_if(code_block*, if_statement*);
 static void generate_return(code_block*, return_statement*);
@@ -223,6 +224,9 @@ static code_block *generate_block(code_block *parent, block_statement *block) {
       break;
     case S_DEFINE:
       parent = generate_define(parent, (define_statement*) node);
+      break;
+    case S_LET:
+      parent = generate_let(parent, (let_statement*) node);
       break;
     case S_DO_WHILE:
     case S_WHILE:
@@ -275,6 +279,24 @@ static code_block *generate_define(code_block *parent,
     symbol_entry *entry = add_symbol(parent, clause->symbol_name, value);
     entry->type = resolve_type(parent->system, copy_type(define_type));
     entry->exists = !!clause->value;
+
+    clause = clause->next;
+  } while (clause);
+
+  return parent;
+}
+
+static code_block *generate_let(code_block *parent, let_statement *let) {
+  code_system *system = parent->system;
+
+  define_clause *clause = let->clause;
+
+  do {
+    parent = generate_expression(parent, clause->value);
+    symbol_entry *entry = add_symbol(parent, clause->symbol_name,
+      last_instruction(parent));
+    entry->type = resolve_type(system, copy_type(clause->value->type));
+    entry->exists = true;
 
     clause = clause->next;
   } while (clause);

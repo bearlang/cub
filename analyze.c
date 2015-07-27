@@ -588,11 +588,11 @@ static void analyze_inner(block_statement *block, statement **node) {
   } break;
   case S_DEFINE: {
     define_statement *define = (define_statement*) *node;
-    define_clause *clause = define->clause;
-
     type *define_type = resolve_type(block, define->symbol_type);
 
-    while (clause != NULL) {
+    define_clause *clause = define->clause;
+
+    do {
       add_symbol(block, ST_VARIABLE, clause->symbol_name)
         ->type = copy_type(define_type);
 
@@ -604,7 +604,26 @@ static void analyze_inner(block_statement *block, statement **node) {
       }
 
       clause = clause->next;
-    }
+    } while (clause != NULL);
+  } break;
+  case S_LET: {
+    let_statement *let = (let_statement*) *node;
+
+    define_clause *clause = let->clause;
+
+    do {
+      analyze_expression(block, clause->value);
+
+      if (is_void(clause->value->type)) {
+        fprintf(stderr, "variable '%s' implied void\n", clause->symbol_name);
+        exit(1);
+      }
+
+      add_symbol(block, ST_VARIABLE, clause->symbol_name)
+        ->type = copy_type(clause->value->type);
+
+      clause = clause->next;
+    } while (clause);
   } break;
   case S_IF: {
     if_statement *if_s = (if_statement*) *node;
@@ -656,6 +675,7 @@ static void analyze_inner(block_statement *block, statement **node) {
       case S_CONTINUE:
       case S_DEFINE:
       case S_EXPRESSION:
+      case S_LET:
       case S_RETURN:
       case S_TYPEDEF:
         abort();

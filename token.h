@@ -43,6 +43,7 @@ typedef enum {
   L_IDENTIFIER,
   L_IF,
   L_INCREMENT,
+  L_LET,
   L_LITERAL,
   L_LSHIFT,
   L_LSHIFT_ASSIGN,

@@ -840,7 +840,6 @@ statement *parse_define_statement(parse_state *state, bool allow_init) {
     return NULL;
   }
 
-  // TODO: is this right?
   token *symbol_token = expect(state, L_IDENTIFIER);
 
   char *symbol = symbol_token->symbol_name;
@@ -861,7 +860,7 @@ statement *parse_define_statement(parse_state *state, bool allow_init) {
     : NULL;
 
   while (consume(state, L_COMMA)) {
-    token *symbol_token = expect(state, L_IDENTIFIER);
+    symbol_token = expect(state, L_IDENTIFIER);
 
     define_clause *tmp = xmalloc(sizeof(*tmp));
 
@@ -977,6 +976,40 @@ statement *parse_statement(parse_state *state) {
       second->parent = result;
     }
     return result;
+  }
+  case L_LET: {
+    free(t);
+
+    token *symbol_token = expect(state, L_IDENTIFIER);
+
+    expect_consume(state, L_ASSIGN);
+
+    define_clause *head = xmalloc(sizeof(*head)), *tail = head;
+
+    tail->symbol_name = symbol_token->symbol_name;
+    free(symbol_token);
+
+    tail->value = expect_expression(state);
+
+    while (consume(state, L_COMMA)) {
+      symbol_token = expect(state, L_IDENTIFIER);
+
+      expect_consume(state, L_ASSIGN);
+
+      define_clause *tmp = xmalloc(sizeof(*tmp));
+
+      tmp->symbol_name = symbol_token->symbol_name;
+      free(symbol_token);
+
+      tmp->value = expect_expression(state);
+
+      tail->next = tmp;
+      tail = tmp;
+    }
+
+    tail->next = NULL;
+
+    return s_let(head);
   }
   case L_NATIVE: {
     free(t);
