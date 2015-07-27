@@ -3,6 +3,7 @@
 
 #include "expression.h"
 
+struct block_node;
 struct block_statement;
 
 typedef enum {
@@ -34,8 +35,16 @@ typedef struct /*extends statement*/ {
   struct block_statement *body;
 
   // code generation
-  size_t block_head, block_tail;
-  bool tail_used;
+  union {
+    // S_DO_WHILE
+    struct {
+      struct block_node *break_node, *continue_node;
+    };
+    // S_WHILE
+    struct {
+      size_t condition_block, post_block;
+    };
+  };
 } loop_statement;
 
 // MUST be copied due to block<->ast incompatibilities

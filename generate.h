@@ -15,7 +15,7 @@ typedef struct {
   code_field *fields;
 } code_struct;
 
-typedef struct /*extends code_instruction_blank*/ {
+typedef struct {
   operation operation;
   type *type;
   union {
@@ -50,6 +50,14 @@ typedef enum {
   BRANCH
 } code_tail;
 
+typedef struct {
+  code_tail type;
+  size_t condition;
+  size_t first_block, second_block;
+  size_t parameter_count; // TODO: needed?
+  size_t *parameters;
+} code_terminal;
+
 typedef struct instruction_node {
   size_t instruction;
   struct instruction_node *next;
@@ -71,14 +79,13 @@ typedef struct {
 
   // tail instruction
   bool is_final;
-  struct {
-    code_tail type;
-    size_t condition;
-    size_t first_block, second_block;
-    size_t parameter_count; // TODO: needed?
-    size_t *parameters;
-  } tail;
+  code_terminal tail;
 } code_block;
+
+typedef struct block_node {
+  code_block *block;
+  struct block_node *next;
+} block_node;
 
 typedef struct code_system {
   // TODO: byte arrays in one constant block referenced in slices from the code
@@ -88,9 +95,26 @@ typedef struct code_system {
   code_block **blocks;
 } code_system;
 
-code_system *generate(block_statement *root);
+code_block *fork_block(code_block *parent);
+void join_blocks(code_block *parent, size_t dest_block);
+code_block *rejoin_block(code_block *context, code_block *inner);
+code_block *merge_blocks(code_block *context, code_block *first,
+    code_block *second);
+void branch_into(code_block *parent, code_block **first, code_block **second);
+code_block *tangle_blocks(code_block *context, block_node *inputs);
+void weave_blocks(code_block *context, block_node *inputs,
+    code_block *condition, code_block **first, code_block **second);
+
 code_block *get_code_block(code_system*, size_t block_index);
 code_struct *get_code_struct(code_system*, size_t struct_index);
+code_block *create_block(code_system *system);
+type *get_blockref_type(code_block *block);
+code_instruction *add_instruction(code_block *block);
+code_instruction *new_instruction(code_block *parent, size_t parameter_count);
+size_t last_instruction(code_block *block);
+size_t next_instruction(code_block *block);
+void add_blockref(code_block *src, size_t dest_block);
+code_system *generate(block_statement *root);
 type *instruction_type(code_block*, size_t);
 
 #endif

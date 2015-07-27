@@ -19,15 +19,6 @@ type *instruction_type(code_block *parent, size_t src) {
   return NULL;
 }
 
-static code_block *add_block(code_system *system) {
-  resize(system->block_count, &system->block_cap, (void**) &system->blocks,
-    sizeof(code_block*));
-
-  code_block *block = xmalloc(sizeof(*block));
-  system->blocks[system->block_count++] = block;
-  return block;
-}
-
 static code_struct *add_struct(code_system *system) {
   resize(system->struct_count, &system->struct_cap, (void**) &system->structs,
     sizeof(code_struct));
@@ -35,13 +26,6 @@ static code_struct *add_struct(code_system *system) {
   code_struct *cstruct = xmalloc(sizeof(*cstruct));
   system->structs[system->struct_count++] = cstruct;
   return cstruct;
-}
-
-code_instruction *add_instruction(code_block *block) {
-  resize(block->instruction_count, &block->instruction_cap,
-    (void**) &block->instructions, sizeof(code_instruction));
-
-  return &block->instructions[block->instruction_count++];
 }
 
 static symbol_entry *add_symbol(code_block *block, const char *symbol_name,
@@ -66,14 +50,6 @@ static symbol_entry *add_symbol(code_block *block, const char *symbol_name,
   return *entry;
 }
 
-code_block *get_code_block(code_system *system, size_t block_index) {
-  return system->blocks[block_index];
-}
-
-code_struct *get_code_struct(code_system *system, size_t struct_index) {
-  return system->structs[struct_index];
-}
-
 static type *resolve_type(code_system *system, type *t) {
   if (t->type == T_ARRAY) {
     resolve_type(system, t->arraytype);
@@ -83,160 +59,11 @@ static type *resolve_type(code_system *system, type *t) {
   return t;
 }
 
-static code_block *create_block(code_system *system) {
-  code_block *block = add_block(system);
-  block->system = system;
-  block->parameter_count = 0;
-  block->parameters = NULL;
-  block->symbol_count = 0;
-  block->symbol_head = NULL;
-  block->stack_size = 0;
-  block->stack_head = NULL;
-  block->accepts_return = false;
-  block->has_return = false;
-  block->return_instruction = 0;
-  block->instruction_count = 0;
-  block->instruction_cap = 0;
-  block->instructions = NULL;
-  block->is_final = false;
-  block->tail.parameter_count = 0;
-  block->tail.parameters = NULL;
-  return block;
-}
-
-static code_block *create_child_block(code_block *parent) {
-  size_t params = parent->symbol_count + parent->stack_size +
-    parent->has_return;
-
-  code_block *block = add_block(parent->system);
-  block->system = parent->system;
-  block->parameter_count = params;
-  block->parameters = NULL;
-  block->symbol_count = parent->symbol_count;
-  block->symbol_head = NULL;
-  block->stack_size = parent->stack_size;
-  block->stack_head = NULL;
-  block->accepts_return = parent->has_return;
-  block->has_return = parent->has_return;
-  block->return_instruction = 0;
-  block->instruction_count = 0;
-  block->instruction_cap = 0;
-  block->instructions = NULL;
-  block->is_final = false;
-  block->tail.parameter_count = 0;
-  block->tail.parameters = NULL;
-
-  if (params > 0) {
-    block->parameters = xmalloc(sizeof(code_field) * params);
-
-    if (parent->has_return) {
-      type *ret_type = instruction_type(parent, parent->return_instruction);
-      block->parameters[0].field_type = copy_type(ret_type);
-    }
-
-    size_t i = parent->has_return;
-    symbol_entry *entry = parent->symbol_head, **tail = &block->symbol_head;
-    for (; entry; i++, entry = entry->next) {
-      block->parameters[i].field_type = copy_type(entry->type);
-      symbol_entry *new = xmalloc(sizeof(*new));
-      new->exists = true;
-      new->instruction = i;
-      new->symbol_name = entry->symbol_name;
-      new->type = copy_type(entry->type);
-      *tail = new;
-      tail = &new->next;
-    }
-    *tail = NULL;
-
-    instruction_node *node = parent->stack_head;
-    for (; node; i++, node = node->next) {
-      type *node_type = instruction_type(parent, node->instruction);
-      block->parameters[i].field_type = copy_type(node_type);
-    }
-
-    i = 1;
-    for (node = parent->stack_head; node; i++, node = node->next) {
-      instruction_node *new = xmalloc(sizeof(*new));
-      new->instruction = params - i;
-      new->next = block->stack_head;
-      block->stack_head = new;
-    }
-  }
-
-  return block;
-}
-
-static type *get_blockref_type(code_block *block) {
-  type *t = xmalloc(sizeof(*t));
-  t->type = T_BLOCKREF;
-
-  argument *blocktype = NULL;
-
-  size_t params = block->parameter_count;
-  if (params) {
-    blocktype = xmalloc(sizeof(*blocktype));
-    blocktype->symbol_name = NULL;
-    blocktype->argument_type = copy_type(block->parameters[0].field_type);
-    argument *tail = blocktype;
-    for (size_t i = 1; i < params; i++) {
-      argument *next = xmalloc(sizeof(*next));
-      next->symbol_name = NULL;
-      next->argument_type = copy_type(block->parameters[i].field_type);
-      tail->next = next;
-      tail = next;
-    }
-    tail->next = NULL;
-  }
-
-  t->blocktype = blocktype;
-
-  return t;
-}
-
-static type *get_object_type(code_system *system, size_t struct_index) {
+static type *get_object_type(size_t struct_index) {
   type *t = xmalloc(sizeof(*t));
   t->type = T_OBJECT;
   t->struct_index = struct_index;
   return t;
-}
-
-// precondition: src has at least as many symbols as dest, and the common
-// symbols are at the beginning of both symbol tables in the same order
-static void set_block_tail_params(code_block *src, code_block *dest) {
-  size_t params = dest->parameter_count;
-  src->tail.parameter_count = params;
-  src->tail.parameters = xmalloc(sizeof(size_t) * params);
-
-  if (dest->accepts_return) {
-    if (!src->has_return) {
-      fprintf(stderr, "no return struct to forward\n");
-      exit(1);
-    }
-
-    src->tail.parameters[0] = src->return_instruction;
-  }
-
-  size_t i = dest->accepts_return;
-  for (symbol_entry *entry = dest->symbol_head, *from = src->symbol_head; entry;
-      (entry = entry->next), (from = from->next)) {
-    // TODO: verify precondition
-    if (strcmp(entry->symbol_name, from->symbol_name) != 0) {
-      fprintf(stderr, "symbol tables not aligned\n");
-      exit(1);
-    }
-
-    src->tail.parameters[i++] = from->instruction;
-  }
-
-  for (instruction_node *node = src->stack_head; node; node = node->next) {
-    src->tail.parameters[i] = node->instruction;
-    i++;
-  }
-
-  if (i != params) {
-    fprintf(stderr, "block tail params mismatch\n");
-    exit(1);
-  }
 }
 
 static size_t get_return_struct(code_system *system, type *return_type) {
@@ -277,7 +104,7 @@ static size_t get_return_struct(code_system *system, type *return_type) {
 
   argument *blocktype = xmalloc(sizeof(*blocktype));
   blocktype->symbol_name = NULL;
-  blocktype->argument_type = get_object_type(system, count);
+  blocktype->argument_type = get_object_type(count);
   return_struct->fields[0].field_type->blocktype = blocktype;
 
   blocktype->next = xmalloc(sizeof(argument));
@@ -287,36 +114,6 @@ static size_t get_return_struct(code_system *system, type *return_type) {
   blocktype->next = NULL;
 
   return count;
-}
-
-static code_instruction *new_instruction(code_block *parent,
-    size_t parameter_count) {
-  code_instruction *ins = add_instruction(parent);
-  ins->parameters = xmalloc(sizeof(size_t) * parameter_count);
-  return ins;
-}
-
-static void make_blockref_index(code_block *src, size_t dest_block) {
-  code_instruction *get = add_instruction(src);
-  get->operation.type = O_BLOCKREF;
-  get->type = get_blockref_type(get_code_block(src->system, dest_block));
-  get->block_index = dest_block;
-}
-
-static size_t last_instruction(code_block *block) {
-  return block->parameter_count + block->instruction_count - 1;
-}
-
-static size_t next_instruction(code_block *block) {
-  return block->parameter_count + block->instruction_count;
-}
-
-static void goto_id(code_block *src, size_t dest) {
-  make_blockref_index(src, dest);
-
-  src->tail.type = GOTO;
-  src->tail.first_block = last_instruction(src);
-  set_block_tail_params(src, get_code_block(src->system, dest));
 }
 
 static void push_stack_from(code_block *block, size_t src) {
@@ -415,16 +212,9 @@ static code_block *generate_block(code_block *parent, block_statement *block) {
   for (statement *node = block->body; node; node = node->next) {
     switch (node->type) {
     case S_BLOCK: {
-      size_t body_block_id = parent->system->block_count;
-      code_block *body_block = create_child_block(parent);
-      size_t result_block_id = parent->system->block_count;
-      code_block *result_block = create_child_block(parent);
-
-      goto_id(parent, body_block_id);
-      body_block = generate_block(body_block, (block_statement*) node);
-      goto_id(body_block, result_block_id);
-
-      parent = result_block;
+      code_block *body = fork_block(parent);
+      body = generate_block(body, (block_statement*) node);
+      parent = rejoin_block(parent, body);
     } break;
     case S_BREAK:
     case S_CONTINUE:
@@ -469,13 +259,6 @@ static code_block *generate_block(code_block *parent, block_statement *block) {
   return parent;
 }
 
-static void generate_control(code_block *parent, control_statement *control) {
-  loop_statement *target = control->target;
-  goto_id(parent, control->type == S_BREAK
-    ? target->block_tail
-    : target->block_head);
-}
-
 static code_block *generate_define(code_block *parent,
     define_statement *define) {
   type *define_type = define->symbol_type;
@@ -499,109 +282,119 @@ static code_block *generate_define(code_block *parent,
   return parent;
 }
 
-static code_block *generate_loop(code_block *parent, loop_statement *loop) {
-  code_block *condition, *body, *post;
+static void generate_control(code_block *parent, control_statement *control) {
+  loop_statement *target = control->target;
+  if (target->type == S_DO_WHILE) {
+    block_node **root = control->type == S_BREAK
+      ? &target->break_node
+      : &target->continue_node;
 
-  size_t condition_block = parent->system->block_count;
-  condition = create_child_block(parent);
+    block_node *node = xmalloc(sizeof(*node));
+    node->block = parent;
+    node->next = *root;
+    *root = node;
+  } else {
+    join_blocks(parent, control->type == S_BREAK
+      ? target->post_block
+      : target->condition_block);
+  }
+}
+
+static code_block *generate_do_while(code_block *parent, loop_statement *loop) {
   size_t body_block = parent->system->block_count;
-  body = create_child_block(parent);
-  post = create_child_block(parent);
+  code_block *body = fork_block(parent);
 
-  goto_id(parent, loop->type == S_WHILE ? condition_block : body_block);
-
-  // available for the body generation
-  loop->block_head = condition_block;
-  loop->block_tail = condition_block + 2; // post
-
-  code_block *condition_end = generate_expression(condition, loop->condition);
-
-  condition_end->tail.type = BRANCH;
-  condition_end->tail.condition = last_instruction(condition_end);
-  set_block_tail_params(condition_end, post);
-
-  code_instruction *ref;
-
-  ref = add_instruction(condition_end);
-  ref->operation.type = O_BLOCKREF;
-  ref->type = get_blockref_type(body);
-  ref->block_index = condition_block + 1; // body
-
-  condition_end->tail.first_block = last_instruction(condition_end);
-
-  ref = add_instruction(condition_end);
-  ref->operation.type = O_BLOCKREF;
-  ref->type = get_blockref_type(post);
-  ref->block_index = condition_block + 2; // post
-
-  condition_end->tail.second_block = last_instruction(condition_end);
-
-  code_block *body_end = generate_block(body, loop->body);
-
-  if (body_end != NULL) {
-    goto_id(body_end, condition_block);
-    loop->tail_used = true;
+  if (loop->body) {
+    body = generate_block(body, loop->body);
   }
 
-  if (!loop->tail_used) {
-    fprintf(stderr, "post-loop not reachable\n");
+  if (body) {
+    block_node *node = xmalloc(sizeof(*node));
+    node->block = body;
+    node->next = loop->continue_node;
+    loop->continue_node = node;
+  }
+
+  if (!loop->continue_node && !loop->break_node) {
+    fprintf(stderr, "do-while condition and post-loop not reachable\n");
+
+    return NULL;
+  }
+
+  if (loop->continue_node) {
+    code_block *condition = tangle_blocks(body, loop->continue_node);
+
+    condition = generate_expression(condition, loop->condition);
+
+    code_block *body_replay, *post;
+    weave_blocks(parent, loop->break_node, condition, &body_replay, &post);
+
+    join_blocks(body_replay, body_block);
+
+    return post;
+  }
+
+  fprintf(stderr, "do-while condition not reachable\n");
+
+  return tangle_blocks(parent, loop->break_node);
+}
+
+static code_block *generate_while(code_block *parent, loop_statement *loop) {
+  size_t condition_block = parent->system->block_count;
+  code_block *condition = fork_block(parent);
+
+  condition = generate_expression(condition, loop->condition);
+
+  code_block *body, *post;
+  branch_into(condition, &body, &post);
+
+  // TODO: this is using undocumented behavior
+  size_t /*body_block = parent->system->block_count - 2,
+    */post_block = parent->system->block_count - 1;
+
+  loop->condition_block = condition_block;
+  loop->post_block = post_block;
+
+  if (loop->body) {
+    body = generate_block(body, loop->body);
+  }
+
+  if (body) {
+    join_blocks(body, condition_block);
   }
 
   return post;
 }
 
+static code_block *generate_loop(code_block *parent, loop_statement *loop) {
+  return loop->type == S_DO_WHILE
+    ? generate_do_while(parent, loop)
+    : generate_while(parent, loop);
+}
+
 static code_block *generate_if(code_block *parent, if_statement *branch) {
-  code_block *first, *second;
-
-  size_t first_block = parent->system->block_count;
-  first = create_child_block(parent);
-  second = create_child_block(parent);
-
   parent = generate_expression(parent, branch->condition);
 
-  parent->tail.type = BRANCH;
-  parent->tail.parameter_count = parent->symbol_count;
-  parent->tail.condition = last_instruction(parent);
+  code_block *first, *second;
+  branch_into(parent, &first, &second);
 
-  code_instruction *ref;
+  first = branch->first ? generate_block(first, branch->first) : first;
+  second = branch->second ? generate_block(second, branch->second) : second;
 
-  ref = add_instruction(parent);
-  ref->operation.type = O_BLOCKREF;
-  ref->type = get_blockref_type(first);
-  ref->block_index = first_block; // first
-
-  parent->tail.first_block = last_instruction(parent);
-
-  ref = add_instruction(parent);
-  ref->operation.type = O_BLOCKREF;
-  ref->type = get_blockref_type(second);
-  ref->block_index = first_block + 1; // second
-
-  parent->tail.second_block = last_instruction(parent);
-
-  set_block_tail_params(parent, first);
-
-  code_block *first_end, *second_end;
-  first_end = branch->first ? generate_block(first, branch->first) : first;
-  second_end = branch->second ? generate_block(second, branch->second) : second;
-
-  // reachability check
-  if (!first_end && !second_end) {
+  switch (((!first) << 1) | (!second)) {
+  case 0: // both exist
+    return merge_blocks(parent, first, second);
+  case 1: // the first block exists
+    return rejoin_block(parent, first);
+  case 2: // the second block exists
+    return rejoin_block(parent, second);
+  case 3:
+    fprintf(stderr, "post if-else not reachable\n");
     return NULL;
   }
 
-  size_t post_block = parent->system->block_count;
-  code_block *post = create_child_block(parent);
-
-  if (first_end) {
-    goto_id(first_end, post_block);
-  }
-
-  if (second_end) {
-    goto_id(second_end, post_block);
-  }
-
-  return post;
+  fprintf(stderr, "if statement generation logical failure\n");
+  abort();
 }
 
 static void generate_return(code_block *parent, return_statement *ret) {
@@ -614,7 +407,7 @@ static void generate_return(code_block *parent, return_statement *ret) {
     abort();
   }
 
-  size_t param_count = ret->value ? 2 : 1;
+  size_t param_count = 1 + non_void;
 
   parent->tail.type = GOTO;
   parent->tail.parameter_count = param_count;
@@ -705,7 +498,7 @@ static code_block *generate_function_stub(code_system *system, function *fn) {
   start_block->parameter_count = handoff_size;
   start_block->parameters = xmalloc(sizeof(code_field) * handoff_size);
 
-  start_block->parameters[0].field_type = get_object_type(system, struct_index);
+  start_block->parameters[0].field_type = get_object_type(struct_index);
   start_block->has_return = true;
   start_block->return_instruction = 0;
 
@@ -732,7 +525,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     ref->operation.type = O_BLOCKREF;
     type *return_type = value->type->blocktype->argument_type;
     size_t return_struct = get_return_struct(parent->system, return_type);
-    type *struct_type = get_object_type(parent->system, return_struct);
+    type *struct_type = get_object_type(return_struct);
     ref->type = new_type(T_BLOCKREF);
     argument *struct_arg = xmalloc(sizeof(*struct_arg));
     struct_arg->symbol_name = NULL;
@@ -760,7 +553,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   case O_CAST:
     return generate_cast(parent, value);
   case O_COMPARE:
-  case O_GET_INDEX:
+  case O_GET_INDEX: // TODO: bounds checking
   case O_IDENTITY:
   case O_NUMERIC:
   case O_SHIFT:
@@ -878,6 +671,8 @@ static code_block *generate_expression(code_block *parent, expression *value) {
       parent = generate_expression(parent, left->value->next);
       push_stack(parent);
 
+      // TODO: bounds checking
+
       // array value
       code_instruction *get = new_instruction(parent, 2);
       get->operation.type = O_GET_INDEX;
@@ -977,6 +772,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
       mirror_instruction(parent, mirror);
     } break;
     case O_GET_INDEX: {
+      // TODO: bounds checking
       code_instruction *set = new_instruction(parent, 3);
       set->operation.type = O_SET_INDEX;
       set->type = NULL;
@@ -1034,6 +830,8 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     parent = generate_expression(parent, value->value->next);
     push_stack(parent);
 
+    // TODO: bounds checking
+
     parent = generate_expression(parent, value->value->next->next);
 
     code_instruction *set = new_instruction(parent, 3);
@@ -1070,7 +868,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   case O_FUNCTION:
     generate_function_stub(parent->system, value->function);
     generate_function(parent->system, value->function);
-    make_blockref_index(parent, value->function->block_body);
+    add_blockref(parent, value->function->block_body);
     return parent;
 
   // gets translated to control flow in analysis
@@ -1083,6 +881,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   abort();
 }
 
+// TODO: don't add symbols with false exist flag to the context struct
 static code_block *generate_call(code_block *parent, expression *value) {
   code_system *system = parent->system;
   type *fn_type = value->value->type,
@@ -1104,8 +903,7 @@ static code_block *generate_call(code_block *parent, expression *value) {
   return_block->symbol_count = parent->symbol_count;
   return_block->stack_size = parent->stack_size;
 
-  return_block->parameters[0].field_type = get_object_type(system,
-    return_struct);
+  return_block->parameters[0].field_type = get_object_type(return_struct);
   if (non_void) {
     return_block->parameters[1].field_type = copy_type(return_type);
   }
@@ -1165,7 +963,7 @@ static code_block *generate_call(code_block *parent, expression *value) {
   // add NEW instruction for context struct to call block
   code_instruction *new = new_instruction(parent, 1);
   new->operation.type = O_NEW;
-  new->type = get_object_type(system, context_index);
+  new->type = get_object_type(context_index);
   new->parameters[0] = context_index;
 
   // store a reference to the object's instruction
@@ -1282,7 +1080,7 @@ static code_block *generate_call(code_block *parent, expression *value) {
     cast = new_instruction(parent, 2);
     cast->operation.type = O_CAST;
     cast->operation.cast_type = O_UPCAST;
-    cast->type = get_object_type(system, return_struct);
+    cast->type = get_object_type(return_struct);
     cast->parameters[0] = object;
 
     object = last_instruction(parent);
@@ -1375,7 +1173,7 @@ static code_block *generate_new(code_block *parent, expression *value) {
 
   code_instruction *new = new_instruction(parent, 1);
   new->operation.type = O_NEW;
-  new->type = get_object_type(parent->system, the_class->struct_index);
+  new->type = get_object_type(the_class->struct_index);
   new->parameters[0] = the_class->struct_index;
 
   size_t object = last_instruction(parent);
@@ -1399,36 +1197,25 @@ static code_block *generate_new(code_block *parent, expression *value) {
 static code_block *generate_ternary(code_block *parent, expression *value) {
   parent = generate_expression(parent, value->value);
 
-  size_t first_block = parent->system->block_count;
-  code_block *first = create_child_block(parent);
-  size_t second_block = parent->system->block_count;
-  code_block *second = create_child_block(parent);
+  code_block *first, *second;
+  branch_into(parent, &first, &second);
 
-  parent->tail.type = BRANCH;
-  parent->tail.condition = last_instruction(parent);
-  set_block_tail_params(parent, first);
-  make_blockref_index(parent, first_block);
-  parent->tail.first_block = last_instruction(parent);
-  make_blockref_index(parent, second_block);
-  parent->tail.second_block = last_instruction(parent);
-
+  // generate the two expressions in their appropriate blocks, then push the
+  // result values onto their respective stacks
   first = generate_expression(first, value->value->next);
-  push_stack(first);
-
   second = generate_expression(second, value->value->next->next);
+  push_stack(first);
   push_stack(second);
 
-  size_t after_block = parent->system->block_count;
-  code_block *after = create_child_block(first);
+  // merge_blocks will use the stack available in the first and second blocks,
+  // and ignore the parent stack
+  code_block *post = merge_blocks(parent, first, second);
 
-  goto_id(first, after_block);
-  goto_id(second, after_block);
+  // that way the pop_stack can get the result of the first or second expression
+  size_t result = pop_stack(post);
+  mirror_instruction(post, result);
 
-  size_t result = pop_stack(after);
-
-  mirror_instruction(after, result);
-
-  return after;
+  return post;
 }
 
 // TOP-LEVEL GENERATION
@@ -1449,7 +1236,7 @@ code_system *generate(block_statement *root) {
 
   argument *blocktype = xmalloc(sizeof(*blocktype));
   blocktype->symbol_name = NULL;
-  blocktype->argument_type = get_object_type(system, 0);
+  blocktype->argument_type = get_object_type(0);
   blocktype->next = NULL;
   void_return_struct->fields[0].field_type->blocktype = blocktype;
 

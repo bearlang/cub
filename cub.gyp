@@ -97,6 +97,8 @@
       'analyze-symbol.c',
       'analyze-type.c',
       'analyze.c',
+      'generate-common.c',
+      'generate-block.c',
       'generate.c',
       'optimize.c',
       'llvm-backend/llvm-backend.c',
