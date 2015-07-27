@@ -27,10 +27,6 @@ char *xstrdup(const char *src) {
   }
 
   char *dest = xmalloc(strlen(src) + sizeof(char));
-  if (dest == NULL) {
-    fprintf(stderr, "out of memory\n");
-    abort();
-  }
   strcpy(dest, src);
   return dest;
 }

@@ -9,4 +9,4 @@ fi
 
 mkdir -p ./out/lib/
 gcc -S llvm-backend/llvm-harness.c -o ./out/lib/llvm-harness.s
-./out/Debug/cub "$1" >(llc | gcc -xassembler - ./out/lib/llvm-harness.s -o "$2")
+./out/Debug/cub "$1" | llc | gcc -xassembler - ./out/lib/llvm-harness.s -o "$2"

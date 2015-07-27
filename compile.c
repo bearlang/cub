@@ -14,19 +14,21 @@
 
 #include "out/lib/core.h"
 
-static block_statement *parse_file(char *filename) {
-  FILE *src;
-  stream *in;
-  block_statement *root;
+static block_statement *parse_stream(FILE *src) {
+  stream *in = open_stream(src);
+  block_statement *root = parse(in);
+  close_stream(in);
+  return root;
+}
 
-  src = fopen(filename, "r");
+static block_statement *parse_file(char *filename) {
+  FILE *src = fopen(filename, "r");
   if (src == NULL) {
     fprintf(stderr, "cub: no such file or directory\n");
     exit(1);
   }
-  in = open_stream(src);
-  root = parse(in);
-  close_stream(in);
+
+  block_statement *root = parse_stream(src);
   fclose(src);
 
   return root;
@@ -50,12 +52,12 @@ static void backend_write_file(char *filename, code_system *system) {
 static block_statement *wrap_core(block_statement *root) {
   FILE *src = fmemopen(lib_core_cub, lib_core_cub_len, "r");
   if (src == NULL) {
-    fprintf(stderr, "cub: unable to open embedded library as file\n");
+    fprintf(stderr, "cub: unable to open core library\n");
     exit(1);
   }
   stream *in = open_stream(src);
 
-  printf("parsing core\n");
+  fprintf(stderr, "parsing core\n");
   block_statement *core_block = parse(in);
   close_stream(in);
   fclose(src);
@@ -73,21 +75,26 @@ int main(int argc, char *argv[]) {
   block_statement *root;
   code_system *system;
 
-  if (argc < 3) {
-    fprintf(stderr, "usage: cub <input-file> <output-file>\n");
-    return 1;
+  if (argc > 3 || (argc == 2 && (strcmp(argv[1], "-h") == 0 ||
+      strcmp(argv[1], "--help") == 0))) {
+    fprintf(stderr, "usage: cub [<input-file> [<output-file>]]\n");
+    return 0;
   }
 
-  printf("parsing userspace\n");
-  root = parse_file(argv[1]);
+  fprintf(stderr, "parsing userspace\n");
+  root = argc > 1 ? parse_file(argv[1]) : parse_stream(stdin);
   root = wrap_core(root);
 
   analyze(root);
   system = generate(root);
   optimize(system);
 
-  // TODO: backend_write_file | llc | gcc -xassembler - out/lib/llvm-harness.s -o argv[2]
-  backend_write_file(argv[2], system);
+  // TODO: | llc | gcc -xassembler - out/lib/llvm-harness.s -o argv[2]
+  if (argc > 2) {
+    backend_write_file(argv[2], system);
+  } else {
+    backend_write(system, stdout);
+  }
 
   // http://stackoverflow.com/q/31622764/345645
   exit(0);
