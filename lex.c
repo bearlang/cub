@@ -20,11 +20,11 @@ static bool consume(stream *in, char chr) {
 static uint8_t expect_hex_digit(stream *in) {
   char chr = stream_shift(in);
   if (chr >= '0' && chr <= '9') {
-    return chr - '0';
+    return (uint8_t) (chr - '0');
   }
   chr |= 0x20;
   if (chr >= 'a' && chr <= 'f') {
-    return chr - 0x57;
+    return (uint8_t) (chr - 0x57);
   }
   fprintf(stderr, "unexpected character, expecting hex digit on line %zi\n",
     in->line);
@@ -95,7 +95,7 @@ static token *scan_number_inner(stream *in) {
             exit(1);
           }
           any = true;
-          value = v2 | (chr - '0');
+          value = v2 | (uint64_t) (chr - '0');
           continue;
         }
         char _chr = chr | 0x20; // lowercase
@@ -106,7 +106,7 @@ static token *scan_number_inner(stream *in) {
             exit(1);
           }
           any = true;
-          value = v2 | (_chr - 0x57);
+          value = v2 | (uint64_t) (_chr - 0x57);
           continue;
         }
         // handles EOF
@@ -144,7 +144,7 @@ static token *scan_number_inner(stream *in) {
           exit(1);
         }
         any = true;
-        value = v2 | (chr - '0');
+        value = v2 | (uint64_t) (chr - '0');
       }
       return new_integer_token(in, value, integer_bits(value));
     }
@@ -180,7 +180,7 @@ static token *scan_number_inner(stream *in) {
       fprintf(stderr, "decimal literal too large on line %zi\n", in->line);
       exit(1);
     }
-    value = v2 + chr - '0';
+    value = v2 + (uint64_t) (chr - '0');
     chr = stream_shift(in);
   }
   stream_push(in, chr);
@@ -234,7 +234,8 @@ static token *scan_string(stream *in, char match) {
       exit(1);
     case 'v': append = 'v'; break;
     case 'x':
-      append = (expect_hex_digit(in) << 4) | expect_hex_digit(in);
+      append = (char) ((((uint8_t) expect_hex_digit(in)) << 4) |
+        (uint8_t) expect_hex_digit(in));
     default:
       fprintf(stderr, "unexpected character in string on line %zi\n", in->line);
       exit(1);

@@ -29,8 +29,10 @@ static void analyze_expression(block_statement *block, expression *e) {
     e->value = numeric_promotion(e->value, false);
     e->type = copy_type(e->value->type);
   } break;
+  // TODO: better negative literal support
   case O_NEGATE:
     analyze_expression(block, e->value);
+
     e->value = numeric_promotion(e->value, true);
     e->type = copy_type(e->value->type);
     break;

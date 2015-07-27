@@ -42,7 +42,8 @@ void resize(const size_t used, size_t *total, void **ptr, size_t size) {
   } else if (used >= t) {
     size_t n = t;
     while (used >= n) {
-      const size_t mask = -!(n & (n - 1));
+      // not converts to true/false, so cast is needed to prevent warning
+      const size_t mask = -(size_t) !(n & (n - 1));
       n = (mask & (n | (n >> 1))) | (((n / 3) << 2) & ~mask);
     }
     *total = t = n;

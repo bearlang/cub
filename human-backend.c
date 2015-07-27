@@ -105,7 +105,7 @@ void backend_write(code_system *system, FILE *out) {
 		if (block->parameter_count) {
 			wt(block->parameters[0].field_type);
 			pf(" $0");
-			for (size_t p = 0; p < block->parameter_count; p++) {
+			for (size_t p = 1; p < block->parameter_count; p++) {
 				pf(", ");
 				wt(block->parameters[p].field_type);
 				pf(" $%zu", p);
@@ -299,21 +299,6 @@ void backend_write(code_system *system, FILE *out) {
 					break;
 				}
 				break;
-			case O_LOGIC:
-				switch (ins->operation.logic_type) {
-				case O_AND:
-					SET("and $%zu $%zu", AP(0), AP(1));
-					break;
-				case O_OR:
-					SET("or $%zu $%zu", AP(0), AP(1));
-					break;
-				case O_XOR:
-					SET("xor $%zu $%zu", AP(0), AP(1));
-					break;
-				default:
-					abort();
-				}
-				break;
 			case O_NATIVE: {
 				if (is_void(ins->type)) {
 					pf("  call void");
@@ -387,12 +372,15 @@ void backend_write(code_system *system, FILE *out) {
 				}
 				SET("$%zu %s $%zu", AP(0), op, AP(1));
 			} break;
+			// TODO: implement me!
 			case O_NEW_ARRAY:
 			case O_STR_CONCAT:
 			case O_IDENTITY:
 			case O_INSTANCEOF:
+			// should not exist post-generation
 			case O_CALL:
 			case O_FUNCTION:
+			case O_LOGIC:
 			case O_NUMERIC_ASSIGN:
 			case O_POSTFIX:
 			case O_SET_SYMBOL:

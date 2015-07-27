@@ -139,7 +139,7 @@ static syntax_structure detect_ambiguous_expression_ambiguous(
       hasArray = true;
 
       // factors expression out of the trailing return statement
-      restriction &= ~G_EXPRESSION;
+      restriction = restriction & (syntax_structure) ~G_EXPRESSION;
     } else {
       // must be an expression
       return restriction & G_EXPRESSION;
@@ -212,7 +212,7 @@ static syntax_structure _detect_ambiguous_statement(lookahead_state *state) {
   if (lookahead(state, L_OPEN_BRACKET)) {
     if (lookahead(state, L_CLOSE_BRACKET)) {
       // can't be a G_EXPRESSION
-      restriction &= ~G_EXPRESSION;
+      restriction = restriction & (syntax_structure) ~G_EXPRESSION;
     } else {
       return restriction & G_EXPRESSION;
     }
