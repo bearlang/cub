@@ -655,19 +655,21 @@ static void analyze_inner(block_statement *block, statement **node) {
     statement *parent = (statement*) block;
     function *fn;
     for (;;) {
-      switch (parent->type) {
-      case S_BLOCK: {
-        block_statement *body = (block_statement*) parent;
-        if (body->fn_parent) {
-          fn = body->fn_parent;
-          goto return_loop_escape;
+      if (parent->type == S_BLOCK) {
+        block_statement *block_parent = (block_statement*) parent;
+        if (block_parent->fn_parent) {
+          fn = block_parent->fn_parent;
+          break;
         }
       }
+
+      switch (parent->type) {
+      case S_BLOCK:
       case S_DO_WHILE:
       case S_IF:
       case S_WHILE:
         break;
-      // this should be handled by the fn_parent check
+      // this should be handled by the if statement
       case S_FUNCTION:
       // these shouldn't ever be a parent
       case S_BREAK:
@@ -688,7 +690,6 @@ static void analyze_inner(block_statement *block, statement **node) {
         exit(1);
       }
     }
-return_loop_escape:;
 
     return_statement *ret = (return_statement*) *node;
     ret->target = fn;
