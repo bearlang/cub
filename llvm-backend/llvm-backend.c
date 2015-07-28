@@ -428,14 +428,16 @@ void backend_write(code_system *system, FILE *out) {
 		for (size_t j = 0; j < block->instruction_count; j++) {
 			last_used_map[block->parameter_count + j] = j;
 		}
-		switch (block->tail.type) {
-		case GOTO:
-			last_used_map[block->tail.first_block] = block->instruction_count;
-			break;
-		case BRANCH:
-			last_used_map[block->tail.first_block] = block->instruction_count;
-			last_used_map[block->tail.second_block] = block->instruction_count;
-			break;
+		if (!block->is_final) {
+			switch (block->tail.type) {
+			case GOTO:
+				last_used_map[block->tail.first_block] = block->instruction_count;
+				break;
+			case BRANCH:
+				last_used_map[block->tail.first_block] = block->instruction_count;
+				last_used_map[block->tail.second_block] = block->instruction_count;
+				break;
+			}
 		}
 		for (size_t j = 0; j < block->instruction_count; j++) {
 			code_instruction *ins = &block->instructions[j];
