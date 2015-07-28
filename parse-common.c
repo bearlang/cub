@@ -47,7 +47,7 @@ token *parse_peek(parse_state *state) {
 
 bool parse_peek_compare(parse_state *state, token_type type) {
   token *t = parse_peek(state);
-  return t == NULL ? false : t->type == type;
+  return t && t->type == type;
 }
 
 token *parse_shift(parse_state *state) {

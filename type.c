@@ -37,8 +37,9 @@ bool is_float(type *t) {
 }
 
 bool equivalent_type(type *left, type *right) {
-  if (!left) {
-    return (!right) || (right->type == T_VOID);
+  if (!left || !right) {
+    fprintf(stderr, "expected resolved type, found unresolved type\n");
+    abort();
   }
 
   switch (left->type) {
@@ -66,7 +67,7 @@ bool equivalent_type(type *left, type *right) {
   case T_STRING:
     return right->type == T_STRING;
   case T_VOID:
-    return (!right) || (right->type == T_VOID);
+    return right->type == T_VOID;
   default:
     break;
   }
@@ -74,8 +75,9 @@ bool equivalent_type(type *left, type *right) {
 }
 
 bool compatible_type(type *left, type *right) {
-  if (!left) {
-    return (!right) || (right->type == T_VOID);
+  if (!left || !right) {
+    fprintf(stderr, "expected resolved type, found unresolved type\n");
+    abort();
   }
 
   switch (left->type) {
@@ -87,7 +89,7 @@ bool compatible_type(type *left, type *right) {
   case T_STRING:
     return right->type == T_STRING;
   case T_VOID:
-    return (!right) || (right->type == T_VOID);
+    return right->type == T_VOID;
   default:
     // TODO: warn for numeric compatibility
     return true;
@@ -192,7 +194,8 @@ void copy_type_into(type *src, type *dest) {
 
 type *copy_type(type *t) {
   if (t == NULL) {
-    return NULL;
+    fprintf(stderr, "unable to copy unresolved type\n");
+    abort();
   }
 
   type *new = xmalloc(sizeof(*new));

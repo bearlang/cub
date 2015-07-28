@@ -691,8 +691,174 @@ void ternary_numeric_promotion(expression *value) {
   return;
 
 unsupported:
-  fprintf(stderr, "unsupported types in binary operation\n");
+  fprintf(stderr, "unsupported types in ternary operation\n");
   exit(1);
+}
+
+type *common_type(type *left, type *right, bool *implicit_cast) {
+  type_type ltype = left->type, rtype = right->type;
+
+  *implicit_cast = true;
+  switch ((((uint8_t) ltype) << 8) | (uint8_t) rtype) {
+  case (T_OBJECT << 8) | T_OBJECT:
+    if (!left->classtype) {
+      *implicit_cast = false;
+      return copy_type(right);
+    }
+    if (!right->classtype) {
+      *implicit_cast = false;
+      return copy_type(left);
+    }
+    // fallthrough
+  case (T_ARRAY << 8) | T_ARRAY:
+  case (T_BLOCKREF << 8) | T_BLOCKREF:
+    if (equivalent_type(left, right)) {
+      *implicit_cast = false;
+      return copy_type(left);
+    }
+    return NULL;
+  case (T_BOOL << 8) | T_BOOL:
+  case (T_F128 << 8) | T_F128:
+  case (T_F64 << 8) | T_F64:
+  case (T_F32 << 8) | T_F32:
+  case (T_STRING << 8) | T_STRING:
+  case (T_S8 << 8) | T_S8:
+  case (T_S16 << 8) | T_S16:
+  case (T_S32 << 8) | T_S32:
+  case (T_S64 << 8) | T_S64:
+  case (T_U8 << 8) | T_U8:
+  case (T_U16 << 8) | T_U16:
+  case (T_U32 << 8) | T_U32:
+  case (T_U64 << 8) | T_U64:
+  case (T_VOID << 8) | T_VOID:
+    *implicit_cast = false;
+    // fallthrough
+  case (T_F32 << 8) | T_S8:
+  case (T_F32 << 8) | T_S16:
+  case (T_F32 << 8) | T_S32:
+  case (T_F32 << 8) | T_U8:
+  case (T_F32 << 8) | T_U16:
+  case (T_F32 << 8) | T_U32:
+  case (T_F64 << 8) | T_F32:
+  case (T_F64 << 8) | T_S8:
+  case (T_F64 << 8) | T_S16:
+  case (T_F64 << 8) | T_S32:
+  case (T_F64 << 8) | T_S64:
+  case (T_F64 << 8) | T_U8:
+  case (T_F64 << 8) | T_U16:
+  case (T_F64 << 8) | T_U32:
+  case (T_F64 << 8) | T_U64:
+  case (T_F128 << 8) | T_F32:
+  case (T_F128 << 8) | T_F64:
+  case (T_F128 << 8) | T_S8:
+  case (T_F128 << 8) | T_S16:
+  case (T_F128 << 8) | T_S32:
+  case (T_F128 << 8) | T_S64:
+  case (T_F128 << 8) | T_U8:
+  case (T_F128 << 8) | T_U16:
+  case (T_F128 << 8) | T_U32:
+  case (T_F128 << 8) | T_U64:
+  case (T_S8 << 8) | T_U8:
+  case (T_S16 << 8) | T_S8:
+  case (T_S16 << 8) | T_U8:
+  case (T_S16 << 8) | T_U16:
+  case (T_S32 << 8) | T_S8:
+  case (T_S32 << 8) | T_S16:
+  case (T_S32 << 8) | T_U8:
+  case (T_S32 << 8) | T_U16:
+  case (T_S32 << 8) | T_U32:
+  case (T_S64 << 8) | T_S8:
+  case (T_S64 << 8) | T_S16:
+  case (T_S64 << 8) | T_S32:
+  case (T_S64 << 8) | T_U8:
+  case (T_S64 << 8) | T_U16:
+  case (T_S64 << 8) | T_U32:
+  case (T_S64 << 8) | T_U64:
+  case (T_U16 << 8) | T_U8:
+  case (T_U32 << 8) | T_U8:
+  case (T_U32 << 8) | T_U16:
+  case (T_U64 << 8) | T_U8:
+  case (T_U64 << 8) | T_U16:
+  case (T_U64 << 8) | T_U32:
+    return copy_type(left);
+
+  case (T_F32 << 8) | T_F64:
+  case (T_F32 << 8) | T_F128:
+  case (T_F64 << 8) | T_F128:
+  case (T_S8 << 8) | T_F32:
+  case (T_S8 << 8) | T_F64:
+  case (T_S8 << 8) | T_F128:
+  case (T_S8 << 8) | T_S16:
+  case (T_S8 << 8) | T_S32:
+  case (T_S8 << 8) | T_S64:
+  case (T_S16 << 8) | T_F32:
+  case (T_S16 << 8) | T_F64:
+  case (T_S16 << 8) | T_F128:
+  case (T_S16 << 8) | T_S32:
+  case (T_S16 << 8) | T_S64:
+  case (T_S32 << 8) | T_F32:
+  case (T_S32 << 8) | T_F64:
+  case (T_S32 << 8) | T_F128:
+  case (T_S32 << 8) | T_S64:
+  case (T_S64 << 8) | T_F64:
+  case (T_S64 << 8) | T_F128:
+  case (T_U8 << 8) | T_F32:
+  case (T_U8 << 8) | T_F64:
+  case (T_U8 << 8) | T_F128:
+  case (T_U8 << 8) | T_S8:
+  case (T_U8 << 8) | T_S16:
+  case (T_U8 << 8) | T_S32:
+  case (T_U8 << 8) | T_S64:
+  case (T_U8 << 8) | T_U16:
+  case (T_U8 << 8) | T_U32:
+  case (T_U8 << 8) | T_U64:
+  case (T_U16 << 8) | T_F32:
+  case (T_U16 << 8) | T_F64:
+  case (T_U16 << 8) | T_F128:
+  case (T_U16 << 8) | T_S16:
+  case (T_U16 << 8) | T_S32:
+  case (T_U16 << 8) | T_S64:
+  case (T_U16 << 8) | T_U32:
+  case (T_U16 << 8) | T_U64:
+  case (T_U32 << 8) | T_F32:
+  case (T_U32 << 8) | T_F64:
+  case (T_U32 << 8) | T_F128:
+  case (T_U32 << 8) | T_S32:
+  case (T_U32 << 8) | T_S64:
+  case (T_U32 << 8) | T_U64:
+  case (T_U64 << 8) | T_F64:
+  case (T_U64 << 8) | T_F128:
+  case (T_U64 << 8) | T_S64:
+    return copy_type(right);
+
+  case (T_F32 << 8) | T_S64:
+  case (T_F32 << 8) | T_U64:
+  case (T_S64 << 8) | T_F32:
+  case (T_U64 << 8) | T_F32:
+    return new_type(T_F64);
+
+  case (T_S8 << 8) | T_U16:
+  case (T_U16 << 8) | T_S8:
+  case (T_U32 << 8) | T_S8:
+  case (T_U32 << 8) | T_S16:
+    return new_type(T_S16);
+
+  case (T_S8 << 8) | T_U32:
+  case (T_S16 << 8) | T_U32:
+    return new_type(T_S32);
+
+  case (T_S8 << 8) | T_U64:
+  case (T_S16 << 8) | T_U64:
+  case (T_S32 << 8) | T_U64:
+  case (T_U64 << 8) | T_S8:
+  case (T_U64 << 8) | T_S16:
+  case (T_U64 << 8) | T_S32:
+    return new_type(T_S64);
+  default:
+    return NULL;
+  }
+
+  abort();
 }
 
 void assert_condition(type *t) {
@@ -704,6 +870,11 @@ void assert_condition(type *t) {
 
 // mutates
 type *resolve_type(block_statement *block, type *t) {
+  if (!t) {
+    fprintf(stderr, "cannot resolve unresolved type\n");
+    abort();
+  }
+
   // TODO: static types as properties (module support)
   switch (t->type) {
   case T_ARRAY:

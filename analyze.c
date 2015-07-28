@@ -5,11 +5,23 @@
 #include "parse.h"
 #include "xalloc.h"
 
+static type *return_value_type(return_statement *ret) {
+  if (!ret->value) {
+    return new_type(T_VOID);
+  }
+
+  // precondition: ret->value does not have a T_REF type
+  return copy_type(ret->value->type);
+}
+
 static void analyze_function(block_statement *block, function *fn) {
+  fprintf(stderr, "analyzing function\n");
   block_statement *body = fn->body;
   body->parent = (statement*) block;
 
-  fn->return_type = resolve_type(block, fn->return_type);
+  if (fn->return_type) {
+    fn->return_type = resolve_type(block, fn->return_type);
+  }
 
   // add arguments to symbol table
   for (argument *arg = fn->argument; arg; arg = arg->next) {
@@ -20,6 +32,53 @@ static void analyze_function(block_statement *block, function *fn) {
   }
 
   analyze(body);
+
+  if (!fn->return_type && !fn->return_site) {
+    fn->return_type = new_type(T_VOID);
+  } else if (!fn->return_type && fn->return_site) {
+    return_site *site = fn->return_site;
+    type *rolling_type = return_value_type(site->site);
+
+    bool cast = false;
+    for (site = site->next; site; site = site->next) {
+      type *next_type = return_value_type(site->site);
+
+      bool local_cast;
+      type *common = common_type(rolling_type, next_type, &local_cast);
+
+      if (!common) {
+        // incompatible types
+        fprintf(stderr, "cannot infer function type for '%s'\n",
+          fn->function_name);
+        exit(1);
+      }
+
+      // TODO: wow so efficient
+      free_type(rolling_type);
+      free_type(next_type);
+      rolling_type = common;
+
+      cast = cast || local_cast;
+    }
+
+    if (cast) {
+      fprintf(stderr, "function return types for '%s' mandate implicit casting,"
+        " individual return statements may cast to an unexpected type\n",
+        fn->function_name);
+
+      for (site = fn->return_site; site; site = site->next) {
+        return_statement *ret = site->site;
+        expression *cast = implicit_cast(ret->value, rolling_type);
+
+        if (cast != ret->value) {
+          cast->next = NULL;
+          ret->value = cast;
+        }
+      }
+    }
+
+    fn->return_type = rolling_type;
+  }
 }
 
 static void analyze_expression(block_statement *block, expression *e) {
@@ -152,6 +211,8 @@ static void analyze_expression(block_statement *block, expression *e) {
       if (symbol_type == ST_FUNCTION) {
         // TODO: this should be supported so you can check if two function
         // references have the same closure
+
+        // TODO: does the #13 have any impact on this?
         fprintf(stderr, "cannot check identity of function\n");
         exit(1);
       }
@@ -283,6 +344,7 @@ static void analyze_expression(block_statement *block, expression *e) {
       exit(1);
     }
 
+    // TODO: handle unknown function type with fn syntax (#13)
     if (symbol_type == ST_FUNCTION) {
       if (e->operation.type == O_SET_SYMBOL) {
         fprintf(stderr, "cannot reassign function '%s'\n", e->symbol_name);
@@ -695,7 +757,15 @@ static void analyze_inner(block_statement *block, statement **node) {
     ret->target = fn;
 
     analyze_expression(block, ret->value);
-    ret->value = implicit_cast(ret->value, fn->return_type);
+
+    if (fn->return_type) {
+      ret->value = implicit_cast(ret->value, fn->return_type);
+    } else {
+      return_site *site = xmalloc(sizeof(*site));
+      site->site = ret;
+      site->next = fn->return_site;
+      fn->return_site = site;
+    }
   } break;
   case S_TYPEDEF: {
     typedef_statement *tdef = (typedef_statement*) *node;
@@ -728,8 +798,9 @@ void analyze(block_statement *block) {
     // resolved in appropriate scopes
     case S_FUNCTION: {
       function_statement *f = (function_statement*) node;
-      add_symbol(block, ST_VARIABLE, f->symbol_name)
-        ->type = new_blockref_type(f->function);
+      // this variable symbol entry is just to reserve the space, and should
+      // not be used
+      add_symbol(block, ST_VARIABLE, f->symbol_name)->type = NULL;
       add_symbol(block, ST_FUNCTION, f->symbol_name)
         ->function = f->function;
     } break;

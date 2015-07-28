@@ -10,11 +10,11 @@
 // just in case
 struct statement;
 struct block_statement;
+struct return_site;
 
 struct class;
 struct arguments;
 
-// note that this struct may be used, do not modify post-parsing :3
 typedef struct type {
   type_type type;
   union {
@@ -37,8 +37,9 @@ typedef struct argument {
 typedef struct function {
   char *function_name;
   type *return_type;
-  size_t argument_count; // TODO: use this (store, don't forget stack values)
+  size_t argument_count;
   argument *argument;
+  struct return_site *return_site;
   struct block_statement *body;
 
   // code generation
@@ -54,7 +55,7 @@ typedef struct field {
 
 typedef struct class {
   char *class_name;
-  size_t field_count; // TODO: use this
+  size_t field_count;
   field *field;
 
   // code generation
@@ -64,8 +65,8 @@ typedef struct class {
 bool is_void(type*);
 bool is_integer(type*);
 bool is_float(type*);
-bool equivalent_type(type *left, type *right);
-bool compatible_type(type *left, type *right);
+bool equivalent_type(type*, type*);
+bool compatible_type(type*, type*);
 argument *copy_arguments(argument*, bool with_names);
 void free_arguments(argument*);
 type *new_type(type_type);

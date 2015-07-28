@@ -142,15 +142,20 @@ void parse_args(parse_state *state, function *fn, type *first_type) {
 
 // can use expect, guaranteed to find a function if anything
 function *parse_function(parse_state *state, bool allow_anonymous) {
-  type *first_type = NULL;
-  type *return_type = parse_type(state, &first_type, false);
+  type *return_type, *first_type = NULL;
+  if (consume(state, L_FUNCTION)) {
+    return_type = NULL;
+  } else {
+    return_type = parse_type(state, &first_type, false);
 
-  if (!return_type) {
-    return NULL;
+    if (!return_type) {
+      return NULL;
+    }
   }
 
   function *fn = xmalloc(sizeof(*fn));
   fn->function_name = NULL;
+  fn->return_site = NULL;
   fn->return_type = return_type;
 
   token *name_token = accept(state, L_IDENTIFIER);
@@ -195,6 +200,10 @@ function *parse_function(parse_state *state, bool allow_anonymous) {
 
 expression *parse_base_expression(parse_state *state) {
   expression *e;
+
+  if (parse_peek_compare(state, L_FUNCTION)) {
+    return new_function_node(parse_function(state, true));
+  }
 
   if (consume(state, L_OPEN_PAREN)) {
     e = parse_expression(state);
@@ -1010,6 +1019,17 @@ statement *parse_statement(parse_state *state) {
     tail->next = NULL;
 
     return s_let(head);
+  }
+  case L_FUNCTION: {
+    parse_push(state, t);
+
+    function *fn = parse_function(state, false);
+
+    if (!fn) {
+      unexpected_token(parse_peek(state), "expecting function");
+    }
+
+    return s_function(fn);
   }
   case L_NATIVE: {
     free(t);

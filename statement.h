@@ -136,6 +136,11 @@ typedef struct /*extends statement*/ {
   function *target;
 } return_statement;
 
+typedef struct return_site {
+  return_statement *site;
+  struct return_site *next;
+} return_site;
+
 typedef struct /*extends statement*/ {
   statement_type type;
   statement *next, *parent;

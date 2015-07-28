@@ -29,7 +29,7 @@ static code_struct *add_struct(code_system *system) {
 }
 
 static symbol_entry *add_symbol(code_block *block, const char *symbol_name,
-    size_t instruction) {
+    type *entry_type, size_t instruction) {
   symbol_entry **entry = &block->symbol_head;
 
   for (; *entry; entry = &(*entry)->next) {
@@ -46,7 +46,7 @@ static symbol_entry *add_symbol(code_block *block, const char *symbol_name,
   (*entry)->exists = true;
   (*entry)->next = NULL;
   (*entry)->symbol_name = (char*) symbol_name;
-  (*entry)->type = NULL;
+  (*entry)->type = entry_type;
   return *entry;
 }
 
@@ -276,8 +276,8 @@ static code_block *generate_define(code_block *parent,
       value = last_instruction(parent);
     }
 
-    symbol_entry *entry = add_symbol(parent, clause->symbol_name, value);
-    entry->type = resolve_type(parent->system, copy_type(define_type));
+    symbol_entry *entry = add_symbol(parent, clause->symbol_name,
+      resolve_type(parent->system, copy_type(define_type)), value);
     entry->exists = !!clause->value;
 
     clause = clause->next;
@@ -293,10 +293,8 @@ static code_block *generate_let(code_block *parent, let_statement *let) {
 
   do {
     parent = generate_expression(parent, clause->value);
-    symbol_entry *entry = add_symbol(parent, clause->symbol_name,
-      last_instruction(parent));
-    entry->type = resolve_type(system, copy_type(clause->value->type));
-    entry->exists = true;
+    add_symbol(parent, clause->symbol_name, resolve_type(system,
+      copy_type(clause->value->type)), last_instruction(parent));
 
     clause = clause->next;
   } while (clause);
@@ -527,8 +525,7 @@ static code_block *generate_function_stub(code_system *system, function *fn) {
   for (argument *arg = fn->argument; arg; arg = arg->next) {
     type *arg_type = resolve_type(system, copy_type(arg->argument_type));
     start_block->parameters[++i].field_type = arg_type;
-    symbol_entry *entry = add_symbol(start_block, arg->symbol_name, i);
-    entry->type = copy_type(arg_type);
+    add_symbol(start_block, arg->symbol_name, copy_type(arg_type), i);
   }
 
   return start_block;
@@ -1265,7 +1262,7 @@ code_system *generate(block_statement *root) {
 
   code_block *tail_block = generate_block(block, root);
 
-  if (tail_block != NULL) {
+  if (tail_block) {
     // TODO: add exit code when the final block exists
     tail_block->is_final = true;
   }

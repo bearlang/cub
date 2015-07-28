@@ -46,59 +46,61 @@ static void wi(FILE *file, size_t value) {
 }
 
 static void wt(FILE *file, type *t, char *name_type, size_t i, bool constant) {
-  char *type = "void";
-  if (t) {
-    switch (t->type) {
-    case T_ARRAY:
-      fprintf(stderr, "array type not implemented\n");
-      exit(1);
-    case T_BLOCKREF:
-      wf(file, "void (*");
-      if (name_type) {
-        w(file, name_type);
-        wc(file, '_');
-        wi(file, i);
-      }
-      wf(file, ")(");
-      argument *arg = t->blocktype;
-      if (arg) {
-        wt(file, arg->argument_type, NULL, 0, true);
-        arg = arg->next;
-        for (; arg; arg = arg->next) {
-          wf(file, ", ");
-          wt(file, arg->argument_type, NULL, 0, true);
-        }
-      }
-      wc(file, ')');
-      return;
-    case T_BOOL: type = "bool"; break;
-    case T_F32: type = "float"; break;
-    case T_F64: type = "double"; break;
-    case T_F128: type = "long double"; break;
-    case T_OBJECT:
-      w(file, "struct_");
-      wi(file, t->struct_index);
-      wc(file, '*');
-      if (name_type) {
-        wc(file, ' ');
-        w(file, name_type);
-        wc(file, '_');
-        wi(file, i);
-      }
-      return;
-    case T_REF:
-      abort();
-    case T_S8: type = "int8_t"; break;
-    case T_S16: type = "int16_t"; break;
-    case T_S32: type = "int32_t"; break;
-    case T_S64: type = "int64_t"; break;
-    case T_STRING: type = "char*"; break;
-    case T_U8: type = "uint8_t"; break;
-    case T_U16: type = "uint16_t"; break;
-    case T_U32: type = "uint32_t"; break;
-    case T_U64: type = "uint64_t"; break;
-    case T_VOID: type = "void"; break;
+  if (!t) {
+    fprintf(stderr, "found unresolved type in backend\n");
+    abort();
+  }
+  char *type;
+  switch (t->type) {
+  case T_ARRAY:
+    fprintf(stderr, "array type not implemented\n");
+    exit(1);
+  case T_BLOCKREF:
+    wf(file, "void (*");
+    if (name_type) {
+      w(file, name_type);
+      wc(file, '_');
+      wi(file, i);
     }
+    wf(file, ")(");
+    argument *arg = t->blocktype;
+    if (arg) {
+      wt(file, arg->argument_type, NULL, 0, true);
+      arg = arg->next;
+      for (; arg; arg = arg->next) {
+        wf(file, ", ");
+        wt(file, arg->argument_type, NULL, 0, true);
+      }
+    }
+    wc(file, ')');
+    return;
+  case T_BOOL: type = "bool"; break;
+  case T_F32: type = "float"; break;
+  case T_F64: type = "double"; break;
+  case T_F128: type = "long double"; break;
+  case T_OBJECT:
+    w(file, "struct_");
+    wi(file, t->struct_index);
+    wc(file, '*');
+    if (name_type) {
+      wc(file, ' ');
+      w(file, name_type);
+      wc(file, '_');
+      wi(file, i);
+    }
+    return;
+  case T_REF:
+    abort();
+  case T_S8: type = "int8_t"; break;
+  case T_S16: type = "int16_t"; break;
+  case T_S32: type = "int32_t"; break;
+  case T_S64: type = "int64_t"; break;
+  case T_STRING: type = "char*"; break;
+  case T_U8: type = "uint8_t"; break;
+  case T_U16: type = "uint16_t"; break;
+  case T_U32: type = "uint32_t"; break;
+  case T_U64: type = "uint64_t"; break;
+  case T_VOID: type = "void"; break;
   }
   if (constant) {
     wf(file, "const ");

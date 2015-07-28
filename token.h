@@ -38,6 +38,7 @@ typedef enum {
   L_ELSE,
   L_EQ,
   L_FOR,
+  L_FUNCTION,
   L_GT,
   L_GTE,
   L_IDENTIFIER,
