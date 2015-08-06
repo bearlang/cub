@@ -1,0 +1,40 @@
+class Numeric extends Expression {
+  NumericOperation numericOperation;
+  Expression left, right;
+
+  Numeric(Expression left, Expression right) {
+    this.left = left;
+    this.right = right;
+  }
+
+  bool validType(Type operandType) {
+    switch (this.numericOperation) {
+    case ADD | DIV | MOD | MUL | SUB
+      return operandType is NumericType;
+    case BAND | BOR | BXOR
+      return operandType is Integer;
+    }
+  }
+
+  bool allowTypes(Type left, Type right) {
+    return this.validType(left) && this.validType(right);
+  }
+
+  void analyze(Scope scope) {
+    this.left.analyze(scope);
+    this.right.analyze(scope);
+
+    if (!this.allowTypes(this.left.type, this.right.type)) {
+      typeError("unable to #{this.numericOperation} invalid types");
+      return;
+    }
+
+    this.type = binaryNumericPromotion(this.left.type, this.right.type);
+    this.left = implicitCast(this.left, this.type);
+    this.right = implicitCast(this.right, this.type);
+  }
+
+  string operationName() {
+    return this.numericOperation.toString();
+  }
+}

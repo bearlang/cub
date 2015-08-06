@@ -1,0 +1,89 @@
+Assign newAssign(GetField left, Expression right) {
+  return new SetField(left, right);
+}
+
+Assign newAssign(GetIndex left, Expression right) {
+  return new SetIndex(left, right);
+}
+
+Assign newAssign(GetSymbol left, Expression right) {
+  return new SetSymbol(left, right);
+}
+
+abstract class Assign extends Expression {
+  BinaryExpression? modifier;
+
+  Block generate(Block block) {
+
+  }
+
+  void addModifier(BinaryExpression? modifier) {
+    this.modifier = modifier;
+  }
+
+  /*override void analyze(Scope scope) {
+
+  }*/
+}
+
+class SetField extends Assign {
+  SetField(GetField left, Expression right) {
+
+  }
+
+  override void analyze(Scope scope) {
+    // super.analyze(scope);
+
+
+  }
+}
+
+class SetIndex extends Assign {
+  GetIndex left;
+  Expression right;
+
+  SetIndex(GetIndex left, Expression right) {
+    this.left = left;
+    this.right = right;
+  }
+
+  override void analyze(Scope scope) {
+    this.left.analyze(scope);
+
+    if (this.left.left.type is String) {
+      typeError("unable to modify string, strings are immutable");
+      return;
+    }
+
+    this.type = this.left.type;
+
+    this.right.analyze(scope);
+
+    if (this.modifier != null && !this.modifier.allowAssign(this.left.type,
+        this.right.type)) {
+      typeError("unable to assign-#{this.modifier.operationName()} invalid types");
+      return;
+    }
+
+
+  }
+}
+
+class SetSymbol extends Assign {
+  GetSymbol left;
+  Expression right;
+
+  SetSymbol(GetSymbol left, Expression right) {
+    this.left = left;
+    this.right = right;
+  }
+
+  override void analyze(Scope scope) {
+    // super.analyze(scope);
+
+    this.left.analyze(scope);
+    this.right.analyze(scope);
+
+    this.type = this.left.type;
+  }
+}

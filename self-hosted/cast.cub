@@ -1,0 +1,78 @@
+CastType? convertImplicit(Type left, Type right) {
+  // handles Array, Bool, FuncRef
+  if (left == right)
+    return IDENTITY;
+  return null;
+}
+
+CastType convertImplicit(Float left, Float right) {
+  if (left.bitWidth > right.bitWidth)
+    return FLOAT_EXTEND;
+  if (left.bitWidth == right.bitWidth)
+    return IDENTITY;
+  typeError("possible loss of precision");
+  return null;
+}
+
+CastType convertImplicit(Float left, Integer right) {
+  if (left.bitWidth > right.bitWidth)
+    return right.signed ? SIGNED_TO_FLOAT : UNSIGNED_TO_FLOAT;
+  typeError("possible loss of precision");
+  return null;
+}
+
+CastType convertImplicit(Integer left, Float right) {
+  // f32 to (s64|u64)
+  if (left.bitWidth > right.bitWidth)
+    return left.signed ? FLOAT_TO_SIGNED : FLOAT_TO_UNSIGNED;
+  typeError("possible loss of precision");
+  return null;
+}
+
+CastType convertImplicit(Integer left, Integer right) {
+  if (left == right)
+    return IDENTITY;
+
+  if (left.bitWidth < right.bitWidth) {
+    typeError("possible loss of precision");
+    return null;
+  }
+
+  if (left.bitWidth == right.bitWidth)
+    return REINTERPRET;
+
+  switch (left.signed, right.signed) {
+  case false, false
+  case false, true
+  case true, false
+    return ZERO_EXTEND;
+  case true, true
+    return SIGN_EXTEND;
+  }
+}
+
+CastType? convertImplicit(Object left, Object right) {
+  if (right.classType == null)
+    return left.nullable ? REINTERPRET : null;
+  // TODO: inheritance!
+  if (left.classType == right.classType)
+    return IDENTITY;
+  return null;
+}
+
+Expression castImplicit(Type type, Expression value) {
+  if (type is Bool && value.type is Integer)
+    return new Compare(NE, value, new IntegerLiteral(0));
+
+  CastType? cast = convertImplicit(type, value.type);
+
+  if (cast == null) {
+    typeError("unable to perform implicit cast between incompatible types");
+    return null;
+  }
+
+  if (cast == IDENTITY)
+    return value;
+
+  return new Cast(type, cast, value);
+}

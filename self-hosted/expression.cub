@@ -1,0 +1,14 @@
+class Expression {
+  Type valueType;
+
+  Block generate(Block);
+
+  void analyze(Scope scope);
+}
+
+class BinaryExpression extends Expression {
+  // for operational assignments (e.g. +=)
+  bool allowTypes(Type left, Type right);
+
+  string operationName();
+}

@@ -1,0 +1,4 @@
+class GetField extends Expression {
+  Expression left;
+  string field;
+}

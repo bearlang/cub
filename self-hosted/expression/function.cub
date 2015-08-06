@@ -1,0 +1,7 @@
+class Function extends Expression {
+
+}
+
+class FunctionRef extends Expression {
+
+}

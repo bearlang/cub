@@ -1,0 +1,3 @@
+class BitwiseNot extends Expression {
+
+}

@@ -1,0 +1,3 @@
+class Not extends Expression {
+
+}

@@ -1,0 +1,164 @@
+abstract class Type {
+  Type subType() {
+    return null;
+    typeError("attempt to index non-indexable type\n");
+  }
+
+  Type? promoteNumeric() {
+    return null;
+  }
+}
+
+abstract class NumericType extends Type {
+  const u16 bitWidth;
+}
+
+class Array extends Type {
+  Type arrayType;
+
+  override bool :equal(Array other) {
+    return other != null && this.arrayType == other.arrayType;
+  }
+
+  override Type subType() {
+    return arrayType;
+  }
+}
+
+class BlockType extends Type {
+  List<Type> parameterTypes;
+
+  BlockType(Type parameterTypes) {
+    this.parameterTypes = parameterTypes;
+  }
+
+  // gotta figure out closures, bindings, and return structs
+  BlockType(FuncType function, System system); /*{
+  }*/
+}
+
+class Bool extends Type {
+  override bool :equal(Bool other) {
+    return other != null;
+  }
+}
+
+class Float extends NumericType {
+  Float(u16 bitWidth) {
+    this.bitWidth = bitWidth;
+  }
+
+  override bool :equal(Float other) {
+    return other != null && this.bitWidth == other.bitWidth;
+  }
+
+  override Type promoteNumeric() {
+    return this;
+  }
+}
+
+class FuncType extends Type {
+  Type returnType;
+  List<Type> parameterTypes;
+
+  FuncType(Type returnType, Type parameterTypes) {
+    this.returnType = returnType;
+    this.parameterTypes = parameterTypes;
+  }
+
+  override bool :equal(FuncType other) {
+    return other != null && this.returnType == other.returnType
+      && this.parameterTypes == other.parameterTypes;
+  }
+}
+
+class Integer extends NumericType {
+  bool signed;
+
+  Integer(bool signed, u16 bitWidth) {
+    this.signed = signed;
+    this.bitWidth = bitWidth;
+  }
+
+  override bool :equal(Signed other) {
+    return other != null && this.bitWidth == other.bitWidth;
+  }
+
+  override Type promoteNumeric() {
+    return this.bitWidth < 32
+      ? new Integer(this.signed, 32);
+      : this;
+  }
+}
+
+class Object extends Type {
+  bool nullable; // TODO: implement!
+  Class classType;
+
+  Object(Class classType) {
+    this.nullable = classType == null;
+    this.classType = classType;
+  }
+
+  Object(bool nullable, Class classType) {
+    this.nullable = nullable;
+    this.classType = classType;
+  }
+
+  override bool :equal(Object other) {
+    return other != null && this.nullable == other.nullable
+      && this.classType == other.classType;
+  }
+
+  // TODO: support custom indexable objects
+  /*override Type subType() {
+  }*/
+}
+
+class Ref extends Type {
+  string symbol;
+
+  Ref(string symbol) {
+    this.symbol = symbol;
+  }
+
+  override bool :equal(Ref other) {
+    return false;
+  }
+}
+
+class String extends Type {
+  override bool :equal(String other) {
+    return other != null;
+  }
+
+  override Type subType() {
+    // TODO: unicode support!
+    return new Unsigned(false, 8);
+  }
+}
+
+class StructObject extends Type {
+  u64 struct;
+
+  StructObject(u64 struct) {
+    this.struct = struct;
+  }
+
+  StructObject(Object object, System system) {
+    this.struct = object.struct;
+  }
+}
+
+// const doesn't make sense here
+class Void extends Type {}
+
+class Field {
+  Type type;
+  string name;
+}
+
+class Parameter {
+  Type type;
+  string name;
+}

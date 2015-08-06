@@ -1,0 +1,56 @@
+Type promoteBinary(Type? left, Type? right) {
+  return null;
+}
+
+Type promoteBinary(Type left, Void right) {return right;}
+Type promoteBinary(Void left, Type right) {return left;}
+Type promoteBinary(Void left, Void right) {return left;}
+
+Type promoteBinary(Array left, Array right) {
+  return left == right ? left : null;
+}
+
+Type promoteBinary(Bool left, Bool right) {
+  return left;
+}
+
+Type promoteBinary(FuncType left, FuncType right) {
+  return left == right ? left : null;
+}
+
+Type promoteBinary(NumericType left, NumericType right) {
+  return promoteBinaryNumeric(left, right);
+}
+
+Type promoteBinary(Object left, Object right) {
+  // TODO: ternary precedence?
+  return left == right || right.classType == null
+    ? left
+    : left.classType == null
+      ? right
+      : null;
+}
+
+Type promoteBinary(String left, String right) {
+  return left;
+}
+
+Type promoteBinaryNumeric(Float left, Float right) {
+  return left.bitWidth >= right.bitWidth ? left : right;
+}
+
+Type promoteBinaryNumeric(Float left, Integer right) {
+  return new Float(max(left.bitWidth, right.bitWidth));
+}
+
+Type promoteBinaryNumeric(Integer left, Float right) {
+  return new Float(max(left.bitWidth, right.bitWidth));
+}
+
+Type promoteBinaryNumeric(Integer left, Integer right) {
+  return left.bitWidth >= right.bitWidth ? left : right;
+}
+
+Type promoteNumeric(Type? type) {
+  return type == null ? null : type.promoteNumeric();
+}

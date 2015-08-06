@@ -1,0 +1,19 @@
+class GetIndex extends Expression {
+  Expression left, right;
+
+  void analyze(Scope scope) {
+    this.left.analyze(scope);
+    this.right.analyze(scope);
+
+    if (!(this.right.type is Integer)) {
+      typeError("unable to index array by non-integer");
+      return;
+    }
+
+    this.type = this.left.type.subType();
+
+    if (this.type == null) {
+      typeError("unable to index non-indexable type");
+    }
+  }
+}

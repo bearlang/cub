@@ -1,0 +1,3 @@
+class Statement {
+  bool nonTerminal;
+}

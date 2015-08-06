@@ -1,0 +1,12 @@
+class Compare extends BinaryExpression {
+  Expression left, right;
+
+  Compare(Expression left, Expression right) {
+    this.left = left;
+    this.right = right;
+  }
+
+  void analyze(Scope scope) {
+
+  }
+}
