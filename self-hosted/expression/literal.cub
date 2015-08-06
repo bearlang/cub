@@ -1,0 +1,3 @@
+class Literal extends Expression {
+
+}

@@ -1,0 +1,5 @@
+class Class extends Statement {
+  Class() {
+    this.nonTerminal = true;
+  }
+}

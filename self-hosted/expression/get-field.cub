@@ -1,0 +1,45 @@
+class GetField extends Expression {
+  Expression left;
+  string field;
+
+  void analyze(Scope scope) {
+    this.left.analyze(scope);
+
+    if (Object leftType = this.left.type) {
+      Class classType = leftType.classType;
+
+      (bool has, Field field) = classType.getField(this.field);
+
+      if (has) {
+        this.type = field.type;
+      } else {
+        typeError("unable to lookup field '#{this.field}' on '#{classType.name}'");
+      }
+    }
+  }
+
+  bool analyzeLHS(Scope scope) {
+    this.left.analyze(scope);
+
+    if (Object leftType = this.left.type) {
+      Class classType = leftType.classType;
+
+      (bool has, Field? field) = classType.getField(this.field);
+
+      if (has) {
+        this.type = field.type;
+      } else {
+        typeError("unable to lookup field '#{this.field}' on '#{classType.name}'");
+
+        // true because it's technically a left-hand side expression, and the
+        // typeError call takes care of invalidating the entire analysis phase
+        // return true;
+      }
+
+      // return true;
+    } // else still a valid left-hand side - the type may be wrong but it's
+      // still a field expression
+
+    return true;
+  }
+}

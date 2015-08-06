@@ -1,0 +1,49 @@
+// TODO: how to handle operational assignments (e.g. +=)?
+
+// a regular assignment
+class Assign extends BinaryExpression {
+  Expression left, right;
+
+  Block generate(Block block) {
+    if (this.operator == null) {
+      this.left.generateLHS(block);
+      return;
+    }
+
+    block = this.left.generateStartLHS(block);
+
+    if (this.operator) {
+      block = this.operator.generate(block);
+    }
+
+    block = this.left.generateFinishLHS();
+  }
+
+  void analyze(Scope scope) {
+    if (this.left.analyzeLHS(scope)) {
+      this.right.analyze(scope);
+
+      // TODO: maybe like this
+      if (this.operator && !this.operator.allowTypes(this.left.type,
+          this.right.type)) {
+        typeError("unable to perform " # this.operator.operationName() #
+          " on provided types");
+        return;
+      }
+      // END TODO
+
+      Expression? cast = castImplicit(this.left.type, this.right);
+
+      if (cast == null) {
+        typeError("unable to implicit cast right-hand side of " #
+          this.operationName());
+      } else {
+        this.right = (Expression) cast;
+
+        this.type = this.left.type;
+      }
+    } else {
+      typeError("unable to interpret as left-hand side");
+    }
+  }
+}

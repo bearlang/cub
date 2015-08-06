@@ -1,0 +1,28 @@
+class Expression {
+  Type valueType;
+
+  Block generate(Block);
+
+  void analyze(Scope scope);
+
+  bool analyzeLHS(Scope scope) {
+    return false;
+  }
+}
+
+class BinaryExpression extends Expression {
+  BinaryOperation op = ADD | LSHIFT;
+  Type type = op.type;
+
+  // for operational assignments (e.g. +=)
+  bool allowTypes(Type left, Type right);
+
+  string operationName();
+
+  void generate(Block block) {
+    this.left.generate(block);
+    this.right.generate(block);
+  }
+
+  void generate(Block block, u64 left, u64 right);
+}

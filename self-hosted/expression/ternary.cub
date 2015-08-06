@@ -1,0 +1,5 @@
+class Ternary extends Expression {
+  Expression condition, first, second;
+
+
+}
