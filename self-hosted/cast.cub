@@ -60,7 +60,7 @@ CastType? convertImplicit(Object left, Object right) {
   return null;
 }
 
-Expression castImplicit(Type type, Expression value) {
+Expression? castImplicit(Type type, Expression value) {
   if (type is Bool && value.type is Integer)
     return new Compare(NE, value, new IntegerLiteral(0));
 

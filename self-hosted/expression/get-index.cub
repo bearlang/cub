@@ -3,17 +3,38 @@ class GetIndex extends Expression {
 
   void analyze(Scope scope) {
     this.left.analyze(scope);
-    this.right.analyze(scope);
 
-    if (!(this.right.type is Integer)) {
-      typeError("unable to index array by non-integer");
-      return;
-    }
+    if (Type type = this.left.type?.subType()) {
+      this.right.analyze(scope);
 
-    this.type = this.left.type.subType();
-
-    if (this.type == null) {
+      if (this.right.type is Integer) {
+        this.type = type;
+      } else {
+        typeError("unable to index array by non-integer");
+      }
+    } else {
       typeError("unable to index non-indexable type");
     }
+  }
+
+  bool analyzeLHS(Scope scope) {
+    this.left.analyze(scope);
+
+    if (this.left.type is String) {
+      typeError("unable to mutate immutable type string");
+    } else if (Type type = this.left.type?.subType()) {
+      this.right.analyze(scope);
+
+      if (this.right.type is Integer) {
+        this.type = type;
+      } else {
+        typeError("unable to index array by non-integer");
+      }
+    } else {
+      typeError("unable to index non-indexable type");
+    }
+
+    // it is syntactically a valid left-hand side, even if the types don't work
+    return true;
   }
 }

@@ -1,3 +1,38 @@
 class GetSymbol extends Expression {
   string symbol;
+
+  void analyze(Scope scope) {
+    // TODO: one kind of symbol with variable-level support for overloaded
+    // functions?
+    Symbol? symbol = scope.getSymbol(this.symbol);
+
+    match (symbol) {
+    case FunctionSymbol fnSymbol {
+      if (Function fn = fnSymbol.resolve(expectedTypes)) {
+        this.type = fn.getFunctionType();
+      } else {
+        typeError("unable to resolve overloaded function '#{this.symbol}'");
+      }
+    }
+    case VariableSymbol varSymbol
+      this.type = varSymbol.type;
+    default
+      typeError("unknown symbol '#{this.symbol}'");
+    }
+  }
+
+  bool analyzeLHS(Scope scope) {
+    Symbol? symbol = scope.getSymbol(this.symbol);
+
+    match (symbol) {
+    case FunctionSymbol fnSymbol
+      typeError("unable to modify function symbol");
+    case VariableSymbol varSymbol
+      this.type = varSymbol.type;
+    default
+      typeError("unknown symbol '#{this.symbol}'");
+    }
+
+    return true;
+  }
 }
