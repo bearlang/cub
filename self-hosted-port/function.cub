@@ -1,0 +1,111 @@
+class Function {
+  string functionName;
+  Type returnType;
+  FunctionArg[] arguments;
+  BlockStatement body;
+
+  u32 blockBodyIndex, returnStructIndex;
+}
+
+class FunctionArg {
+  Type argumentType;
+  string argumentName;
+}
+
+FunctionArg[] parseArgs(TokenBuffer state, Type firstType) {
+  if (firstType == null && accept(state, L_CLOSE_PAREN) != null) {
+    return new FunctionArg[0];
+  }
+
+  u32 count;
+  FunctionArg[] args;
+
+  if (firstType != null) {
+    FunctionArg first = new FunctionArg(firstType, expectIdentifier(state));
+
+    if (accept(state, L_CLOSE_PAREN) != null) {
+      args = new FunctionArg[1];
+      args[0] = first;
+      return args;
+    }
+
+    args = new FunctionArg[4];
+    args[0] = first;
+    count = 1;
+  } else {
+    args = new FunctionArg[4];
+    count = 0;
+  }
+
+  for (;;) {
+    Type argType = parseType(state, false, false).returnType;
+
+    if (argType == null) {
+      // TODO: line number
+      print("expecting type");
+      exit(1);
+    }
+
+    if (args.length == count) {
+      args.length *= 2;
+    }
+
+    args[count++] = new FunctionArg(argType, expectIdentifier(state));
+
+    if (accept(state, L_CLOSE_PAREN) != null) {
+      break;
+    }
+
+    expect(state, L_COMMA);
+  }
+
+  if (args.length != count) {
+    args.length = count;
+  }
+
+  return args;
+}
+
+Function parseFunction(TokenBuffer state, bool allowAnonymous) {
+  TypeResult initType = parseType(state, true, false);
+  Type returnType = initType.returnType;
+
+  if (returnType == null) {
+    // TODO: line number
+    print("expected function");
+    exit(1);
+  }
+
+  string functionName;
+
+  if (allowAnonymous) {
+    Token nameToken = accept(state, L_IDENTIFIER);
+    functionName = nameToken == null ? null : nameToken.valueString;
+  } else {
+    functionName = expectIdentifier(state);
+  }
+
+  FunctionArg[] args;
+
+  if (accept(state, L_OPEN_PAREN) != null) {
+    // parseArgs consumes the L_CLOSE_PAREN
+    args = parseArgs(state, initType.firstType);
+  } else if (functionName == null && returnType.type == T_BLOCKREF && returnType.blockType.next == null) {
+    returnType = returnType.blockType.argumentType;
+    args = new FunctionArg[0];
+  } else {
+    if (functionName == null) {
+      // TODO: line number
+      print("expected function name or arguments");
+    } else {
+      // TODO: line number
+      print("expected function name");
+    }
+    exit(1);
+  }
+
+  expect(state, L_OPEN_BRACE);
+  BlockStatement block = parseBlock(state, L_CLOSE_BRACE);
+
+  return new Function(functionName, returnType, args, block, 0, 0);
+}

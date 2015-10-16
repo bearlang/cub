@@ -1,0 +1,273 @@
+u8 G_ARGUMENT = 1;
+u8 G_DEFINE = 2;
+u8 G_EXPRESSION = 4;
+u8 G_FUNCTION = 8;
+u8 G_PARAMETER = 16;
+u8 G_ANY = 31;
+
+u8 G_NEW_ARRAY = 1;
+u8 G_NEW_OBJECT = 2;
+
+u8 disambiguateExpressionInner(TokenBuffer state, u8 restrict) {
+  if (!bufferLookahead(state, L_TYPE) && !bufferLookahead(state, L_IDENTIFIER)) {
+    return restrict & G_EXPRESSION;
+  } // else could still be argument, expression, function, parameter
+
+  bool wasEmpty = false;
+  while (bufferLookahead(state, L_OPEN_PAREN)) {
+    if (bufferLookahead(state, L_CLOSE_PAREN)) {
+      wasEmpty = true;
+      continue;
+    } // else could still be argument, expression, function, parameter
+
+    do {
+      u8 subrestrict = ((restrict & G_ARGUMENT) ? G_PARAMETER : 0) |
+        ((restrict & G_EXPRESSION) ? (G_EXPRESSION | G_FUNCTION) : 0) |
+        ((restrict & G_FUNCTION) ? (G_ARGUMENT | G_PARAMETER) : 0) |
+        (restrict & G_PARAMETER);
+
+      u8 detect = disambiguateExpressionInner(state, subrestrict);
+
+      if (detect == 0) {
+        return 0;
+      }
+
+      if (detect == G_ARGUMENT) {
+        return restrict & G_FUNCTION;
+      }
+
+      if (detect == G_EXPRESSION || detect == G_FUNCTION) {
+        return restrict & G_EXPRESSION;
+      }
+
+      if (detect == G_PARAMETER) {
+        restrict &= G_ARGUMENT | G_FUNCTION | G_PARAMETER;
+        break;
+      }
+
+      // currently G_PARAMETER | G_EXPRESSION, so keep looking
+    } while (bufferLookahead(state, L_COMMA));
+
+    if (!bufferLookahead(state, L_CLOSE_PAREN)) {
+      return restrict & G_EXPRESSION;
+    }
+
+    wasEmpty = false;
+  }
+
+  bool hasArray = false;
+  if (bufferLookahead(state, L_OPEN_BRACKET)) {
+    if (bufferLookahead(state, L_CLOSE_BRACKET)) {
+      // not a normal expression
+      // could still be a function expression, argument, or parameter
+      hasArray = true;
+
+      // factor expression out of the trailing return statement
+      restrict &= ~G_EXPRESSION;
+    } else {
+      // must be an expression
+      return restrict & G_EXPRESSION;
+    }
+  }
+
+  if (bufferLookahead(state, L_IDENTIFIER)) {
+    // can't be a parameter, define, or expression
+    if (bufferLookahead(state, L_OPEN_PAREN)) {
+      return restrict & G_FUNCTION;
+    }
+
+    return restrict & G_ARGUMENT;
+  }
+
+  if (bufferLookahead(state, L_OPEN_BRACE)) {
+    if (wasEmpty && !hasArray) {
+      return restrict & G_FUNCTION;
+    }
+
+    return 0;
+  }
+
+  // TODO: can't be an expression if it was a known-typed parameter
+  return restrict & (G_EXPRESSION | G_PARAMETER);
+}
+
+u8 disambiguateStatement(TokenBuffer state) {
+  startBufferLookahead(state);
+
+  if (!bufferLookahead(state, L_TYPE) && !bufferLookahead(state, L_IDENTIFIER)) {
+    // just represents that it can't be a define or a function declaration
+    return G_EXPRESSION;
+  }
+
+  u8 restrict = G_DEFINE | G_EXPRESSION | G_FUNCTION;
+
+  while (bufferLookahead(state, L_OPEN_PAREN)) {
+    if (bufferLookahead(state, L_CLOSE_PAREN)) {
+      continue;
+    }
+
+    do {
+      u8 subrestrict = ((restrict & G_DEFINE) ? G_PARAMETER : 0) |
+        ((restrict & G_EXPRESSION) ? (G_EXPRESSION | G_FUNCTION) : 0) |
+        ((restrict & G_FUNCTION) ? (G_ARGUMENT | G_PARAMETER) : 0);
+
+      u8 detect = disambiguateExpressionInner(state, subrestrict);
+
+      if (detect == 0) {
+        return 0;
+      }
+
+      if (detect == G_ARGUMENT) {
+        return restrict & G_FUNCTION;
+      }
+
+      if (detect == G_EXPRESSION || detect == G_FUNCTION) {
+        return restrict & G_EXPRESSION;
+      }
+
+      if (detect == G_PARAMETER) {
+        restrict &= G_DEFINE | G_FUNCTION;
+      }
+
+      // currently G_PARAMETER | G_EXPRESSION, so keep looking
+    } while (bufferLookahead(state, L_COMMA));
+
+    if (!bufferLookahead(state, L_CLOSE_PAREN)) {
+      return restrict & G_EXPRESSION;
+    }
+  }
+
+  if (bufferLookahead(state, L_OPEN_BRACKET)) {
+    if (bufferLookahead(state, L_CLOSE_BRACKET)) {
+      // can't be a G_EXPRESSION
+      restrict &= ~G_EXPRESSION;
+    } else {
+      return restrict & G_EXPRESSION;
+    }
+  }
+
+  if (bufferLookahead(state, L_IDENTIFIER)) {
+    if (bufferLookahead(state, L_ASSIGN) || bufferLookahead(state, L_COMMA) ||
+        bufferLookahead(state, L_SEMICOLON)) {
+      return G_DEFINE;
+    }
+
+    if (bufferLookahead(state, L_OPEN_PAREN)) {
+      return G_FUNCTION;
+    }
+  }
+
+  return restrict & G_EXPRESSION;
+}
+
+u8 disambiguateExpression(TokenBuffer state) {
+  startBufferLookahead(state);
+
+  if (bufferLookahead(state, L_TYPE)) {
+    return G_FUNCTION;
+  }
+
+  if (!bufferLookahead(state, L_IDENTIFIER)) {
+    return G_EXPRESSION;
+  }
+
+  bool wasEmpty = false;
+  while (bufferLookahead(state, L_OPEN_PAREN)) {
+    if (bufferLookahead(state, L_CLOSE_PAREN)) {
+      wasEmpty = true;
+      continue;
+    }
+
+    do {
+      u8 detect = disambiguateExpressionInner(state, G_ARGUMENT | G_EXPRESSION |
+        G_FUNCTION | G_PARAMETER);
+
+      if (detect == 0) {
+        return 0;
+      }
+
+      if (detect == G_ARGUMENT || detect == G_PARAMETER) {
+        return G_FUNCTION;
+      }
+
+      if (detect == G_EXPRESSION || detect == G_FUNCTION) {
+        return G_EXPRESSION;
+      }
+
+      // currently G_PARAMETER | G_EXPRESSION, so keep looking
+    } while (bufferLookahead(state, L_COMMA));
+
+    if (!bufferLookahead(state, L_CLOSE_PAREN)) {
+      return G_EXPRESSION;
+    }
+
+    wasEmpty = false;
+  }
+
+  if (bufferLookahead(state, L_OPEN_BRACKET)) {
+    if (bufferLookahead(state, L_CLOSE_BRACKET)) {
+      return G_FUNCTION;
+    }
+
+    return G_EXPRESSION;
+  }
+
+  if (bufferLookahead(state, L_IDENTIFIER)) {
+    return G_FUNCTION;
+  }
+
+  if (bufferLookahead(state, L_OPEN_BRACE)) {
+    return G_FUNCTION & -wasEmpty;
+  }
+
+  return G_EXPRESSION;
+}
+
+u8 disambiguateNew(TokenBuffer state) {
+  startBufferLookahead(state);
+
+  if (bufferLookahead(state, L_TYPE)) {
+    return G_NEW_ARRAY;
+  }
+
+  if (!bufferLookahead(state, L_IDENTIFIER)) {
+    // TODO: line number
+    print("expecting type or identifier");
+    exit(1);
+  }
+
+  if (bufferLookahead(state, L_OPEN_PAREN)) {
+    if (!bufferLookahead(state, L_CLOSE_PAREN)) {
+      do {
+        u8 restrict = disambiguateExpressionInner(state, G_EXPRESSION |
+          G_FUNCTION | G_PARAMETER);
+
+        // TODO: better error message
+        if (restrict == 0) {
+          print("unexpected on line sldfkj");
+          exit(1);
+        }
+
+        if (restrict == G_PARAMETER) {
+          return G_NEW_ARRAY;
+        }
+
+        if (restrict == G_EXPRESSION || restrict == G_FUNCTION) {
+          return G_NEW_OBJECT;
+        }
+
+        // currently G_PARAMETER | G_EXPRESSION, so keep looking
+      } while (bufferLookahead(state, L_COMMA));
+
+      if (!bufferLookahead(state, L_CLOSE_PAREN)) {
+        return G_NEW_OBJECT;
+      }
+    }
+
+    if (bufferLookahead(state, L_OPEN_PAREN)) {
+      return G_NEW_ARRAY;
+    }
+  }
+
+  return bufferLookahead(state, L_OPEN_BRACKET) ? G_NEW_ARRAY : G_NEW_OBJECT;
+}

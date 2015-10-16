@@ -1,0 +1,230 @@
+// operators (expression?, # code args)
+
+u8 O_ADD = 0; // y, 2
+u8 O_ADD_ASSIGN = 1; // y, n
+u8 O_AND = 2; // y, n
+u8 O_ASHIFT = 3; // y, 2
+u8 O_ASHIFT_ASSIGN = 4; // y, n
+u8 O_BAND = 5; // y, 2
+u8 O_BAND_ASSIGN = 6; // y, n
+u8 O_BITWISE_NOT = 7; // y, 1
+u8 O_BLOCKREF = 8; // n, 1
+u8 O_BOR = 9; // y, 2
+u8 O_BOR_ASSIGN = 10; // y, n
+u8 O_BXOR = 11; // y, 2
+u8 O_BXOR_ASSIGN = 12; // y, n
+u8 O_CALL = 13; // y, n
+u8 O_DECREMENT = 14; // y, n
+u8 O_DIV = 15; // y, 2
+u8 O_DIV_ASSIGN = 16; // y, n
+u8 O_DOWNCAST = 17; // y, 2
+u8 O_EQ = 18; // y, 2
+u8 O_FLOAT_EXTEND = 19; // y, 2
+u8 O_FLOAT_TO_SIGNED = 20; // y, 2
+u8 O_FLOAT_TO_UNSIGNED = 21; // y, 2
+u8 O_FLOAT_TRUNCATE = 22; // y, 2
+u8 O_FUNCTION = 23; // y, n
+u8 O_GET_FIELD = 24; // y, 2
+u8 O_GET_INDEX = 25; // y, 2
+u8 O_GET_SYMBOL = 26; // y, 1 (mirror)
+u8 O_GT = 27; // y, 2
+u8 O_GTE = 28; // y, 2
+u8 O_IDENTITY = 29; // y, 2
+u8 O_INCREMENT = 30; // y, n
+u8 O_INSTANCEOF = 31; // y, 2
+u8 O_LITERAL = 32; // y, 0
+u8 O_LSHIFT = 33; // y, 2
+u8 O_LSHIFT_ASSIGN = 34; // y, n
+u8 O_LT = 35; // y, 2
+u8 O_LTE = 36; // y, 2
+u8 O_MOD = 37; // y, 2
+u8 O_MOD_ASSIGN = 38; // y, n
+u8 O_MUL = 39; // y, 2
+u8 O_MUL_ASSIGN = 40; // y, n
+u8 O_NE = 41; // y, 2
+u8 O_NEGATE = 42; // y, 1
+u8 O_NEW = 43; // y, 1
+u8 O_NEW_ARRAY = 44; // y, 1
+u8 O_NOT = 45; // y, 1
+u8 O_OR = 46; // y, n
+u8 O_REINTERPRET = 47; // y, 2
+u8 O_RSHIFT = 48; // y, 2
+u8 O_RSHIFT_ASSIGN = 49; // y, n
+u8 O_SET_FIELD = 50; // y, 3
+u8 O_SET_INDEX = 51; // y, 3
+u8 O_SET_SYMBOL = 52; // y, n
+u8 O_SIGNED_TO_FLOAT = 53; // y, 2
+u8 O_SIGN_EXTEND = 54; // y, 2
+u8 O_STR_CONCAT = 55; // y, 2
+u8 O_STR_CONCAT_ASSIGN = 56; // y, n
+u8 O_SUB = 57; // y, 2
+u8 O_SUB_ASSIGN = 58; // y, n
+u8 O_TERNARY = 59; // y, n
+u8 O_TRUNCATE = 60; // y, 2
+u8 O_UNSIGNED_TO_FLOAT = 61; // y, 2
+u8 O_UPCAST = 62; // y, 2
+u8 O_XOR = 63; // y, n
+u8 O_ZERO_EXTEND = 64; // y, 2
+
+// operator groups
+
+u8 O_NO_GROUP = 0;
+
+u8 O_CAST = 1; // y, 2
+u8 O_COMPARE = 2; // y, 2
+u8 O_GET = 3; // y, y
+u8 O_LOGIC = 4; // y, n
+u8 O_NUMERIC = 5; // y, 2
+u8 O_NUMERIC_ASSIGN = 6; // y, n
+u8 O_POSTFIX = 7; // y, n
+u8 O_SET = 8; // y, y
+u8 O_SHIFT = 9; // y, 2
+u8 O_SHIFT_ASSIGN = 10; // y, n
+
+let operatorGroups = new u8[256];
+
+for (u8 i = 0;; ++i) {
+  operatorGroups[i] = O_NO_GROUP;
+
+  if (i == 0xff) {
+    break;
+  }
+}
+
+operatorGroups[O_DOWNCAST] = O_CAST;
+operatorGroups[O_UPCAST] = O_CAST;
+operatorGroups[O_FLOAT_EXTEND] = O_CAST;
+operatorGroups[O_FLOAT_TRUNCATE] = O_CAST;
+operatorGroups[O_FLOAT_TO_SIGNED] = O_CAST;
+operatorGroups[O_FLOAT_TO_UNSIGNED] = O_CAST;
+operatorGroups[O_SIGNED_TO_FLOAT] = O_CAST;
+operatorGroups[O_UNSIGNED_TO_FLOAT] = O_CAST;
+operatorGroups[O_SIGN_EXTEND] = O_CAST;
+operatorGroups[O_TRUNCATE] = O_CAST;
+operatorGroups[O_ZERO_EXTEND] = O_CAST;
+operatorGroups[O_REINTERPRET] = O_CAST;
+
+operatorGroups[O_EQ] = O_COMPARE;
+operatorGroups[O_GT] = O_COMPARE;
+operatorGroups[O_GTE] = O_COMPARE;
+operatorGroups[O_LT] = O_COMPARE;
+operatorGroups[O_LTE] = O_COMPARE;
+operatorGroups[O_NE] = O_COMPARE;
+
+operatorGroups[O_GET_FIELD] = O_GET;
+operatorGroups[O_GET_INDEX] = O_GET;
+operatorGroups[O_GET_SYMBOL] = O_GET;
+
+operatorGroups[O_AND] = O_LOGIC;
+operatorGroups[O_OR] = O_LOGIC;
+operatorGroups[O_XOR] = O_LOGIC;
+
+operatorGroups[O_ADD] = O_NUMERIC;
+operatorGroups[O_BAND] = O_NUMERIC;
+operatorGroups[O_BOR] = O_NUMERIC;
+operatorGroups[O_BXOR] = O_NUMERIC;
+operatorGroups[O_DIV] = O_NUMERIC;
+operatorGroups[O_MOD] = O_NUMERIC;
+operatorGroups[O_MUL] = O_NUMERIC;
+operatorGroups[O_SUB] = O_NUMERIC;
+
+operatorGroups[O_ADD_ASSIGN] = O_NUMERIC_ASSIGN;
+operatorGroups[O_BAND_ASSIGN] = O_NUMERIC_ASSIGN;
+operatorGroups[O_BOR_ASSIGN] = O_NUMERIC_ASSIGN;
+operatorGroups[O_BXOR_ASSIGN] = O_NUMERIC_ASSIGN;
+operatorGroups[O_DIV_ASSIGN] = O_NUMERIC_ASSIGN;
+operatorGroups[O_MOD_ASSIGN] = O_NUMERIC_ASSIGN;
+operatorGroups[O_MUL_ASSIGN] = O_NUMERIC_ASSIGN;
+operatorGroups[O_SUB_ASSIGN] = O_NUMERIC_ASSIGN;
+
+operatorGroups[O_INCREMENT] = O_POSTFIX;
+operatorGroups[O_DECREMENT] = O_POSTFIX;
+
+operatorGroups[O_SET_FIELD] = O_SET;
+operatorGroups[O_SET_INDEX] = O_SET;
+operatorGroups[O_SET_SYMBOL] = O_SET;
+
+operatorGroups[O_ASHIFT] = O_SHIFT;
+operatorGroups[O_LSHIFT] = O_SHIFT;
+operatorGroups[O_RSHIFT] = O_SHIFT;
+
+operatorGroups[O_ASHIFT_ASSIGN] = O_SHIFT_ASSIGN;
+operatorGroups[O_LSHIFT_ASSIGN] = O_SHIFT_ASSIGN;
+operatorGroups[O_RSHIFT_ASSIGN] = O_SHIFT_ASSIGN;
+
+class OperatorPrecedence {
+  u8 operator;
+  u8 precedence;
+  bool rightAssoc;
+}
+
+let operatorPrecedences = new OperatorPrecedence[0x100];
+
+for (u8 i = 0;; ++i) {
+  operatorPrecedences[i] = null;
+
+  if (i == 0xff) {
+    break;
+  }
+}
+
+// precedence 0
+operatorPrecedences[L_ASSIGN] = new OperatorPrecedence(O_ASSIGN, 0, true);
+operatorPrecedences[L_TERNARY] = new OperatorPrecedence(O_TERNARY, 0, true);
+operatorPrecedences[L_STR_CONCAT_ASSIGN] = new OperatorPrecedence(O_STR_CONCAT_ASSIGN, 0, true);
+operatorPrecedences[L_ASHIFT_ASSIGN] = new OperatorPrecedence(O_ASHIFT_ASSIGN, 0, true);
+operatorPrecedences[L_LSHIFT_ASSIGN] = new OperatorPrecedence(O_LSHIFT_ASSIGN, 0, true);
+operatorPrecedences[L_RSHIFT_ASSIGN] = new OperatorPrecedence(O_RSHIFT_ASSIGN, 0, true);
+operatorPrecedences[L_ADD_ASSIGN] = new OperatorPrecedence(O_ADD_ASSIGN, 0, true);
+operatorPrecedences[L_BITWISE_AND_ASSIGN] = new OperatorPrecedence(O_BITWISE_AND_ASSIGN, 0, true);
+operatorPrecedences[L_BITWISE_OR_ASSIGN] = new OperatorPrecedence(O_BITWISE_OR_ASSIGN, 0, true);
+operatorPrecedences[L_BITWISE_XOR_ASSIGN] = new OperatorPrecedence(O_BITWISE_XOR_ASSIGN, 0, true);
+operatorPrecedences[L_DIV_ASSIGN] = new OperatorPrecedence(O_DIV_ASSIGN, 0, true);
+operatorPrecedences[L_MOD_ASSIGN] = new OperatorPrecedence(O_MOD_ASSIGN, 0, true);
+operatorPrecedences[L_MUL_ASSIGN] = new OperatorPrecedence(O_MUL_ASSIGN, 0, true);
+operatorPrecedences[L_SUB_ASSIGN] = new OperatorPrecedence(O_SUB_ASSIGN, 0, true);
+
+// precedence 1
+operatorPrecedences[L_OR] = new OperatorPrecedence(O_OR, 1, false);
+
+// precedence 2
+operatorPrecedences[L_XOR] = new OperatorPrecedence(O_XOR, 2, false);
+
+// precedence 3
+operatorPrecedences[L_AND] = new OperatorPrecedence(O_AND, 3, false);
+
+// precedence 4
+operatorPrecedences[L_BITWISE_OR] = new OperatorPrecedence(O_BITWISE_OR, 4, false);
+
+// precedence 5
+operatorPrecedences[L_BITWISE_XOR] = new OperatorPrecedence(O_BITWISE_XOR, 5, false);
+
+// precedence 6
+operatorPrecedences[L_BITWISE_AND] = new OperatorPrecedence(O_BITWISE_AND, 6, false);
+
+// precedence 7
+operatorPrecedences[L_EQ] = new OperatorPrecedence(O_EQ, 7, false);
+operatorPrecedences[L_NE] = new OperatorPrecedence(O_NE, 7, false);
+
+// precedence 8
+operatorPrecedences[L_STR_CONCAT] = new OperatorPrecedence(O_STR_CONCAT, 8, false);
+
+// precedence 9
+operatorPrecedences[L_GT] = new OperatorPrecedence(O_GT, 9, false);
+operatorPrecedences[L_GTE] = new OperatorPrecedence(O_GTE, 9, false);
+operatorPrecedences[L_LT] = new OperatorPrecedence(O_LT, 9, false);
+operatorPrecedences[L_LTE] = new OperatorPrecedence(O_LTE, 9, false);
+
+// precedence 10
+operatorPrecedences[L_ASHIFT] = new OperatorPrecedence(O_ASHIFT, 10, false);
+operatorPrecedences[L_LSHIFT] = new OperatorPrecedence(O_LSHIFT, 10, false);
+operatorPrecedences[L_RSHIFT] = new OperatorPrecedence(O_RSHIFT, 10, false);
+
+// precedence 11
+operatorPrecedences[L_ADD] = new OperatorPrecedence(O_ADD, 11, false);
+operatorPrecedences[L_SUB] = new OperatorPrecedence(O_SUB, 11, false);
+
+// precedence 12
+operatorPrecedences[L_MUL] = new OperatorPrecedence(O_MUL, 12, false);
+operatorPrecedences[L_DIV] = new OperatorPrecedence(O_DIV, 12, false);
+operatorPrecedences[L_MOD] = new OperatorPrecedence(O_MOD, 12, false);

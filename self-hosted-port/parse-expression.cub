@@ -1,0 +1,154 @@
+Expression[] parseExpressionList(TokenBuffer state, u8 endToken) {
+  if (accept(state, endToken) != null) {
+    return new Expression[0];
+  }
+
+  u32 count = 1;
+  Expression[] list = new Expression[16];
+  list[0] = parseExpression(state);
+
+  while (accept(state, L_COMMA) != null) {
+    if (count == list.length) {
+      list.length *= 2;
+    }
+
+    list[count] = parseExpression(state);
+    ++count;
+  }
+
+  expect(state, endToken);
+
+  if (list.length != count) {
+    list.length = count;
+  }
+
+  return list;
+}
+
+Expression parseExpression(TokenBuffer state) {
+  return parseExpressionInner(state, parseUnaryExpression(state), 0);
+}
+
+Expression parseExpressionInner(TokenBuffer state, Expression left,
+    u8 minPrecedence) {
+  // TODO: handle nulls, especially from bufferPeek
+  Token lookahead = bufferPeek(state);
+  OperatorEntry entry;
+
+  while ((entry = operatorPrecedences[lookahead.type]) != null &&
+      entry.precedence >= minPrecedence) {
+    Token operation = lookahead;
+    OperatorEntry operationEntry = entry;
+    u8 operationPrecedence = operationEntry.precedence;
+    parseShift(state);
+    Expression right = parseUnaryExpression(state);
+    lookahead = bufferPeek(state);
+
+    while ((entry = operatorPrecedences[lookahead.type]) != null &&
+        (entry.precedence > operationPrecedence || (entry.rightAssoc &&
+        entry.precedence == operationPrecedence))) {
+      right = parseExpressionInner(right, entry.precedence);
+      lookahead = bufferPeek(state);
+    }
+
+    left = newBinaryExpression(operationEntry.operator, left, right);
+  }
+
+  return left;
+}
+
+// prefix: ++, --, -, !, ~, new
+Expression parseUnaryExpression(TokenBuffer state) {
+  Token prefix = parseShift(state);
+
+  if (prefix.type == L_EOF) {
+    print("unexpected token EOF");
+    exit(1);
+  }
+
+  if (prefix.type == L_INCREMENT || prefix.type == L_DECREMENT) {
+    return assignNode(prefix.type == L_INCREMENT ? O_ADD : O_SUB,
+      parseUnaryExpression(state), newLiteralInteger(T_U8, 1));
+  }
+
+  if (prefix.type == L_SUB) {
+    return newNegateNode(parseUnaryExpression(state));
+  }
+
+  if (prefix.type == L_NOT || prefix.type == L_BITWISE_NOT) {
+    return newNotNode(prefix.type != L_NOT, parseUnaryExpression(state));
+  }
+
+  if (prefix.type == L_NEW) {
+    return parseNew(state);
+  }
+
+  parsePush(state, prefix);
+
+  return parseLocalExpression(state);
+}
+
+// ., (), [], postfix: ++, --
+Expression parseLocalExpression(TokenBuffer state) {
+  Expression left = parsePrimaryExpression(state);
+
+  for (;;) {
+    Token suffix = parseShift(state);
+
+    if (suffix.type == L_EOF) {
+      print("unexpected token EOF");
+      exit(1);
+    }
+
+    if (suffix.type == L_DOT) {
+      left = newGetFieldNode(left, expectIdentifier(state));
+    } else if (suffix.type == L_OPEN_PAREN) {
+      Expression[] right = parseExpressionList(state, L_CLOSE_PAREN);
+      left = newCallNode(left, right);
+    } else if (suffix.type == L_OPEN_BRACKET) {
+      Expression right = parseExpression(state);
+      expect(state, L_CLOSE_BRACKET);
+      left = newGetIndexNode(left, right);
+    } else if (suffix.type == L_INCREMENT) {
+      left = newPostfixNode(O_INCREMENT, left);
+    } else if (suffix.type == L_DECREMENT) {
+      left = newPostfixNode(O_DECREMENT, left);
+    } else {
+      return left;
+    }
+  }
+}
+
+Expression parsePrimaryExpression(TokenBuffer state) {
+  // grouping
+  if (accept(state, L_OPEN_PAREN) != null) {
+    Expression result = parseExpression(state);
+    expect(state, L_CLOSE_PAREN);
+    return result;
+  }
+
+  // literals
+  Token token = accept(state, L_LITERAL);
+  if (token != null) {
+    // handle 12.method()
+    if (token.maybeDot && bufferPeek(state).type == L_IDENTIFIER) {
+      parsePush(state, useFloatingDot(token));
+    }
+
+    return newLiteralFromToken(token);
+  }
+
+  if (predictFunctionExpression(state)) {
+    return newFunctionNode(parseFunction(state, true));
+  }
+
+  token = accept(state, L_IDENTIFIER);
+
+  if (token == null) {
+    // TODO: line number
+    print("expecting function or expression");
+    exit(1);
+  }
+
+  return newGetSymbolNode(token.valueString);
+}

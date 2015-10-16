@@ -1,0 +1,41 @@
+class Stream {
+  bool wasNewline;
+  u32 line, offset;
+  u32 bufferUsed;
+  u8[] buffer;
+}
+
+Stream newStream() {
+  return new Stream(false, 1, 1, new u8[16]);
+}
+
+u8 streamShift(Stream in) {
+  if (in.bufferUsed) {
+    ++in.offset;
+    --in.bufferUsed;
+    return in.buffer[in.bufferUsed];
+  }
+
+  if (in.wasNewline) {
+    in.wasNewline = false;
+    ++in.line;
+    in.offset = 1;
+  }
+
+  u32 value = read();
+  if (value == -1) {
+    return 0;
+  }
+
+  if (value == 13) {
+    in.wasNewline = true;
+  }
+
+  ++in.offset;
+  return value;
+}
+
+void streamPush(Stream in, u8 char) {
+  --in.offset;
+  in.buffer[++in.bufferUsed] = char;
+}

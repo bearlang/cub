@@ -1,0 +1,9 @@
+BlockStatement root = parse();
+root = wrapCore(root);
+
+analyze(root);
+
+CodeSystem system = generate(root);
+optimize(system)
+
+backendWrite(system);

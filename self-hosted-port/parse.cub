@@ -1,0 +1,309 @@
+BlockStatement parse() {
+  TokenBuffer state = newTokenBuffer(16);
+  BlockStatement body = parseBlock(state, L_EOF);
+
+  Token token = bufferPeek(state);
+  if (token.type == L_EOF) {
+    return body;
+  }
+
+  unexpectedToken(token, "expecting EOF");
+}
+
+BlockStatement parseBlock(TokenBuffer state, u8 endToken) {
+  BlockStatement result = newBlockStatement(null), tail = null;
+
+  while (accept(state, endToken) == null) {
+    Statement next = expectStatement(state);
+
+    // if we get a noop (;) statement, start again from the top so we can check
+    // for our terminating token
+    /*if (next.type == S_EXPRESSION && (next as ExpressionStatement).value ==
+        null) {*/
+    if (next == null) {
+      continue;
+    }
+
+    if (result.body == null) {
+      result.body = next;
+    } else {
+      tail.next = next;
+    }
+    next.parent = result;
+    tail = next;
+  }
+
+  return result;
+}
+
+Statement expectStatement(TokenBuffer state) {
+  Token token = bufferShift(state);
+  u8 type = type;
+
+  if (token == null) {
+    // TODO: line number
+    print("expected statement");
+    exit(1);
+  }
+
+  if (type == L_SEMICOLON) {
+    // return newExpressionStatement(null);
+    return null;
+  }
+
+  if (type == L_BREAK || type == L_CONTINUE) {
+    string label = null;
+
+    token = accept(state, L_IDENTIFIER);
+    if (token != null) {
+      label = token.valueString;
+    }
+    expect(state, L_SEMICOLON);
+
+    return newControlStatement(type == L_BREAK ? S_BREAK : S_CONTINUE, label);
+  }
+
+  if (type == L_CLASS) {
+    return parseClass(state);
+  }
+
+  if (type == L_IF) {
+    expect(state, L_OPEN_PAREN);
+    Expression condition = parseExpression(state);
+    expect(state, L_CLOSE_PAREN);
+
+    Statement first = expectStatement(state),
+      second = accept(state, L_ELSE) != null ? expectStatement(state) : null;
+
+    IfStatement result = newIfStatement(condition, null, null);
+
+    if (first != null) {
+      if (first.type != S_BLOCK) {
+        first = newBlockStatement(first);
+        first.body.parent = first;
+      }
+
+      first.parent = result;
+    }
+
+    if (second != null) {
+      if (second.type != S_BLOCK) {
+        second = newBlockStatement(second);
+        second.body.parent = second;
+      }
+
+      second.parent = result;
+    }
+
+    return result;
+  }
+
+  if (type == L_LET) {
+    string symbol = expectIdentifier(state);
+
+    expect(state, L_ASSIGN);
+
+    DefineClause head = new DefineClause(symbol, parseExpression(state), null),
+      tail = head;
+
+    while (accept(state, L_COMMA) != null) {
+      symbol = expectIdentifier(state);
+
+      expect(state, L_ASSIGN);
+
+      DefineClause tmp = new DefineClause(symbol, parseExpression(state), null);
+
+      tail.next = tmp;
+      tail = tmp;
+    }
+
+    expect(state, L_SEMICOLON);
+
+    return newLetStatement(head);
+  }
+
+  /*if (type == L_NATIVE) {
+    Token callee = expect(state, L_IDENTIFIER);
+    string assign = null;
+
+    if (accept(state, L_ASSIGN) != null) {
+
+    }
+  }*/
+
+  if (type == L_OPEN_BRACE) {
+    return parseBlock(state, L_CLOSE_BRACE);
+  }
+
+  if (type == L_RETURN) {
+    Expression value;
+    if (accept(state, L_SEMICOLON) != null) {
+      value = null;
+    } else {
+      value = parseExpression(state);
+      expect(state, L_SEMICOLON);
+    }
+    return newReturnStatement(value);
+  }
+
+  if (type == L_TYPEDEF) {
+    Type left = parseType(state, false, false);
+
+    expect(state, L_AS);
+
+    return newTypedefStatement(left, expectIdentifier(state));
+  }
+
+  if (type == L_DO || type == L_WHILE) {
+    BlockStatement body;
+    Expression condition;
+
+    if (type == L_DO) {
+      body = expectStatement(state);
+
+      expect(state, L_WHILE);
+      expect(state, L_OPEN_PAREN);
+      condition = parseExpression(state);
+      expect(state, L_CLOSE_PAREN);
+      expect(state, L_SEMICOLON);
+    } else {
+      expect(state, L_OPEN_PAREN);
+      condition = parseExpression(state);
+      expect(state, L_CLOSE_PAREN);
+
+      body = expectStatement(state);
+    }
+
+    if (body != null && body.type != S_BLOCK) {
+      body = newBlockStatement(body);
+      body.body.parent = body;
+    }
+
+    LoopStatement loop = newLoopStatement(type == L_DO ? S_DO_WHILE : S_WHILE,
+      condition, body);
+
+    if (body != null) {
+      body.parent = loop;
+    }
+
+    return loop;
+  }
+
+  if (type == L_FOR) {
+    expect(state, L_OPEN_PAREN);
+
+    Statement init;
+    if (accept(state, L_SEMICOLON) != null) {
+      init = null;
+    } else {
+      init = parseDefineStatement(state, true);
+      if (init == null) {
+        init = newExpressionStatement(parseExpression(state));
+      }
+      expect(state, L_SEMICOLON);
+    }
+
+    Expression condition;
+    if (accept(state, L_SEMICOLON) != null) {
+      condition = newLiteralBool(true);
+    } else {
+      condition = parseExpression(state);
+      expect(state, L_SEMICOLON);
+    }
+
+    Expression iterator;
+    if (accept(state, L_SEMICOLON) != null) {
+      iterator = null;
+    } else {
+      iterator = parseExpression(state);
+      expect(state, L_SEMICOLON);
+    }
+
+    expect(state, L_CLOSE_PAREN);
+
+    Statement body = expectStatement(state);
+
+    if (body != null && body.type != S_BLOCK) {
+      body = newBlockStatement(body);
+      body.body.parent = body;
+    }
+
+    if (iterator != null) {
+      Statement each = newExpressionStatement(iterator);
+      if (body == null) {
+        body = newBlockStatement(each);
+      } else {
+        body.next = each;
+        body = newBlockStatement(body);
+        each.parent = body;
+      }
+
+      body.body.parent = body;
+    }
+
+    Statement result = newLoopStatement(S_WHILE, condition, body);
+
+    if (body != null) {
+      body.parent = result;
+    }
+
+    if (init != null) {
+      init.next = result;
+      result = newBlockStatement(init);
+      init.parent = result;
+      init.next.parent = result;
+    }
+
+    return result;
+  }
+
+  if (type == L_IDENTIFIER && accept(state, L_COLON) != null) {
+    Token next = bufferPeek(state);
+
+    if (next.type != L_DO && next.type != L_WHILE && next.type != L_FOR) {
+      // TODO: line number
+      print("expected loop after label");
+      exit(1);
+    }
+
+    Statement loop = expectStatement(state);
+    loop.label = token.valueString;
+    return loop;
+  }
+
+  parsePush(state, token);
+
+  return parseAmbiguousStatement(state);
+}
+
+Statement parseDefineStatement(TokenBuffer state, bool allowInit) {
+  Type defineType = parseType(state, false);
+
+  if (defineType == null) {
+    return null;
+  }
+
+  string symbol = expectIdentifier(state);
+  if (defineType.type == T_VOID) {
+    // TODO: line numbers
+    print("variable '#{symbol}' declared void on line");
+    exit(1);
+  }
+
+  DefineClause head = new DefineClause(symbol, allowInit && accept(state,
+    L_ASSIGN) != null ? parseExpression(state) : null, null), tail = head;
+
+  while (accept(state, L_COMMA) != null) {
+    symbol = expectIdentifier(state);
+
+    DefineClause tmp = new DefineClause(symbol, allowInit &&
+      accept(state, L_ASSIGN) != null ? parseExpression(state) : null, null);
+
+    tail.next = tmp;
+    tail = tmp;
+  }
+
+  tail.next = null;
+
+  return newDefineStatement(defineType, head);
+}
