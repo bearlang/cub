@@ -1,0 +1,162 @@
+// TODO: map, list, class, function
+u8 T_ARRAY = 0;
+u8 T_BLOCKREF = 1;
+u8 T_BOOL = 2;
+u8 T_F32 = 3;
+u8 T_F64 = 4;
+u8 T_F128 = 5;
+u8 T_FUNCREF = 6;
+u8 T_OBJECT = 7;
+u8 T_REF = 8;
+u8 T_S8 = 9;
+u8 T_S16 = 10;
+u8 T_S32 = 11;
+u8 T_S64 = 12;
+u8 T_STRING = 13;
+u8 T_U8 = 14;
+u8 T_U16 = 15;
+u8 T_U32 = 16;
+u8 T_U64 = 17;
+u8 T_VOID = 18;
+
+class Type {
+  u8 type;
+  string symbolName;
+  Type subType;
+  Type[] argTypes;
+  Class classType;
+
+  u32 structIndex;
+}
+
+bool isInteger(Type type) {
+  return t != null && (t.type == T_S8 || t.type == T_S16 || t.type == T_S32 ||
+    t.type == T_S64 || t.type == T_U8 || t.type == T_U16 || t.type == T_U32 ||
+    t.type == T_U64);
+}
+
+bool isFloat(Type type) {
+  return t != null && (t.type == T_F32 || t.type == T_F64 || t.type == T_F128);
+}
+
+bool equivalentArgTypes(Type[] left, Type[] right) {
+  if (left.length != right.length) {
+    return false;
+  }
+
+  for (u8 i = 0; i < left.length; i++) {
+    if (!equivalentType(left[i], right[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool equivalentType(Type left, Type right) {
+  return left != null && right != null &&
+    left.type != T_REF && right.type != T_REF && (
+      (left.type == T_ARRAY && right.type == T_ARRAY &&
+        equivalentType(left.subType, right.subType)) ||
+      (left.type == T_BLOCKREF && right.type == T_BLOCKREF &&
+        equivalentType(left.subType, right.subType) &&
+        equivalentArgTypes(left.argTypes, right.argTypes)) ||
+      (left.type == T_OBJECT && right.type == T_OBJECT &&
+        left.classType == right.classType) ||
+      (left.type == T_STRING && right.type == T_STRING) ||
+      (left.type == T_VOID && right.type == T_VOID) ||
+      left.type == right.type);
+}
+
+Type newType(u8 type) {
+  return new Type(type, null, null, null, null, 0);
+}
+
+Type newTypeFromToken(Token token) {
+  if (token.type == L_IDENTIFIER) {
+    return new Type(T_REF, token.valueString, null, null, null, 0);
+  }
+
+  if (token.type == L_TYPE) {
+    return new Type(token.literalType);
+  }
+
+  print("cannot identify type from provided token");
+  exit(1);
+}
+
+Type newArrayType(Type subType) {
+  return new Type(T_ARRAY, null, subType, null, null, 0);
+}
+
+Type newFunctionType(Type returnType, Type[] argTypes) {
+  return new Type(T_FUNCREF, null, returnType, argTypes, null, 0);
+}
+
+Type newBlockrefType(Type[] argTypes) {
+  return new Type(T_BLOCKREF, null, null, argTypes, null, 0);
+}
+
+Type newObjectType(Class classType) {
+  return new Type(T_OBJECT, null, null, null, classType, 0);
+}
+
+class TypeResult {
+  Type returnType, firstType;
+}
+
+TypeResult parseType(TokenBuffer state, bool getFirstType, bool ignoreArray) {
+  Token firstToken = accept(state, L_TYPE);
+
+  if (firstToken == null) {
+    firstToken = accept(state, L_IDENTIFIER);
+
+    if (firstToken == null) {
+      return new TypeResult(null, null);
+    }
+  }
+
+  Type returnType = newTypeFromToken(firstToken);
+
+  while (accept(state, L_OPEN_PAREN) != null) {
+    if (accept(state, L_CLOSE_PAREN) != null) {
+      returnType = newFunctionType(returnType, null);
+    } else {
+      u32 count;
+      Type[] args = new Type[4];
+
+      do {
+        Type paramType = parseType(state, false, false).returnType;
+
+        Token argName = bufferPeek(state);
+
+        if (argName.type == L_IDENTIFIER) {
+          if (!returnType.argTypes.length && getFirstType) {
+            return new TypeResult(returnType.subType, paramType);
+          }
+
+          print("unexpected identifier, expecting ','");
+          exit(1);
+        }
+
+        if (args.length == count) {
+          args.length *= 2;
+        }
+
+        args[count++] = paramType;
+      } while (accept(state, L_COMMA) != null);
+
+      args.length = count;
+
+      expect(state, L_CLOSE_PAREN);
+    }
+  }
+
+  if (!ignoreArray && accept(state, L_OPEN_BRACKET) != null) {
+    expect(state, L_CLOSE_BRACKET);
+
+    returnType = newArrayType(returnType);
+  }
+
+  return returnType;
+}

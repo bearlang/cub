@@ -1,0 +1,141 @@
+BlockStatement newBlockStatement(Statement body) {
+  return new BlockStatement(S_BLOCK, null, null, body, null, null, null, null,
+    null);
+}
+
+ClassStatement newClassStatement(Class classType) {
+  return new ClassStatement(S_CLASS, null, null, classType.className,
+    classType);
+}
+
+ControlStatement newControlStatement(u8 type, string label) {
+  return new ControlStatement(type, null, null, label, null);
+}
+
+DefineStatement newDefineStatement(Type type, DefineClause clause) {
+  return new DefineStatement(S_DEFINE, null, null, type, clause);
+}
+
+ExpressionStatement newExpressionStatement(Expression value) {
+  return new ExpressionStatement(S_EXPRESSION, null, null, value);
+}
+
+FunctionStatement newFunctionStatement(Function fn) {
+  return new FunctionStatement(S_FUNCTION, null, null, fn.functionName, fn);
+}
+
+IfStatement newIfStatement(Expression condition, BlockStatement first,
+    BlockStatement second) {
+  return new IfStatement(S_IF, null, null, condition, first, second);
+}
+
+LetStatement newLetStatement(DefineClause clause) {
+  return new LetStatement(S_LET, null, null, clause);
+}
+
+LoopStatement newLoopStatement(u8 type, Expression condition,
+    BlockStatement body) {
+  return new LoopStatement(type, null, null, null, condition, body, null, null,
+    0, 0);
+}
+
+ReturnStatement newReturnStatement(Expression value) {
+  return new ReturnStatement(S_RETURN, null, null, value, null);
+}
+
+TypedefStatement newTypedefStatement(Type left, string alias) {
+  return new TypedefStatement(S_TYPEDEF, null, null, left, alias);
+}
+
+class Statement {
+  u8 type;
+  Statement next, parent;
+}
+
+class LoopStatement {
+  u8 type;
+  Statement next, parent;
+  string label;
+  Expression condition;
+  BlockStatement body;
+
+  // code generation
+  BlockNode breakNode, continueNode;
+  u32 conditionBlock, postBlock;
+}
+
+class BlockStatement {
+  u8 type;
+  Statement next, parent;
+  Statement body;
+  Function fnParent;
+  SymbolEntry[] classList, functionList, typeList, variableList;
+}
+
+class ClassStatement {
+  u8 type;
+  Statement next, parent;
+  string symbolName;
+  Class classType;
+}
+
+class ControlStatement {
+  u8 type;
+  Statement next, parent;
+  string label;
+  // TODO: switch statements
+  LoopStatement target;
+}
+
+class DefineClause {
+  string symbolName;
+  Expression value;
+  DefineClause next;
+}
+
+class DefineStatement {
+  u8 type;
+  Statement next, parent;
+  Type symbolType;
+  DefineClause clause;
+}
+
+class ExpressionStatement {
+  u8 type;
+  Statement next, parent;
+  Expression value;
+}
+
+class FunctionStatement {
+  u8 type;
+  Statement next, parent;
+  string symbolName;
+  Function function;
+}
+
+class IfStatement {
+  u8 type;
+  Statement next, parent;
+  Expression condition;
+  BlockStatement first, second;
+}
+
+class LetStatement {
+  u8 type;
+  Statement next, parent;
+  DefineClause clause;
+}
+
+class ReturnStatement {
+  u8 type;
+  Statement next, parent;
+  Expression value;
+  Function target;
+}
+
+class TypedefStatement {
+  u8 type;
+  Statement next, parent;
+  Type typedefType;
+  string alias;
+}

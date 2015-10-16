@@ -1,0 +1,87 @@
+// see constants.cub for the actual token type values
+
+class Token {
+  u8 tokenType;
+  u8 literalType;
+  bool valueBool;
+  string valueString;
+  u64 valueInt;
+  u32 line, offset;
+}
+
+Token newToken(u8 tokenType, u32 line, u32 offset) {
+  return new Token(tokenType, 0, false, null, 0, line, offset);
+}
+
+string tokenString(u8 tokenType) {
+  if (tokenType == L_ADD) return "ADD";
+  else if (tokenType == L_ADD_ASSIGN) return "ADD_ASSIGN";
+  else if (tokenType == L_AND) return "AND";
+  else if (tokenType == L_AS) return "AS";
+  else if (tokenType == L_ASHIFT) return "ASHIFT";
+  else if (tokenType == L_ASHIFT_ASSIGN) return "ASHIFT_ASSIGN";
+  else if (tokenType == L_ASSIGN) return "ASSIGN";
+  else if (tokenType == L_BITWISE_AND) return "BITWISE_AND";
+  else if (tokenType == L_BITWISE_AND_ASSIGN) return "BITWISE_AND_ASSIGN";
+  else if (tokenType == L_BITWISE_NOT) return "BITWISE_NOT";
+  else if (tokenType == L_BITWISE_OR) return "BITWISE_OR";
+  else if (tokenType == L_BITWISE_OR_ASSIGN) return "BITWISE_OR_ASSIGN";
+  else if (tokenType == L_BITWISE_XOR) return "BITWISE_XOR";
+  else if (tokenType == L_BITWISE_XOR_ASSIGN) return "BITWISE_XOR_ASSIGN";
+  else if (tokenType == L_BREAK) return "BREAK";
+  else if (tokenType == L_CASE) return "CASE";
+  else if (tokenType == L_CLASS) return "CLASS";
+  else if (tokenType == L_CLOSE_BRACE) return "CLOSE_BRACE";
+  else if (tokenType == L_CLOSE_BRACKET) return "CLOSE_BRACKET";
+  else if (tokenType == L_CLOSE_PAREN) return "CLOSE_PAREN";
+  else if (tokenType == L_COLON) return "COLON";
+  else if (tokenType == L_COMMA) return "COMMA";
+  else if (tokenType == L_CONTINUE) return "CONTINUE";
+  else if (tokenType == L_DECREMENT) return "DECREMENT";
+  else if (tokenType == L_DIV) return "DIV";
+  else if (tokenType == L_DIV_ASSIGN) return "DIV_ASSIGN";
+  else if (tokenType == L_DO) return "DO";
+  else if (tokenType == L_DOT) return "DOT";
+  else if (tokenType == L_ELSE) return "ELSE";
+  else if (tokenType == L_EQ) return "EQ";
+  else if (tokenType == L_FOR) return "FOR";
+  else if (tokenType == L_GT) return "GT";
+  else if (tokenType == L_GTE) return "GTE";
+  else if (tokenType == L_IDENTIFIER) return "IDENTIFIER";
+  else if (tokenType == L_IF) return "IF";
+  else if (tokenType == L_INCREMENT) return "INCREMENT";
+  else if (tokenType == L_LET) return "LET";
+  else if (tokenType == L_LITERAL) return "LITERAL";
+  else if (tokenType == L_LSHIFT) return "LSHIFT";
+  else if (tokenType == L_LSHIFT_ASSIGN) return "LSHIFT_ASSIGN";
+  else if (tokenType == L_LT) return "LT";
+  else if (tokenType == L_LTE) return "LTE";
+  else if (tokenType == L_MOD) return "MOD";
+  else if (tokenType == L_MOD_ASSIGN) return "MOD_ASSIGN";
+  else if (tokenType == L_MUL) return "MUL";
+  else if (tokenType == L_MUL_ASSIGN) return "MUL_ASSIGN";
+  else if (tokenType == L_NATIVE) return "NATIVE";
+  else if (tokenType == L_NE) return "NE";
+  else if (tokenType == L_NEW) return "NEW";
+  else if (tokenType == L_NOT) return "NOT";
+  else if (tokenType == L_NULL) return "NULL";
+  else if (tokenType == L_OPEN_BRACE) return "OPEN_BRACE";
+  else if (tokenType == L_OPEN_BRACKET) return "OPEN_BRACKET";
+  else if (tokenType == L_OPEN_PAREN) return "OPEN_PAREN";
+  else if (tokenType == L_OR) return "OR";
+  else if (tokenType == L_RETURN) return "RETURN";
+  else if (tokenType == L_RSHIFT) return "RSHIFT";
+  else if (tokenType == L_RSHIFT_ASSIGN) return "RSHIFT_ASSIGN";
+  else if (tokenType == L_SEMICOLON) return "SEMICOLON";
+  else if (tokenType == L_STR_CONCAT) return "STR_CONCAT";
+  else if (tokenType == L_STR_CONCAT_ASSIGN) return "STR_CONCAT_ASSIGN";
+  else if (tokenType == L_SUB) return "SUB";
+  else if (tokenType == L_SUB_ASSIGN) return "SUB_ASSIGN";
+  else if (tokenType == L_TERNARY) return "TERNARY";
+  else if (tokenType == L_TYPE) return "TYPE";
+  else if (tokenType == L_TYPEDEF) return "TYPEDEF";
+  else if (tokenType == L_VOID) return "VOID";
+  else if (tokenType == L_WHILE) return "WHILE";
+  else if (tokenType == L_XOR) return "XOR";
+  else return "UNKNOWN_TOKEN";
+}

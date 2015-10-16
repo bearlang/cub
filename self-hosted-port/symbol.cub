@@ -1,0 +1,11 @@
+class SymbolEntry {
+  string symbolName;
+  Type type;
+  Class classType;
+  Function function;
+  SymbolEntry next;
+
+  // code generation
+  bool exists;
+  u32 instruction;
+}

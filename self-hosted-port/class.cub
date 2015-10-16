@@ -1,0 +1,63 @@
+class Class {
+  string className;
+  Field[] fields;
+
+  u32 structIndex;
+}
+
+class Field {
+  Type fieldType;
+  string fieldName;
+}
+
+Expression parseNew(TokenBuffer state) {
+  u8 construct = disambiguateNew(state);
+
+  if (construct == G_NEW_ARRAY) {
+    Type arrayType = parseType(state, false, true).returnType;
+
+    expect(state, L_OPEN_BRACKET);
+    Expression size = parseExpression(state);
+    expect(state, L_CLOSE_BRACKET);
+
+    return newNewArrayNode(arrayType, size);
+  }
+
+  // TODO: support more complicated expressions here
+  string className = expectIdentifier(state);
+
+  expect(state, L_OPEN_PAREN);
+
+  return newNewNode(className, parseExpressionList(state, L_CLOSE_PAREN));
+}
+
+ClassStatement parseClass(TokenBuffer state) {
+  string className = expectIdentifier(state);
+  expect(state, L_OPEN_BRACE);
+
+  DefineStatement define;
+  // TODO: use a List (when we have templates)
+  Field[] entries = new Field[16];
+
+  u32 count = 0;
+  while ((define = parseDefineStatement(state, false)) != null) {
+    expect(state, L_SEMICOLON);
+
+    Type defineType = define.symbolType;
+    DefineClause clause = define.clause;
+    while (clause != null) {
+      if (count == entries.length) {
+        entries.length *= 2;
+      }
+
+      entries[count++] = new Field(defineType, clause.symbolName);
+      clause = clause.next;
+    }
+  }
+
+  entries.length = count;
+
+  expect(state, L_CLOSE_BRACE);
+
+  return newClassStatement(new Class(className, count, entries, 0));
+}
