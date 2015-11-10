@@ -227,6 +227,9 @@ static syntax_structure _detect_ambiguous_statement(lookahead_state *state) {
     if (lookahead(state, L_OPEN_PAREN)) {
       return G_FUNCTION;
     }
+
+    // TODO: is this right?
+    return 0;
   }
 
   return restriction & G_EXPRESSION;
@@ -323,7 +326,7 @@ static syntax_structure _detect_ambiguous_new(lookahead_state *state) {
       } while (lookahead(state, L_COMMA));
 
       if (!lookahead(state, L_CLOSE_PAREN)) {
-        return 0;
+        return G_NEW_OBJECT;
       }
     }
 

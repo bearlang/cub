@@ -154,12 +154,13 @@ type *new_function_type(type *ret, argument *arg) {
   new->blocktype = xmalloc(sizeof(argument));
   new->blocktype->argument_type = ret;
   new->blocktype->symbol_name = NULL;
-  new->blocktype->next = copy_arguments(arg, false);
+  new->blocktype->next = arg;
   return new;
 }
 
 type *new_blockref_type(function *fn) {
-  return new_function_type(copy_type(fn->return_type), fn->argument);
+  return new_function_type(copy_type(fn->return_type),
+    copy_arguments(fn->argument, false));
 }
 
 type *new_object_type(class *c) {

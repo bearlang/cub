@@ -38,6 +38,8 @@ static type *parse_type(parse_state *state, type **first_type,
     if (consume(state, L_CLOSE_PAREN)) {
       return_type = new_function_type(return_type, NULL);
     } else {
+      argument *head = NULL, **tail = &head;
+
       do {
         type *param_type = parse_type(state, NULL, false);
 
@@ -46,17 +48,26 @@ static type *parse_type(parse_state *state, type **first_type,
         if (arg_name && arg_name->type == L_IDENTIFIER) {
           if (return_type->blocktype->next || !first_type) {
             unexpected_token(arg_name, "expecting ','");
-          } else {
-            *first_type = param_type;
-            type *real_return_type = return_type->blocktype->argument_type;
-            free(return_type->blocktype);
-            free(return_type);
-            return real_return_type;
           }
+
+          *first_type = param_type;
+          type *real_return_type = return_type->blocktype->argument_type;
+          free(return_type->blocktype);
+          free(return_type);
+          return real_return_type;
         }
+
+        argument *arg = xmalloc(sizeof(*arg));
+        arg->symbol_name = NULL;
+        arg->argument_type = param_type;
+        *tail = arg;
+        tail = &arg->next;
       } while (consume(state, L_COMMA));
 
       expect_consume(state, L_CLOSE_PAREN);
+
+      (*tail)->next = NULL;
+      return_type = new_function_type(return_type, head);
     }
   }
 
@@ -96,7 +107,9 @@ static expression *parse_new(parse_state *state) {
     break;
   }
 
-  return NULL;
+  fprintf(stderr, "unable to disambiguate new expression at %zu:%zu\n",
+    state->in->line, state->in->offset);
+  exit(1);
 }
 
 void parse_args(parse_state *state, function *fn, type *first_type) {
@@ -819,13 +832,13 @@ expression *parse_expression_list(parse_state *state, size_t *count) {
   if (count) {
     size_t num = 1;
     while (consume(state, L_COMMA)) {
-      tail->next = expect_expression(state);
+      tail = tail->next = expect_expression(state);
       num++;
     }
     *count = num;
   } else {
     while (consume(state, L_COMMA)) {
-      tail->next = expect_expression(state);
+      tail = tail->next = expect_expression(state);
     }
   }
 
@@ -1054,7 +1067,7 @@ statement *parse_statement(parse_state *state) {
     return s_return(consume(state, L_SEMICOLON)
       ? NULL
       : expect_expression(state));
-  case L_TYPEDEF: {
+  /*case L_TYPEDEF: {
     free(t);
 
     type *left = parse_type(state, NULL, false);
@@ -1065,7 +1078,7 @@ statement *parse_statement(parse_state *state) {
     char *alias = right->symbol_name;
     free(right);
     return s_typedef(left, alias);
-  }
+  }*/
   case L_DO: {
     free(t);
 
@@ -1193,6 +1206,7 @@ statement *parse_statement(parse_state *state) {
     parse_push(state, t);
   }
 
+  // TODO: handle TYPEDEF
   syntax_structure structure = detect_ambiguous_statement(state);
 
   switch (structure) {

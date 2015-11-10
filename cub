@@ -2,11 +2,15 @@
 
 set -e
 
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+echo "$DIR"
+
 if [ "$#" -lt 2 ]; then
   echo "usage: cub <input-file> <output-file>" >&2
   exit 1
 fi
 
-mkdir -p ./out/lib/
-gcc -S llvm-backend/llvm-harness.c -o ./out/lib/llvm-harness.s
-./out/Debug/cub "$1" | llc | gcc -xassembler - ./out/lib/llvm-harness.s -o "$2"
+mkdir -p "$DIR/out/lib/"
+gcc -S "$DIR/llvm-backend/llvm-harness.c" -o "$DIR/out/lib/llvm-harness.s"
+"$DIR/out/Debug/cub" "$1" | llc | gcc -xassembler - "$DIR/out/lib/llvm-harness.s" -o "$2"
