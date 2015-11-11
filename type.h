@@ -14,7 +14,7 @@ struct block_statement;
 struct class;
 struct arguments;
 
-// note that this struct may be used, do not modify post-parsing :3
+// note that this struct may be referenced - do not modify post-parsing :3
 typedef struct type {
   type_type type;
   union {

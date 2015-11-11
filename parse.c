@@ -1061,12 +1061,20 @@ statement *parse_statement(parse_state *state) {
 
     return result;
   }
-  case L_RETURN:
+  case L_RETURN: {
     free(t);
 
-    return s_return(consume(state, L_SEMICOLON)
-      ? NULL
-      : expect_expression(state));
+    expression *value;
+
+    if (consume(state, L_SEMICOLON)) {
+      value = NULL;
+    } else {
+      value = expect_expression(state);
+      expect_consume(state, L_SEMICOLON);
+    }
+
+    return s_return(value);
+  }
   /*case L_TYPEDEF: {
     free(t);
 
