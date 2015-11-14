@@ -596,6 +596,18 @@ void ternary_numeric_promotion(expression *value) {
     // no casting necessary!
     ftype = ltype;
     break;
+  case (T_STRING << 8) | T_OBJECT:
+    if (right->operation.type != O_LITERAL) {
+      goto unsupported;
+    }
+    ftype = ltype;
+    break;
+  case (T_OBJECT << 8) | T_STRING:
+    if (left->operation.type != O_LITERAL) {
+      goto unsupported;
+    }
+    ftype = rtype;
+    break;
   case (T_S8 << 8) | T_S16:
   case (T_S8 << 8) | T_S32:
   case (T_S8 << 8) | T_S64:
