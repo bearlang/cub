@@ -52,36 +52,28 @@ class Statement {
   Statement next, parent;
 }
 
-class LoopStatement {
-  u8 type;
-  Statement next, parent;
+class LoopStatement extends Statement {
   string label;
   Expression condition;
   BlockStatement body;
 
   // code generation
-  BlockNode breakNode, continueNode;
+  //BlockNode breakNode, continueNode;
   u32 conditionBlock, postBlock;
 }
 
-class BlockStatement {
-  u8 type;
-  Statement next, parent;
+class BlockStatement extends Statement {
   Statement body;
   Function fnParent;
   SymbolEntry[] classList, functionList, typeList, variableList;
 }
 
-class ClassStatement {
-  u8 type;
-  Statement next, parent;
+class ClassStatement extends Statement {
   string symbolName;
   Class classType;
 }
 
-class ControlStatement {
-  u8 type;
-  Statement next, parent;
+class ControlStatement extends Statement {
   string label;
   // TODO: switch statements
   LoopStatement target;
@@ -93,49 +85,35 @@ class DefineClause {
   DefineClause next;
 }
 
-class DefineStatement {
-  u8 type;
-  Statement next, parent;
+class DefineStatement extends Statement {
   Type symbolType;
   DefineClause clause;
 }
 
-class ExpressionStatement {
-  u8 type;
-  Statement next, parent;
+class ExpressionStatement extends Statement {
   Expression value;
 }
 
-class FunctionStatement {
-  u8 type;
-  Statement next, parent;
+class FunctionStatement extends Statement {
   string symbolName;
   Function function;
 }
 
-class IfStatement {
-  u8 type;
-  Statement next, parent;
+class IfStatement extends Statement {
   Expression condition;
   BlockStatement first, second;
 }
 
-class LetStatement {
-  u8 type;
-  Statement next, parent;
+class LetStatement extends Statement {
   DefineClause clause;
 }
 
-class ReturnStatement {
-  u8 type;
-  Statement next, parent;
+class ReturnStatement extends Statement {
   Expression value;
   Function target;
 }
 
-class TypedefStatement {
-  u8 type;
-  Statement next, parent;
+class TypedefStatement extends Statement {
   Type typedefType;
   string alias;
 }

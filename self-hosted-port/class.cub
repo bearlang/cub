@@ -1,5 +1,9 @@
 class Class {
   string className;
+
+  string parentName;
+  Class parent;
+
   Field[] fields;
 
   u32 structIndex;
@@ -32,7 +36,9 @@ Expression parseNew(TokenBuffer state) {
 }
 
 ClassStatement parseClass(TokenBuffer state) {
-  string className = expectIdentifier(state);
+  string className = expectIdentifier(state), parentName =
+    accept(state, L_EXTENDS) == null ? null : expectIdentifier(state);
+
   expect(state, L_OPEN_BRACE);
 
   DefineStatement define;
@@ -59,5 +65,5 @@ ClassStatement parseClass(TokenBuffer state) {
 
   expect(state, L_CLOSE_BRACE);
 
-  return newClassStatement(new Class(className, entries, 0));
+  return newClassStatement(new Class(className, parentName, null, entries, 0));
 }
