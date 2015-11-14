@@ -903,6 +903,10 @@ statement *parse_statement(parse_state *state) {
 
   switch (t->type) {
   case L_SEMICOLON:
+    // TODO: only warn if it's not the immediate child of a loop
+    fprintf(stderr, "warning: semicolon statement at %zu:%zu\n", t->line,
+      t->offset);
+
     free(t);
     return s_expression(NULL);
   case L_BREAK:
