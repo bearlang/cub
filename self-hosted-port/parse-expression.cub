@@ -1,28 +1,19 @@
-Expression[] parseExpressionList(TokenBuffer state, u8 endToken) {
+Expression parseExpressionList(TokenBuffer state, u8 endToken) {
   if (accept(state, endToken) != null) {
-    return new Expression[0];
+    return null;
   }
 
-  u32 count = 1;
-  Expression[] list = new Expression[16];
-  list[0] = parseExpression(state);
+  Expression head = parseExpression(state), tail = head;
 
   while (accept(state, L_COMMA) != null) {
-    if (count == list.length) {
-      list.length *= 2;
-    }
-
-    list[count] = parseExpression(state);
-    ++count;
+    Expression next = parseExpression(state);
+    tail.next = next;
+    tail = next;
   }
 
   expect(state, endToken);
 
-  if (list.length != count) {
-    list.length = count;
-  }
-
-  return list;
+  return head;
 }
 
 Expression parseExpression(TokenBuffer state) {
@@ -102,9 +93,8 @@ Expression parseLocalExpression(TokenBuffer state) {
 
     if (suffix.tokenType == L_DOT) {
       left = newGetFieldNode(left, expectIdentifier(state));
-      Expression[] right = parseExpressionList(state, L_CLOSE_PAREN);
-      left = newCallNode(left, right);
     } else if (suffix.tokenType == L_OPEN_PAREN) {
+      left = newCallNode(left, parseExpressionList(state, L_CLOSE_PAREN));
     } else if (suffix.tokenType == L_OPEN_BRACKET) {
       Expression right = parseExpression(state);
       expect(state, L_CLOSE_BRACKET);
