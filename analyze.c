@@ -5,6 +5,8 @@
 #include "parse.h"
 #include "xalloc.h"
 
+static void analyze_expression(block_statement*, expression*);
+
 static void analyze_function(block_statement *block, function *fn) {
   block_statement *body = fn->body;
   body->parent = (statement*) block;
@@ -17,6 +19,96 @@ static void analyze_function(block_statement *block, function *fn) {
   }
 
   analyze(body);
+}
+
+static expression **analyze_new(block_statement *block, class *the_class,
+    expression **param) {
+  if (the_class->parent) {
+    param = analyze_new(block, the_class->parent, param);
+  }
+
+  field *class_field = the_class->field;
+  size_t i = 0;
+  while (class_field && *param) {
+    analyze_expression(block, *param);
+
+    expression *next = (*param)->next;
+    (*param)->next = NULL;
+    *param = implicit_cast(*param, class_field->field_type);
+    (*param)->next = next;
+    param = &(*param)->next;
+    class_field = class_field->next;
+    ++i;
+  }
+
+  return param;
+}
+
+static void analyze_field_operation(expression *e) {
+  char *field_name = e->symbol_name;
+
+  if (e->value->type->type == T_ARRAY) {
+    if (strcmp(field_name, "length") == 0) {
+      free(field_name);
+
+      e->operation.type = e->operation.type == O_GET_FIELD ? O_GET_LENGTH
+        : O_SET_LENGTH;
+      e->type = new_type(T_U32);
+      e->symbol_name = NULL;
+      return;
+    }
+
+    fprintf(stderr, "arrays support the length field, not the '%s' field\n",
+      field_name);
+    exit(1);
+  }
+
+  if (e->value->type->type == T_STRING) {
+    if (e->operation.type == O_GET_FIELD && strcmp(field_name, "length") == 0) {
+      free(field_name);
+
+      e->operation.type = O_GET_LENGTH;
+      e->type = new_type(T_U32);
+      e->symbol_name = NULL;
+      return;
+    }
+
+    fprintf(stderr, "strings only support getting the length field\n");
+    exit(1);
+  }
+
+  if (e->value->type->type != T_OBJECT) {
+    fprintf(stderr, "field access can only occur on arrays, strings, and "
+      "objects\n");
+    exit(1);
+  }
+
+  class *the_class = e->value->type->classtype;
+  char *class_name = the_class->class_name;
+
+  do {
+    size_t i = 0;
+    for (field *class_field = the_class->field; class_field;
+        class_field = class_field->next, ++i) {
+      if (strcmp(field_name, class_field->symbol_name) == 0) {
+        e->field_index = i;
+        e->type = copy_type(class_field->field_type);
+
+        if (e->operation.type == O_SET_FIELD) {
+          expression *cast = implicit_cast(e->value->next, e->type);
+
+          cast->next = NULL;
+          e->value->next = cast;
+        }
+
+        free(field_name);
+        return;
+      }
+    }
+  } while ((the_class = the_class->parent) != NULL);
+
+  fprintf(stderr, "'%s' has no field named '%s'\n", class_name, field_name);
+  exit(1);
 }
 
 static void analyze_expression(block_statement *block, expression *e) {
@@ -207,32 +299,15 @@ static void analyze_expression(block_statement *block, expression *e) {
     analyze_function(block, e->function);
     break;
   case O_GET_FIELD:
-  case O_SET_FIELD: {
+  case O_SET_FIELD:
     analyze_expression(block, e->value);
 
-    class *class = e->value->type->classtype;
-
-    char *name = e->symbol_name;
-    size_t i = 0;
-    for (field *field = class->field; field; field = field->next, ++i) {
-      if (strcmp(name, field->symbol_name) == 0) {
-        e->field_index = i;
-        e->type = copy_type(field->field_type);
-        if (e->operation.type == O_SET_FIELD) {
-          analyze_expression(block, e->value->next);
-          expression *cast = implicit_cast(e->value->next, e->type);
-
-          cast->next = NULL;
-          e->value->next = cast;
-        }
-        free(name);
-        return;
-      }
+    if (e->operation.type == O_SET_FIELD) {
+      analyze_expression(block, e->value->next);
     }
 
-    fprintf(stderr, "'%s' has no field named '%s'\n", class->class_name, name);
-    exit(1);
-  }
+    analyze_field_operation(e);
+    break;
   case O_GET_INDEX:
   case O_SET_INDEX: {
     analyze_expression(block, e->value);
@@ -355,23 +430,7 @@ static void analyze_expression(block_statement *block, expression *e) {
 
     e->type->classtype = the_class;
 
-    expression **argvalue = &e->value;
-    field *field = the_class->field;
-    size_t i = 0;
-    while (field && *argvalue) {
-      analyze_expression(block, *argvalue);
-
-      // TODO: implicit cast
-      expression *next = (*argvalue)->next;
-      (*argvalue)->next = NULL;
-      *argvalue = implicit_cast(*argvalue, field->field_type);
-      (*argvalue)->next = next;
-      argvalue = &(*argvalue)->next;
-      field = field->next;
-      ++i;
-    }
-
-    if ((!*argvalue) != (!field)) {
+    if (*analyze_new(block, the_class, &e->value)) {
       fprintf(stderr, "constructor for '%s' called with wrong number of"
         " arguments\n", class_name);
       exit(1);
@@ -533,7 +592,9 @@ static void analyze_expression(block_statement *block, expression *e) {
   } break;
   case O_BLOCKREF:
   case O_CAST: // TODO: implement me!
+  case O_GET_LENGTH:
   case O_INSTANCEOF:
+  case O_SET_LENGTH:
     abort();
   }
 
@@ -721,6 +782,24 @@ void analyze(block_statement *block) {
   for (statement *node = block->body; node != NULL; node = node->next) {
     if (node->type == S_CLASS) {
       class *c = ((class_statement*) node)->classtype;
+
+      char *class_name = c->parent_name;
+      if (class_name != NULL) {
+        uint8_t symbol_type = ST_TYPE;
+        symbol_entry *entry = get_symbol(block, class_name, &symbol_type);
+
+        if (!entry) {
+          fprintf(stderr, "class '%s' not defined\n", class_name);
+          exit(1);
+        }
+
+        if (entry->type->type != T_OBJECT) {
+          fprintf(stderr, "type '%s' not a class\n", class_name);
+          exit(1);
+        }
+
+        c->parent = entry->type->classtype;
+      }
 
       for (field *c_field = c->field; c_field; c_field = c_field->next) {
         c_field->field_type = resolve_type(block, c_field->field_type);

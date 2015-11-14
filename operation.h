@@ -10,6 +10,7 @@ typedef enum {
   O_FUNCTION,          // UNUSED
   O_GET_FIELD,         // 2
   O_GET_INDEX,         // 2
+  O_GET_LENGTH,        // 1
   O_GET_SYMBOL,        // 1
   O_IDENTITY,          // 2
   O_INSTANCEOF,        // 2
@@ -25,6 +26,7 @@ typedef enum {
   O_POSTFIX,           // 1
   O_SET_FIELD,         // 3
   O_SET_INDEX,         // 3
+  O_SET_LENGTH,        // 2
   O_SET_SYMBOL,        // UNUSED
   O_SHIFT,             // 2
   O_SHIFT_ASSIGN,      // UNUSED

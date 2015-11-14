@@ -61,6 +61,9 @@ static void optimize_copies(code_block *block) {
       ip[0] = map[ip[0]];
       ip[1] = map[ip[1]];
       break;
+    case O_GET_LENGTH:
+      ip[0] = map[ip[0]];
+      break;
     case O_GET_SYMBOL: {
       map[j] = map[ip[0]];
       free(ip);
@@ -80,6 +83,10 @@ static void optimize_copies(code_block *block) {
       ip[0] = map[ip[0]];
       ip[1] = map[ip[1]];
       ip[2] = map[ip[2]];
+      break;
+    case O_SET_LENGTH:
+      ip[0] = map[ip[0]];
+      ip[1] = map[ip[1]];
       break;
 
     case O_BLOCKREF:

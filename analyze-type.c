@@ -170,14 +170,30 @@ expression *implicit_cast(expression *value, type *expected) {
   case (T_BLOCKREF << 8) | T_BLOCKREF:
     fprintf(stderr, "incompatible function type\n");
     exit(1);
-  case (T_OBJECT << 8) | T_OBJECT:
+  case (T_OBJECT << 8) | T_OBJECT: {
     if (!value->type->classtype) {
       // it's ok, we're assigning a null literal to an object variable
       return value;
     }
-    // TODO: implicit upcasting
-    fprintf(stderr, "incompatible object\n");
-    exit(1);
+
+    bool can_upcast = false;
+    class *the_class = value->type->classtype, *eclass = expected->classtype;
+
+    while ((the_class = the_class->parent) != NULL) {
+      if (the_class == eclass) {
+        // upcast!
+        cmethod = O_UPCAST;
+        can_upcast = true;
+        break;
+      }
+    }
+
+    if (!can_upcast) {
+      fprintf(stderr, "incompatible object '%s', expecting '%s'\n",
+        value->type->classtype->class_name, eclass->class_name);
+      exit(1);
+    }
+  }
   case (T_BOOL << 8) | T_S8:
   case (T_BOOL << 8) | T_S16:
   case (T_BOOL << 8) | T_S32:

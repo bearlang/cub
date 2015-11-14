@@ -540,6 +540,7 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   switch (value->operation.type) {
   case O_BITWISE_NOT:
   case O_NOT:
+  case O_GET_LENGTH:
     return generate_linear(parent, value, 1);
   case O_BLOCKREF: {
     code_instruction *ref = add_instruction(parent);
@@ -702,6 +703,16 @@ static code_block *generate_expression(code_block *parent, expression *value) {
       get->parameters[1] = peek_stack(parent, 0);
       push_stack(parent);
     } break;
+    case O_GET_LENGTH: {
+      // TODO: ensure we won't get a string here
+      parent = generate_expression(parent, left);
+
+      // array
+      push_stack_from(parent, last_instruction(parent) - 1);
+
+      // old length
+      push_stack(parent);
+    } break;
     case O_GET_SYMBOL:
       // old value
       parent = generate_expression(parent, left);
@@ -803,6 +814,15 @@ static code_block *generate_expression(code_block *parent, expression *value) {
 
       mirror_instruction(parent, mirror);
     } break;
+    case O_GET_LENGTH: {
+      code_instruction *set = new_instruction(parent, 2);
+      set->operation.type = O_SET_LENGTH;
+      set->type = NULL;
+      set->parameters[0] = pop_stack(parent);
+      set->parameters[1] = last_instruction(parent) - 1;
+
+      mirror_instruction(parent, mirror);
+    } break;
     case O_GET_SYMBOL: {
       const char *symbol = left->symbol_name;
 
@@ -859,6 +879,22 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     set->operation.type = O_SET_INDEX;
     set->type = NULL;
     set->parameters[2] = pop_stack(parent);
+    set->parameters[0] = pop_stack(parent);
+    set->parameters[1] = last_instruction(parent) - 1;
+
+    mirror_instruction(parent, last_instruction(parent) - 1);
+
+    return parent;
+  }
+  case O_SET_LENGTH: {
+    parent = generate_expression(parent, value->value);
+    push_stack(parent);
+
+    parent = generate_expression(parent, value->value->next);
+
+    code_instruction *set = new_instruction(parent, 2);
+    set->operation.type = O_SET_LENGTH;
+    set->type = NULL;
     set->parameters[0] = pop_stack(parent);
     set->parameters[1] = last_instruction(parent) - 1;
 
@@ -1122,10 +1158,6 @@ static code_block *generate_call(code_block *parent, expression *value) {
 static code_block *generate_cast(code_block *parent, expression *value) {
   switch (value->operation.cast_type) {
   case O_DOWNCAST:
-  case O_UPCAST:
-    fprintf(stderr, "class inheritance is not implemented, so object casting "
-      "not supported\n");
-    exit(1);
   case O_FLOAT_EXTEND:
   case O_FLOAT_TO_SIGNED:
   case O_FLOAT_TO_UNSIGNED:
@@ -1135,6 +1167,7 @@ static code_block *generate_cast(code_block *parent, expression *value) {
   case O_SIGNED_TO_FLOAT:
   case O_TRUNCATE:
   case O_UNSIGNED_TO_FLOAT:
+  case O_UPCAST:
   case O_ZERO_EXTEND: {
     parent = generate_expression(parent, value->value);
 

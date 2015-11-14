@@ -37,6 +37,7 @@ typedef enum {
   L_DOT,
   L_ELSE,
   L_EQ,
+  L_EXTENDS,
   L_FOR,
   L_GT,
   L_GTE,

@@ -40,6 +40,7 @@ char *token_string(token_type type) {
   case L_DOT: return "DOT";
   case L_ELSE: return "ELSE";
   case L_EQ: return "EQ";
+  case L_EXTENDS: return "EXTENDS";
   case L_FOR: return "FOR";
   case L_GT: return "GT";
   case L_GTE: return "GTE";

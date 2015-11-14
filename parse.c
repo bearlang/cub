@@ -712,6 +712,8 @@ void free_expression(expression *value, bool free_strings) {
     free_expression(value->value, free_strings);
     break;
   case O_BLOCKREF:
+  case O_GET_LENGTH:
+  case O_SET_LENGTH:
     // not supposed to exist at this level
     abort();
   case O_CALL: // undefined type
@@ -928,6 +930,12 @@ statement *parse_statement(parse_state *state) {
     free(t);
 
     t = expect(state, L_IDENTIFIER);
+
+    token *parent = NULL;
+    if (consume(state, L_EXTENDS)) {
+      parent = expect(state, L_IDENTIFIER);
+    }
+
     expect_consume(state, L_OPEN_BRACE);
 
     char *class_name = t->symbol_name;
@@ -937,6 +945,11 @@ statement *parse_statement(parse_state *state) {
     define_statement *define;
 
     the_class->class_name = class_name;
+    the_class->parent_name = parent == NULL ? NULL : parent->symbol_name;
+
+    if (parent != NULL) {
+      free(parent);
+    }
 
     field **tail = &the_class->field;
 

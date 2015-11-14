@@ -56,6 +56,10 @@ typedef struct class {
   char *class_name;
   size_t field_count; // TODO: use this
   field *field;
+  union {
+    char *parent_name;
+    struct class *parent;
+  };
 
   // code generation
   size_t struct_index;
