@@ -62,7 +62,7 @@ typeMap[11] = T_U64;
 typeMap[12] = T_U8;
 typeMap[13] = T_VOID;
 
-Token scanInner(Stream in) {
+Token scan(Stream in) {
   u8 chr;
 
   // handle whitespace and comments

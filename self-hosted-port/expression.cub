@@ -1,0 +1,29 @@
+class Expression {
+  u8 operation;
+
+  Type type;
+
+  // so much waste
+  bool boolValue;
+  f32 f32Value;
+  f64 f64Value;
+  f128 f128Value;
+  s8 s8Value;
+  s16 s16Value;
+  s32 s32Value;
+  s64 s64Value;
+  u8 u8Value;
+  u16 u16Value;
+  u32 u32Value;
+  u64 u64Value;
+  string stringValue;
+
+  Expression value;
+
+  Class classType;
+  Function function;
+
+  u32 fieldIndex;
+
+  Expression next;
+}

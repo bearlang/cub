@@ -7,10 +7,14 @@ class TokenBufferEntry {
 class TokenBuffer {
   Token eof;
   TokenBufferEntry head, tail, lookahead;
+
+  Stream input;
 }
 
 TokenBuffer newTokenBuffer() {
-  return new TokenBuffer(null, null, null, null);
+  Stream input = newStream();
+
+  return new TokenBuffer(null, null, null, null, input);
 }
 
 Token bufferPeek(TokenBuffer state) {
@@ -22,7 +26,7 @@ Token bufferPeek(TokenBuffer state) {
     return state.head.token;
   }
 
-  Token token = scan();
+  Token token = scan(state.input);
 
   if (token == null) {
     return state.eof = new Token(L_EOF);
@@ -47,7 +51,7 @@ Token bufferShift(TokenBuffer state) {
     return head.token;
   }
 
-  Token token = scan();
+  Token token = scan(state.input);
   return token == null ? (state.eof = new Token(L_EOF)) : token;
 }
 
@@ -78,7 +82,7 @@ bool bufferLookahead(TokenBuffer state, u8 tokenType) {
     return true;
   }
 
-  Token token = scan();
+  Token token = scan(state.input);
 
   if (token == null) {
     return tokenType == L_EOF;
