@@ -4,8 +4,6 @@ set -e
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "$DIR"
-
 if [ "$#" -lt 2 ]; then
   echo "usage: cub <input-file> <output-file>" >&2
   exit 1
