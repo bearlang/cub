@@ -3,7 +3,7 @@ BlockStatement parse() {
   BlockStatement body = parseBlock(state, L_EOF);
 
   Token token = bufferPeek(state);
-  if (token.type == L_EOF) {
+  if (token.tokenType == L_EOF) {
     return body;
   }
 
@@ -260,7 +260,8 @@ Statement expectStatement(TokenBuffer state) {
   if (type == L_IDENTIFIER && accept(state, L_COLON) != null) {
     Token next = bufferPeek(state);
 
-    if (next.type != L_DO && next.type != L_WHILE && next.type != L_FOR) {
+    if (next.tokenType != L_DO && next.tokenType != L_WHILE &&
+        next.tokenType != L_FOR) {
       // TODO: line number
       print("expected loop after label");
       exit(1);
@@ -271,7 +272,7 @@ Statement expectStatement(TokenBuffer state) {
     return loop;
   }
 
-  parsePush(state, token);
+  bufferPush(state, token);
 
   return parseAmbiguousStatement(state);
 }

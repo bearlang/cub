@@ -29,7 +29,7 @@ Token bufferPeek(TokenBuffer state) {
   Token token = scan(state.input);
 
   if (token == null) {
-    return state.eof = new Token(L_EOF);
+    return state.eof = newToken(state.input, L_EOF);
   }
 
   state.head = (state.tail = new TokenBufferEntry(token, null));
@@ -52,7 +52,8 @@ Token bufferShift(TokenBuffer state) {
   }
 
   Token token = scan(state.input);
-  return token == null ? (state.eof = new Token(L_EOF)) : token;
+  return token == null ? (state.eof = newToken(state.input, L_EOF))
+    : token;
 }
 
 void bufferPush(TokenBuffer state, Token token) {
@@ -74,7 +75,7 @@ bool bufferLookahead(TokenBuffer state, u8 tokenType) {
   TokenBufferEntry entry = state.lookahead;
 
   if (entry != null) {
-    if (entry.token.type != tokenType) {
+    if (entry.token.tokenType != tokenType) {
       return false;
     }
 
@@ -101,14 +102,14 @@ bool bufferLookahead(TokenBuffer state, u8 tokenType) {
   }
   state.tail = entry;
 
-  return token.type == tokenType;
+  return token.tokenType == tokenType;
 }
 
 Token accept(TokenBuffer state, u8 tokenType) {
-  Token token = parsePeek(state);
+  Token token = bufferPeek(state);
 
-  if (token.type == type) {
-    parseShift(state);
+  if (token.tokenType == tokenType) {
+    bufferShift(state);
     return token;
   }
 
@@ -116,10 +117,10 @@ Token accept(TokenBuffer state, u8 tokenType) {
 }
 
 Token expect(TokenBuffer state, u8 tokenType) {
-  Token token = parseShift(state);
+  Token token = bufferShift(state);
 
-  if (token.type != tokenType) {
-    print("expected token '#{tokenType}', found '#{token.type}'");
+  if (token.tokenType != tokenType) {
+    print("expected token '#{tokenType}', found '#{token.tokenType}'");
     exit(1);
   }
 

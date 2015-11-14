@@ -30,13 +30,14 @@ class Type {
 }
 
 bool isInteger(Type type) {
-  return t != null && (t.type == T_S8 || t.type == T_S16 || t.type == T_S32 ||
-    t.type == T_S64 || t.type == T_U8 || t.type == T_U16 || t.type == T_U32 ||
-    t.type == T_U64);
+  return type != null && (type.type == T_S8 || type.type == T_S16 ||
+    type.type == T_S32 || type.type == T_S64 || type.type == T_U8 ||
+    type.type == T_U16 || type.type == T_U32 || type.type == T_U64);
 }
 
 bool isFloat(Type type) {
-  return t != null && (t.type == T_F32 || t.type == T_F64 || t.type == T_F128);
+  return type != null && (type.type == T_F32 || type.type == T_F64 ||
+    type.type == T_F128);
 }
 
 bool equivalentArgTypes(Type[] left, Type[] right) {
@@ -73,11 +74,11 @@ Type newType(u8 type) {
 }
 
 Type newTypeFromToken(Token token) {
-  if (token.type == L_IDENTIFIER) {
+  if (token.tokenType == L_IDENTIFIER) {
     return new Type(T_REF, token.valueString, null, null, null, 0);
   }
 
-  if (token.type == L_TYPE) {
+  if (token.tokenType == L_TYPE) {
     return new Type(token.literalType);
   }
 

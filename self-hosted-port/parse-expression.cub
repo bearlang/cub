@@ -35,16 +35,16 @@ Expression parseExpressionInner(TokenBuffer state, Expression left,
   Token lookahead = bufferPeek(state);
   OperatorEntry entry;
 
-  while ((entry = operatorPrecedences[lookahead.type]) != null &&
+  while ((entry = operatorPrecedences[lookahead.tokenType]) != null &&
       entry.precedence >= minPrecedence) {
     Token operation = lookahead;
     OperatorEntry operationEntry = entry;
     u8 operationPrecedence = operationEntry.precedence;
-    parseShift(state);
+    bufferShift(state);
     Expression right = parseUnaryExpression(state);
     lookahead = bufferPeek(state);
 
-    while ((entry = operatorPrecedences[lookahead.type]) != null &&
+    while ((entry = operatorPrecedences[lookahead.tokenType]) != null &&
         (entry.precedence > operationPrecedence || (entry.rightAssoc &&
         entry.precedence == operationPrecedence))) {
       right = parseExpressionInner(right, entry.precedence);
@@ -59,27 +59,27 @@ Expression parseExpressionInner(TokenBuffer state, Expression left,
 
 // prefix: ++, --, -, !, ~, new
 Expression parseUnaryExpression(TokenBuffer state) {
-  Token prefix = parseShift(state);
+  Token prefix = bufferShift(state);
 
-  if (prefix.type == L_EOF) {
+  if (prefix.tokenType == L_EOF) {
     print("unexpected token EOF");
     exit(1);
   }
 
-  if (prefix.type == L_INCREMENT || prefix.type == L_DECREMENT) {
-    return assignNode(prefix.type == L_INCREMENT ? O_ADD : O_SUB,
+  if (prefix.tokenType == L_INCREMENT || prefix.tokenType == L_DECREMENT) {
+    return assignNode(prefix.tokenType == L_INCREMENT ? O_ADD : O_SUB,
       parseUnaryExpression(state), newLiteralInteger(T_U8, 1));
   }
 
-  if (prefix.type == L_SUB) {
+  if (prefix.tokenType == L_SUB) {
     return newNegateNode(parseUnaryExpression(state));
   }
 
-  if (prefix.type == L_NOT || prefix.type == L_BITWISE_NOT) {
-    return newNotNode(prefix.type != L_NOT, parseUnaryExpression(state));
+  if (prefix.tokenType == L_NOT || prefix.tokenType == L_BITWISE_NOT) {
+    return newNotNode(prefix.tokenType != L_NOT, parseUnaryExpression(state));
   }
 
-  if (prefix.type == L_NEW) {
+  if (prefix.tokenType == L_NEW) {
     return parseNew(state);
   }
 
@@ -93,25 +93,25 @@ Expression parseLocalExpression(TokenBuffer state) {
   Expression left = parsePrimaryExpression(state);
 
   for (;;) {
-    Token suffix = parseShift(state);
+    Token suffix = bufferShift(state);
 
-    if (suffix.type == L_EOF) {
+    if (suffix.tokenType == L_EOF) {
       print("unexpected token EOF");
       exit(1);
     }
 
-    if (suffix.type == L_DOT) {
+    if (suffix.tokenType == L_DOT) {
       left = newGetFieldNode(left, expectIdentifier(state));
-    } else if (suffix.type == L_OPEN_PAREN) {
       Expression[] right = parseExpressionList(state, L_CLOSE_PAREN);
       left = newCallNode(left, right);
-    } else if (suffix.type == L_OPEN_BRACKET) {
+    } else if (suffix.tokenType == L_OPEN_PAREN) {
+    } else if (suffix.tokenType == L_OPEN_BRACKET) {
       Expression right = parseExpression(state);
       expect(state, L_CLOSE_BRACKET);
       left = newGetIndexNode(left, right);
-    } else if (suffix.type == L_INCREMENT) {
+    } else if (suffix.tokenType == L_INCREMENT) {
       left = newPostfixNode(O_INCREMENT, left);
-    } else if (suffix.type == L_DECREMENT) {
+    } else if (suffix.tokenType == L_DECREMENT) {
       left = newPostfixNode(O_DECREMENT, left);
     } else {
       return left;
@@ -131,7 +131,7 @@ Expression parsePrimaryExpression(TokenBuffer state) {
   Token token = accept(state, L_LITERAL);
   if (token != null) {
     // handle 12.method()
-    if (token.maybeDot && bufferPeek(state).type == L_IDENTIFIER) {
+    if (token.maybeDot && bufferPeek(state).tokenType == L_IDENTIFIER) {
       parsePush(state, useFloatingDot(token));
     }
 
