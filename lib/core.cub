@@ -1,3 +1,7 @@
 void print(u64 value) {
   native bear_print_number(value);
 }
+
+void exit(u8 code) {
+
+}
