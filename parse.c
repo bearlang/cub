@@ -66,7 +66,7 @@ static type *parse_type(parse_state *state, type **first_type,
 
       expect_consume(state, L_CLOSE_PAREN);
 
-      (*tail)->next = NULL;
+      *tail = NULL;
       return_type = new_function_type(return_type, head);
     }
   }

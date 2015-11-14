@@ -9,14 +9,11 @@ static void analyze_function(block_statement *block, function *fn) {
   block_statement *body = fn->body;
   body->parent = (statement*) block;
 
-  fn->return_type = resolve_type(block, fn->return_type);
-
   // add arguments to symbol table
   for (argument *arg = fn->argument; arg; arg = arg->next) {
-    type *arg_type = resolve_type(block, arg->argument_type);
+    type *arg_type = arg->argument_type;
     add_symbol(body, ST_VARIABLE, arg->symbol_name)
       ->type = copy_type(arg_type);
-    arg->argument_type = arg_type;
   }
 
   analyze(body);
@@ -702,40 +699,56 @@ static void analyze_inner(block_statement *block, statement **node) {
     add_symbol(block, ST_TYPE, tdef->alias)
       ->type = resolve_type(block, copy_type(tdef->typedef_type));
   } break;
-  case S_CLASS: {
-    class *class = ((class_statement*) *node)->classtype;
-    for (field *item = class->field; item; item = item->next) {
-      resolve_type(block, item->field_type);
-    }
-  } break;
+
+  case S_CLASS:
+    break;
   }
 }
 
 void analyze(block_statement *block) {
-  // build the hoisted tables
+  // hoist classes
   for (statement *node = block->body; node != NULL; node = node->next) {
-    switch (node->type) {
-    case S_CLASS: {
+    if (node->type == S_CLASS) {
       class_statement *c = (class_statement*) node;
       add_symbol(block, ST_TYPE, c->symbol_name)
         ->type = new_object_type(c->classtype);
       add_symbol(block, ST_CLASS, c->symbol_name)
         ->classtype = c->classtype;
-    } break;
+    }
+  }
 
-    // TODO: functions should be *immutable* variables, not separate
-    // as such, the function should be declared as const and then statically
-    // resolved in appropriate scopes
-    case S_FUNCTION: {
+  // resolve class types
+  for (statement *node = block->body; node != NULL; node = node->next) {
+    if (node->type == S_CLASS) {
+      class *c = ((class_statement*) node)->classtype;
+
+      for (field *c_field = c->field; c_field; c_field = c_field->next) {
+        c_field->field_type = resolve_type(block, c_field->field_type);
+      }
+    }
+  }
+
+  // hoist functions and resolve function types
+  for (statement *node = block->body; node != NULL; node = node->next) {
+    if (node->type == S_FUNCTION) {
+      // TODO: functions should be *immutable* variables, not separate
+      // as such, the function should be declared as const and then statically
+      // resolved in appropriate scopes
+
       function_statement *f = (function_statement*) node;
+      function *fn = f->function;
+
+      fn->return_type = resolve_type(block, fn->return_type);
+
+      // add arguments to symbol table
+      for (argument *arg = fn->argument; arg; arg = arg->next) {
+        arg->argument_type = resolve_type(block, arg->argument_type);
+      }
+
       add_symbol(block, ST_VARIABLE, f->symbol_name)
-        ->type = new_blockref_type(f->function);
+        ->type = new_blockref_type(fn);
       add_symbol(block, ST_FUNCTION, f->symbol_name)
         ->function = f->function;
-    } break;
-
-    default:
-      break;
     }
   }
 
