@@ -8,13 +8,6 @@ class Expression {
   f32 f32Value;
   f64 f64Value;
   f128 f128Value;
-  s8 s8Value;
-  s16 s16Value;
-  s32 s32Value;
-  s64 s64Value;
-  u8 u8Value;
-  u16 u16Value;
-  u32 u32Value;
   u64 u64Value;
   string stringValue;
 
@@ -26,4 +19,113 @@ class Expression {
   u32 fieldIndex;
 
   Expression next;
+}
+
+u8 assertValidAssign(Expression left) {
+  if (left.operation == O_GET_FIELD) return O_SET_FIELD;
+  if (left.operation == O_GET_INDEX) return O_SET_INDEX;
+  if (left.operation == O_GET_SYMBOL) return O_SET_SYMBOL;
+
+  print("invalid left-hand side in assignment");
+  exit(1);
+}
+
+/*Expression newAssignNode(Expression left, Expression right) {
+  left.operation = assertValidAssign(left);
+
+  if (left.value == null) {
+    left.value = right;
+  } else {
+    Expression pre = left.value;
+    while (pre.next != null) pre = pre.next;
+    pre.next = right;
+  }
+
+  return left;
+}*/
+
+Expression newBasicNode(u8 operation, Expression value) {
+  return new Expression(operation, null, false, 0, 0, 0, 0, null, value, null,
+    null, 0, null);
+}
+
+Expression newBinaryNode(u8 operation, Expression left, Expression right) {
+  left.next = right;
+  return newBasicNode(operation, left);
+}
+
+Expression newCallNode(Expression callee, Expression args) {
+  callee.next = args;
+  return newBinaryNode(O_CALL, callee);
+}
+
+Expression newFunctionNode(Function fn) {
+  Expression func = newBasicNode(O_FUNCTION, null);
+  func.function = fn;
+  return func;
+}
+
+Expression newGetFieldNode(Expression left, string field) {
+  Expression getField = newBasicNode(O_GET_FIELD, left);
+  getField.stringValue = field;
+  return getField;
+}
+
+Expression newGetIndexNode(Expression left, Expression index) {
+  left.next = index;
+  return newBasicNode(O_GET_INDEX, left);
+}
+
+Expression newGetSymbolNode(string symbol) {
+  Expression getSymbol = newBasicNode(O_GET_SYMBOL, null);
+  getSymbol.stringValue = symbol;
+  return getSymbol;
+}
+
+Expression newIdentityNode(Expression left, Expression right) {
+  Expression identity = newBinaryNode(O_IDENTITY, left, right);
+  identity.type = newType(T_BOOL);
+  return identity;
+}
+
+Expression newLiteralInteger(u8 type, u64 value) {
+  return new Expression(O_LITERAL, newType(type), false, 0, 0, 0, value, null,
+    null, null, null, 0, null);
+}
+
+Expression newNegateNode(Expression value) {
+  return newBasicNode(O_NEGATE, value);
+}
+
+Expression newNewArrayNode(Type arrayType, Expression size) {
+  Expression newNode = newBasicNode(O_NEW_ARRAY, size);
+  newNode.type = newArrayType(arrayType);
+  return newNode;
+}
+
+Expression newNewNode(string className, Expression args) {
+  Expression newNode = newBasicNode(O_NEW, args);
+  newNode.stringValue = className;
+  return newNode;
+}
+
+Expression newNotNode(bool bitwise, Expression value) {
+  Expression not = newBasicNode(bitwise ? O_BITWISE_NOT : O_NOT, value);
+  if (!bitwise) {
+    not.type = newType(T_BOOL);
+  }
+  return not;
+}
+
+Expression newPostfixNode(u8 postfixType, Expression value) {
+  assertValidAssign(value);
+
+  return newBasicNode(postfixType, value);
+}
+
+Expression newTernaryNode(Expression condition, Expression left,
+    Expression right) {
+  condition.next = left;
+  left.next = right;
+  return newBasicNode(O_TERNARY, condition);
 }
