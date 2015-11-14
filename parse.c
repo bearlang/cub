@@ -1024,6 +1024,8 @@ statement *parse_statement(parse_state *state) {
       tail = tmp;
     }
 
+    expect_consume(state, L_SEMICOLON);
+
     tail->next = NULL;
 
     return s_let(head);
