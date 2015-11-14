@@ -3,3 +3,6 @@
 /test/test.o
 /test/test
 /out
+/Makefile
+/cub.Makefile
+/cub.target.mk
