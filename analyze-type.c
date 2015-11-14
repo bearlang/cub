@@ -691,7 +691,7 @@ void ternary_numeric_promotion(expression *value) {
   return;
 
 unsupported:
-  fprintf(stderr, "unsupported types in binary operation\n");
+  fprintf(stderr, "unsupported types in ternary operation\n");
   exit(1);
 }
 
