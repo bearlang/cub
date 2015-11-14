@@ -1,12 +1,4 @@
-u8 G_ARGUMENT = 1;
-u8 G_DEFINE = 2;
-u8 G_EXPRESSION = 4;
-u8 G_FUNCTION = 8;
-u8 G_PARAMETER = 16;
-u8 G_ANY = 31;
-
-u8 G_NEW_ARRAY = 1;
-u8 G_NEW_OBJECT = 2;
+// see constants.cub for the disambiguation types
 
 u8 disambiguateExpressionInner(TokenBuffer state, u8 restrict) {
   if (!bufferLookahead(state, L_TYPE) && !bufferLookahead(state, L_IDENTIFIER)) {

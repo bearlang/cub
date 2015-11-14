@@ -1,23 +1,4 @@
-// TODO: map, list, class, function
-u8 T_ARRAY = 0;
-u8 T_BLOCKREF = 1;
-u8 T_BOOL = 2;
-u8 T_F32 = 3;
-u8 T_F64 = 4;
-u8 T_F128 = 5;
-u8 T_FUNCREF = 6;
-u8 T_OBJECT = 7;
-u8 T_REF = 8;
-u8 T_S8 = 9;
-u8 T_S16 = 10;
-u8 T_S32 = 11;
-u8 T_S64 = 12;
-u8 T_STRING = 13;
-u8 T_U8 = 14;
-u8 T_U16 = 15;
-u8 T_U32 = 16;
-u8 T_U64 = 17;
-u8 T_VOID = 18;
+// see constants.cub for type
 
 class Type {
   u8 type;

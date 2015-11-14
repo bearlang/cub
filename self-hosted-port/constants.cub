@@ -1,72 +1,78 @@
-u8 L_ADD = 0;
-u8 L_ADD_ASSIGN = 1;
-u8 L_AND = 2;
-u8 L_AS = 3;
-u8 L_ASHIFT = 4;
-u8 L_ASHIFT_ASSIGN = 5;
-u8 L_ASSIGN = 6;
-u8 L_BITWISE_AND = 7;
+// tokens
+
+u8 L_ADD =                0;
+u8 L_ADD_ASSIGN =         1;
+u8 L_AND =                2;
+u8 L_AS =                 3;
+u8 L_ASHIFT =             4;
+u8 L_ASHIFT_ASSIGN =      5;
+u8 L_ASSIGN =             6;
+u8 L_BITWISE_AND =        7;
 u8 L_BITWISE_AND_ASSIGN = 8;
-u8 L_BITWISE_NOT = 9;
-u8 L_BITWISE_OR = 10;
-u8 L_BITWISE_OR_ASSIGN = 11;
-u8 L_BITWISE_XOR = 12;
+u8 L_BITWISE_NOT =        9;
+u8 L_BITWISE_OR =         10;
+u8 L_BITWISE_OR_ASSIGN =  11;
+u8 L_BITWISE_XOR =        12;
 u8 L_BITWISE_XOR_ASSIGN = 13;
-u8 L_BREAK = 14;
-u8 L_CASE = 15;
-u8 L_CLASS = 16;
-u8 L_CLOSE_BRACE = 17;
-u8 L_CLOSE_BRACKET = 18;
-u8 L_CLOSE_PAREN = 19;
-u8 L_COLON = 20;
-u8 L_COMMA = 21;
-u8 L_CONTINUE = 22;
-u8 L_DECREMENT = 23;
-u8 L_DIV = 24;
-u8 L_DIV_ASSIGN = 25;
-u8 L_DO = 26;
-u8 L_DOT = 27;
-u8 L_ELSE = 28;
-u8 L_EQ = 29;
-u8 L_FOR = 30;
-u8 L_GT = 31;
-u8 L_GTE = 32;
-u8 L_IDENTIFIER = 33;
-u8 L_IF = 34;
-u8 L_INCREMENT = 35;
-u8 L_LET = 36;
-u8 L_LITERAL = 37;
-u8 L_LSHIFT = 38;
-u8 L_LSHIFT_ASSIGN = 39;
-u8 L_LT = 40;
-u8 L_LTE = 41;
-u8 L_MOD = 42;
-u8 L_MOD_ASSIGN = 43;
-u8 L_MUL = 44;
-u8 L_MUL_ASSIGN = 45;
-u8 L_NATIVE = 46;
-u8 L_NE = 47;
-u8 L_NEW = 48;
-u8 L_NOT = 49;
-u8 L_NULL = 50;
-u8 L_OPEN_BRACE = 51;
-u8 L_OPEN_BRACKET = 52;
-u8 L_OPEN_PAREN = 53;
-u8 L_OR = 54;
-u8 L_RETURN = 55;
-u8 L_RSHIFT = 56;
-u8 L_RSHIFT_ASSIGN = 57;
-u8 L_SEMICOLON = 58;
-u8 L_STR_CONCAT = 59;
-u8 L_STR_CONCAT_ASSIGN = 60;
-u8 L_SUB = 61;
-u8 L_SUB_ASSIGN = 62;
-u8 L_TERNARY = 63;
-u8 L_TYPE = 64;
-u8 L_TYPEDEF = 65;
-u8 L_VOID = 66;
-u8 L_WHILE = 67;
-u8 L_XOR = 68;
+u8 L_BREAK =              14;
+u8 L_CASE =               15;
+u8 L_CLASS =              16;
+u8 L_CLOSE_BRACE =        17;
+u8 L_CLOSE_BRACKET =      18;
+u8 L_CLOSE_PAREN =        19;
+u8 L_COLON =              20;
+u8 L_COMMA =              21;
+u8 L_CONTINUE =           22;
+u8 L_DECREMENT =          23;
+u8 L_DIV =                24;
+u8 L_DIV_ASSIGN =         25;
+u8 L_DO =                 26;
+u8 L_DOT =                27;
+u8 L_ELSE =               28;
+u8 L_EXTENDS =            29;
+u8 L_EQ =                 30;
+u8 L_FOR =                31;
+u8 L_GT =                 32;
+u8 L_GTE =                33;
+u8 L_IDENTIFIER =         34;
+u8 L_IF =                 35;
+u8 L_INCREMENT =          36;
+u8 L_LET =                37;
+u8 L_LITERAL =            38;
+u8 L_LSHIFT =             39;
+u8 L_LSHIFT_ASSIGN =      40;
+u8 L_LT =                 41;
+u8 L_LTE =                42;
+u8 L_MOD =                43;
+u8 L_MOD_ASSIGN =         44;
+u8 L_MUL =                45;
+u8 L_MUL_ASSIGN =         46;
+u8 L_NATIVE =             47;
+u8 L_NE =                 48;
+u8 L_NEW =                49;
+u8 L_NOT =                50;
+u8 L_NULL =               51;
+u8 L_OPEN_BRACE =         52;
+u8 L_OPEN_BRACKET =       53;
+u8 L_OPEN_PAREN =         54;
+u8 L_OR =                 55;
+u8 L_RETURN =             56;
+u8 L_RSHIFT =             57;
+u8 L_RSHIFT_ASSIGN =      58;
+u8 L_SEMICOLON =          59;
+u8 L_STR_CONCAT =         60;
+u8 L_STR_CONCAT_ASSIGN =  61;
+u8 L_SUB =                62;
+u8 L_SUB_ASSIGN =         63;
+u8 L_TERNARY =            64;
+u8 L_TYPE =               65;
+u8 L_TYPEDEF =            66;
+u8 L_VOID =               67;
+u8 L_WHILE =              68;
+u8 L_XOR =                69;
+u8 L_EOF =                0xff;
+
+// statements
 
 u8 S_BLOCK = 0;
 u8 S_BREAK = 1;
@@ -81,3 +87,270 @@ u8 S_LET = 9;
 u8 S_RETURN = 10;
 u8 S_TYPEDEF = 11;
 u8 S_WHILE = 12;
+
+// operators (expression?, # code args)
+
+u8 O_ADD = 0; // y, 2
+u8 O_ADD_ASSIGN = 1; // y, n
+u8 O_AND = 2; // y, n
+u8 O_ASHIFT = 3; // y, 2
+u8 O_ASHIFT_ASSIGN = 4; // y, n
+u8 O_ASSIGN = 5; // y, n
+u8 O_BAND = 6; // y, 2
+u8 O_BAND_ASSIGN = 7; // y, n
+u8 O_BITWISE_NOT = 8; // y, 1
+u8 O_BLOCKREF = 9; // n, 1
+u8 O_BOR = 10; // y, 2
+u8 O_BOR_ASSIGN = 11; // y, n
+u8 O_BXOR = 12; // y, 2
+u8 O_BXOR_ASSIGN = 13; // y, n
+u8 O_CALL = 14; // y, n
+u8 O_DECREMENT = 15; // y, n
+u8 O_DIV = 16; // y, 2
+u8 O_DIV_ASSIGN = 17; // y, n
+u8 O_DOWNCAST = 18; // y, 2
+u8 O_EQ = 19; // y, 2
+u8 O_FLOAT_EXTEND = 20; // y, 2
+u8 O_FLOAT_TO_SIGNED = 21; // y, 2
+u8 O_FLOAT_TO_UNSIGNED = 22; // y, 2
+u8 O_FLOAT_TRUNCATE = 23; // y, 2
+u8 O_FUNCTION = 24; // y, n
+u8 O_GET_FIELD = 25; // y, 2
+u8 O_GET_INDEX = 26; // y, 2
+u8 O_GET_SYMBOL = 27; // y, 1 (mirror)
+u8 O_GT = 28; // y, 2
+u8 O_GTE = 29; // y, 2
+u8 O_IDENTITY = 30; // y, 2
+u8 O_INCREMENT = 31; // y, n
+u8 O_INSTANCEOF = 32; // y, 2
+u8 O_LITERAL = 33; // y, 0
+u8 O_LSHIFT = 34; // y, 2
+u8 O_LSHIFT_ASSIGN = 35; // y, n
+u8 O_LT = 36; // y, 2
+u8 O_LTE = 37; // y, 2
+u8 O_MOD = 38; // y, 2
+u8 O_MOD_ASSIGN = 39; // y, n
+u8 O_MUL = 40; // y, 2
+u8 O_MUL_ASSIGN = 41; // y, n
+u8 O_NE = 42; // y, 2
+u8 O_NEGATE = 43; // y, 1
+u8 O_NEW = 44; // y, 1
+u8 O_NEW_ARRAY = 45; // y, 1
+u8 O_NOT = 46; // y, 1
+u8 O_OR = 47; // y, n
+u8 O_REINTERPRET = 48; // y, 2
+u8 O_RSHIFT = 49; // y, 2
+u8 O_RSHIFT_ASSIGN = 50; // y, n
+u8 O_SET_FIELD = 51; // y, 3
+u8 O_SET_INDEX = 52; // y, 3
+u8 O_SET_SYMBOL = 53; // y, n
+u8 O_SIGNED_TO_FLOAT = 54; // y, 2
+u8 O_SIGN_EXTEND = 55; // y, 2
+u8 O_STR_CONCAT = 56; // y, 2
+u8 O_STR_CONCAT_ASSIGN = 57; // y, n
+u8 O_SUB = 58; // y, 2
+u8 O_SUB_ASSIGN = 59; // y, n
+u8 O_TERNARY = 60; // y, n
+u8 O_TRUNCATE = 61; // y, 2
+u8 O_UNSIGNED_TO_FLOAT = 62; // y, 2
+u8 O_UPCAST = 63; // y, 2
+u8 O_XOR = 64; // y, n
+u8 O_ZERO_EXTEND = 65; // y, 2
+
+// operator groups
+
+u8 O_NO_GROUP = 0;
+
+u8 O_CAST = 1; // y, 2
+u8 O_COMPARE = 2; // y, 2
+u8 O_GET = 3; // y, y
+u8 O_LOGIC = 4; // y, n
+u8 O_NUMERIC = 5; // y, 2
+u8 O_NUMERIC_ASSIGN = 6; // y, n
+u8 O_POSTFIX = 7; // y, n
+u8 O_SET = 8; // y, y
+u8 O_SHIFT = 9; // y, 2
+u8 O_SHIFT_ASSIGN = 10; // y, n
+
+let operatorGroups = new u8[256];
+
+for (u8 i = 0;; ++i) {
+  operatorGroups[i] = O_NO_GROUP;
+
+  if (i == 0xff) {
+    break;
+  }
+}
+
+operatorGroups[O_DOWNCAST] = O_CAST;
+operatorGroups[O_UPCAST] = O_CAST;
+operatorGroups[O_FLOAT_EXTEND] = O_CAST;
+operatorGroups[O_FLOAT_TRUNCATE] = O_CAST;
+operatorGroups[O_FLOAT_TO_SIGNED] = O_CAST;
+operatorGroups[O_FLOAT_TO_UNSIGNED] = O_CAST;
+operatorGroups[O_SIGNED_TO_FLOAT] = O_CAST;
+operatorGroups[O_UNSIGNED_TO_FLOAT] = O_CAST;
+operatorGroups[O_SIGN_EXTEND] = O_CAST;
+operatorGroups[O_TRUNCATE] = O_CAST;
+operatorGroups[O_ZERO_EXTEND] = O_CAST;
+operatorGroups[O_REINTERPRET] = O_CAST;
+
+operatorGroups[O_EQ] = O_COMPARE;
+operatorGroups[O_GT] = O_COMPARE;
+operatorGroups[O_GTE] = O_COMPARE;
+operatorGroups[O_LT] = O_COMPARE;
+operatorGroups[O_LTE] = O_COMPARE;
+operatorGroups[O_NE] = O_COMPARE;
+
+operatorGroups[O_GET_FIELD] = O_GET;
+operatorGroups[O_GET_INDEX] = O_GET;
+operatorGroups[O_GET_SYMBOL] = O_GET;
+
+operatorGroups[O_AND] = O_LOGIC;
+operatorGroups[O_OR] = O_LOGIC;
+operatorGroups[O_XOR] = O_LOGIC;
+
+operatorGroups[O_ADD] = O_NUMERIC;
+operatorGroups[O_BAND] = O_NUMERIC;
+operatorGroups[O_BOR] = O_NUMERIC;
+operatorGroups[O_BXOR] = O_NUMERIC;
+operatorGroups[O_DIV] = O_NUMERIC;
+operatorGroups[O_MOD] = O_NUMERIC;
+operatorGroups[O_MUL] = O_NUMERIC;
+operatorGroups[O_SUB] = O_NUMERIC;
+
+operatorGroups[O_ADD_ASSIGN] = O_NUMERIC_ASSIGN;
+operatorGroups[O_BAND_ASSIGN] = O_NUMERIC_ASSIGN;
+operatorGroups[O_BOR_ASSIGN] = O_NUMERIC_ASSIGN;
+operatorGroups[O_BXOR_ASSIGN] = O_NUMERIC_ASSIGN;
+operatorGroups[O_DIV_ASSIGN] = O_NUMERIC_ASSIGN;
+operatorGroups[O_MOD_ASSIGN] = O_NUMERIC_ASSIGN;
+operatorGroups[O_MUL_ASSIGN] = O_NUMERIC_ASSIGN;
+operatorGroups[O_SUB_ASSIGN] = O_NUMERIC_ASSIGN;
+
+operatorGroups[O_INCREMENT] = O_POSTFIX;
+operatorGroups[O_DECREMENT] = O_POSTFIX;
+
+operatorGroups[O_SET_FIELD] = O_SET;
+operatorGroups[O_SET_INDEX] = O_SET;
+operatorGroups[O_SET_SYMBOL] = O_SET;
+
+operatorGroups[O_ASHIFT] = O_SHIFT;
+operatorGroups[O_LSHIFT] = O_SHIFT;
+operatorGroups[O_RSHIFT] = O_SHIFT;
+
+operatorGroups[O_ASHIFT_ASSIGN] = O_SHIFT_ASSIGN;
+operatorGroups[O_LSHIFT_ASSIGN] = O_SHIFT_ASSIGN;
+operatorGroups[O_RSHIFT_ASSIGN] = O_SHIFT_ASSIGN;
+
+class OperatorPrecedence {
+  u8 operator;
+  u8 precedence;
+  bool rightAssoc;
+}
+
+let operatorPrecedences = new OperatorPrecedence[0x100];
+
+for (u8 i = 0;; ++i) {
+  operatorPrecedences[i] = null;
+
+  if (i == 0xff) {
+    break;
+  }
+}
+
+// precedence 0
+operatorPrecedences[L_ASSIGN] = new OperatorPrecedence(O_ASSIGN, 0, true);
+operatorPrecedences[L_TERNARY] = new OperatorPrecedence(O_TERNARY, 0, true);
+operatorPrecedences[L_STR_CONCAT_ASSIGN] = new OperatorPrecedence(O_STR_CONCAT_ASSIGN, 0, true);
+operatorPrecedences[L_ASHIFT_ASSIGN] = new OperatorPrecedence(O_ASHIFT_ASSIGN, 0, true);
+operatorPrecedences[L_LSHIFT_ASSIGN] = new OperatorPrecedence(O_LSHIFT_ASSIGN, 0, true);
+operatorPrecedences[L_RSHIFT_ASSIGN] = new OperatorPrecedence(O_RSHIFT_ASSIGN, 0, true);
+operatorPrecedences[L_ADD_ASSIGN] = new OperatorPrecedence(O_ADD_ASSIGN, 0, true);
+operatorPrecedences[L_BITWISE_AND_ASSIGN] = new OperatorPrecedence(O_BAND_ASSIGN, 0, true);
+operatorPrecedences[L_BITWISE_OR_ASSIGN] = new OperatorPrecedence(O_BOR_ASSIGN, 0, true);
+operatorPrecedences[L_BITWISE_XOR_ASSIGN] = new OperatorPrecedence(O_BXOR_ASSIGN, 0, true);
+operatorPrecedences[L_DIV_ASSIGN] = new OperatorPrecedence(O_DIV_ASSIGN, 0, true);
+operatorPrecedences[L_MOD_ASSIGN] = new OperatorPrecedence(O_MOD_ASSIGN, 0, true);
+operatorPrecedences[L_MUL_ASSIGN] = new OperatorPrecedence(O_MUL_ASSIGN, 0, true);
+operatorPrecedences[L_SUB_ASSIGN] = new OperatorPrecedence(O_SUB_ASSIGN, 0, true);
+
+// precedence 1
+operatorPrecedences[L_OR] = new OperatorPrecedence(O_OR, 1, false);
+
+// precedence 2
+operatorPrecedences[L_XOR] = new OperatorPrecedence(O_XOR, 2, false);
+
+// precedence 3
+operatorPrecedences[L_AND] = new OperatorPrecedence(O_AND, 3, false);
+
+// precedence 4
+operatorPrecedences[L_BITWISE_OR] = new OperatorPrecedence(O_BOR, 4, false);
+
+// precedence 5
+operatorPrecedences[L_BITWISE_XOR] = new OperatorPrecedence(O_BXOR, 5, false);
+
+// precedence 6
+operatorPrecedences[L_BITWISE_AND] = new OperatorPrecedence(O_BAND, 6, false);
+
+// precedence 7
+operatorPrecedences[L_EQ] = new OperatorPrecedence(O_EQ, 7, false);
+operatorPrecedences[L_NE] = new OperatorPrecedence(O_NE, 7, false);
+
+// precedence 8
+operatorPrecedences[L_STR_CONCAT] = new OperatorPrecedence(O_STR_CONCAT, 8, false);
+
+// precedence 9
+operatorPrecedences[L_GT] = new OperatorPrecedence(O_GT, 9, false);
+operatorPrecedences[L_GTE] = new OperatorPrecedence(O_GTE, 9, false);
+operatorPrecedences[L_LT] = new OperatorPrecedence(O_LT, 9, false);
+operatorPrecedences[L_LTE] = new OperatorPrecedence(O_LTE, 9, false);
+
+// precedence 10
+operatorPrecedences[L_ASHIFT] = new OperatorPrecedence(O_ASHIFT, 10, false);
+operatorPrecedences[L_LSHIFT] = new OperatorPrecedence(O_LSHIFT, 10, false);
+operatorPrecedences[L_RSHIFT] = new OperatorPrecedence(O_RSHIFT, 10, false);
+
+// precedence 11
+operatorPrecedences[L_ADD] = new OperatorPrecedence(O_ADD, 11, false);
+operatorPrecedences[L_SUB] = new OperatorPrecedence(O_SUB, 11, false);
+
+// precedence 12
+operatorPrecedences[L_MUL] = new OperatorPrecedence(O_MUL, 12, false);
+operatorPrecedences[L_DIV] = new OperatorPrecedence(O_DIV, 12, false);
+operatorPrecedences[L_MOD] = new OperatorPrecedence(O_MOD, 12, false);
+
+// disambiguation types
+
+u8 G_ARGUMENT = 1;
+u8 G_DEFINE = 2;
+u8 G_EXPRESSION = 4;
+u8 G_FUNCTION = 8;
+u8 G_PARAMETER = 16;
+u8 G_ANY = 31;
+
+u8 G_NEW_ARRAY = 1;
+u8 G_NEW_OBJECT = 2;
+
+// types
+
+// TODO: map, list, class, function
+u8 T_ARRAY = 0;
+u8 T_BLOCKREF = 1;
+u8 T_BOOL = 2;
+u8 T_F32 = 3;
+u8 T_F64 = 4;
+u8 T_F128 = 5;
+u8 T_FUNCREF = 6;
+u8 T_OBJECT = 7;
+u8 T_REF = 8;
+u8 T_S8 = 9;
+u8 T_S16 = 10;
+u8 T_S32 = 11;
+u8 T_S64 = 12;
+u8 T_STRING = 13;
+u8 T_U8 = 14;
+u8 T_U16 = 15;
+u8 T_U32 = 16;
+u8 T_U64 = 17;
+u8 T_VOID = 18;
