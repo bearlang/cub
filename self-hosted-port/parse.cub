@@ -277,7 +277,7 @@ Statement expectStatement(TokenBuffer state) {
   return parseAmbiguousStatement(state);
 }
 
-Statement parseDefineStatement(TokenBuffer state, bool allowInit) {
+DefineStatement parseDefineStatement(TokenBuffer state, bool allowInit) {
   Type defineType = parseType(state, false);
 
   if (defineType == null) {
