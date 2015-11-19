@@ -55,8 +55,7 @@ Expression newBinaryNode(u8 operation, Expression left, Expression right) {
 }
 
 Expression newCallNode(Expression callee, Expression args) {
-  callee.next = args;
-  return newBinaryNode(O_CALL, callee);
+  return newBinaryNode(O_CALL, callee, args);
 }
 
 Expression newFunctionNode(Function fn) {
