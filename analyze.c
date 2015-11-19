@@ -115,7 +115,22 @@ static void analyze_expression(block_statement *block, expression *e) {
   switch (e->operation.type) {
   case O_BITWISE_NOT: {
     analyze_expression(block, e->value);
-    e->value = numeric_promotion(e->value, false);
+
+    switch (e->value->type->type) {
+    case T_S8:
+    case T_S16:
+    case T_S32:
+    case T_S64:
+    case T_U8:
+    case T_U16:
+    case T_U32:
+    case T_U64:
+      break;
+    default:
+      fprintf(stderr, "cannot bitwise invert non-integer\n");
+      exit(1);
+    }
+
     e->type = copy_type(e->value->type);
   } break;
   // TODO: better negative literal support
