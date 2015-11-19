@@ -7,7 +7,9 @@ BlockStatement parse() {
     return body;
   }
 
-  unexpectedToken(token, "expecting EOF");
+  // TODO: line number
+  print("unexpected token, expecting EOF");
+  exit(1);
 }
 
 BlockStatement parseBlock(TokenBuffer state, u8 endToken) {
