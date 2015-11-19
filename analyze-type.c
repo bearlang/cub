@@ -492,6 +492,118 @@ expression *numeric_promotion(expression *value, bool allow_floats) {
   return cast;
 }
 
+// doesn't promote to 32-bit, only supports integer types
+type_type binary_numeric_conversion(expression *value/*, bool allow_floats*/) {
+  expression *left = value->value, *right = left->next;
+  type_type ltype = left->type->type, rtype = right->type->type;
+
+  if (is_float(left->type) || is_float(right->type)) {
+    no_floats();
+  }
+
+  switch ((((uint8_t) ltype) << 8) | (uint8_t) rtype) {
+  case (T_S8 << 8) | T_S8:
+  case (T_S16 << 8) | T_S16:
+  case (T_S32 << 8) | T_S32:
+  case (T_S64 << 8) | T_S64:
+  case (T_U8 << 8) | T_U8:
+  case (T_U16 << 8) | T_U16:
+  case (T_U32 << 8) | T_U32:
+  case (T_U64 << 8) | T_U64:
+    // no casting necessary!
+    return ltype;
+  case (T_S8 << 8) | T_S16:
+  case (T_S8 << 8) | T_S32:
+  case (T_S8 << 8) | T_S64:
+  case (T_S16 << 8) | T_S32:
+  case (T_S16 << 8) | T_S64:
+  case (T_S32 << 8) | T_S64:
+    replace_cast(&value->value, O_SIGN_EXTEND, rtype);
+    return rtype;
+  case (T_S16 << 8) | T_S8:
+  case (T_S32 << 8) | T_S8:
+  case (T_S32 << 8) | T_S16:
+  case (T_S64 << 8) | T_S8:
+  case (T_S64 << 8) | T_S16:
+  case (T_S64 << 8) | T_S32:
+    replace_cast(&left->next, O_SIGN_EXTEND, ltype);
+    return ltype;
+  case (T_U8 << 8) | T_S16:
+  case (T_U8 << 8) | T_S32:
+  case (T_U8 << 8) | T_S64:
+  case (T_U8 << 8) | T_U16:
+  case (T_U8 << 8) | T_U32:
+  case (T_U8 << 8) | T_U64:
+  case (T_U16 << 8) | T_S32:
+  case (T_U16 << 8) | T_S64:
+  case (T_U16 << 8) | T_U32:
+  case (T_U16 << 8) | T_U64:
+  case (T_U32 << 8) | T_S64:
+  case (T_U32 << 8) | T_U64:
+    replace_cast(&value->value, O_ZERO_EXTEND, rtype);
+    return rtype;
+  case (T_S16 << 8) | T_U8:
+  case (T_S32 << 8) | T_U8:
+  case (T_S32 << 8) | T_U16:
+  case (T_S64 << 8) | T_U8:
+  case (T_S64 << 8) | T_U16:
+  case (T_S64 << 8) | T_U32:
+  case (T_U16 << 8) | T_U8:
+  case (T_U32 << 8) | T_U8:
+  case (T_U32 << 8) | T_U16:
+  case (T_U64 << 8) | T_U8:
+  case (T_U64 << 8) | T_U16:
+  case (T_U64 << 8) | T_U32:
+    replace_cast(&left->next, O_ZERO_EXTEND, ltype);
+    return ltype;
+  case (T_S8 << 8) | T_U16:
+    replace_cast(&left->next, O_REINTERPRET, T_S16);
+    replace_cast(&value->value, O_SIGN_EXTEND, T_S16);
+    return T_S16;
+  case (T_S8 << 8) | T_U32:
+  case (T_S16 << 8) | T_U32:
+    replace_cast(&left->next, O_REINTERPRET, T_S32);
+    replace_cast(&value->value, O_SIGN_EXTEND, T_S32);
+    return T_S32;
+  case (T_S8 << 8) | T_U64:
+  case (T_S16 << 8) | T_U64:
+  case (T_S32 << 8) | T_U64:
+    replace_cast(&left->next, O_REINTERPRET, T_S64);
+    replace_cast(&value->value, O_SIGN_EXTEND, T_S64);
+    return T_S64;
+  case (T_S8 << 8) | T_U8:
+  case (T_S16 << 8) | T_U16:
+  case (T_S32 << 8) | T_U32:
+  case (T_S64 << 8) | T_U64:
+    replace_cast(&left->next, O_REINTERPRET, ltype);
+    return ltype;
+  case (T_U16 << 8) | T_S8:
+    replace_cast(&left->next, O_SIGN_EXTEND, T_S16);
+    replace_cast(&value->value, O_REINTERPRET, T_S16);
+    return T_S16;
+  case (T_U32 << 8) | T_S8:
+  case (T_U32 << 8) | T_S16:
+    replace_cast(&left->next, O_SIGN_EXTEND, T_S32);
+    replace_cast(&value->value, O_REINTERPRET, T_S32);
+    return T_S32;
+  case (T_U64 << 8) | T_S8:
+  case (T_U64 << 8) | T_S16:
+  case (T_U64 << 8) | T_S32:
+    replace_cast(&left->next, O_SIGN_EXTEND, T_S64);
+    replace_cast(&value->value, O_REINTERPRET, T_S64);
+    return T_S64;
+  case (T_U8 << 8) | T_S8:
+  case (T_U16 << 8) | T_S16:
+  case (T_U32 << 8) | T_S32:
+  case (T_U64 << 8) | T_S64:
+    replace_cast(&value->value, O_REINTERPRET, rtype);
+    return rtype;
+  default:
+    fprintf(stderr, "unsupported types in bitwise binary operation\n");
+    exit(1);
+  }
+}
+
 type_type binary_numeric_promotion(expression *value, bool allow_floats) {
   expression *left = value->value, *right = left->next;
   type_type ltype = left->type->type, rtype = right->type->type;

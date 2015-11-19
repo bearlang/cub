@@ -483,22 +483,23 @@ static void analyze_expression(block_statement *block, expression *e) {
     analyze_expression(block, e->value);
     analyze_expression(block, e->value->next);
 
-    bool allow_floats = true;
+    type_type expression_type;
     switch (e->operation.numeric_type) {
     case O_ADD:
     case O_DIV:
     case O_MOD:
     case O_MUL:
     case O_SUB:
-      // allow_floats = true;
+      expression_type = binary_numeric_promotion(e, true);
       break;
     case O_BAND:
     case O_BOR:
     case O_BXOR:
-      allow_floats = false;
+      expression_type = binary_numeric_conversion(e);
       break;
     }
-    e->type = new_type(binary_numeric_promotion(e, allow_floats));
+
+    e->type = new_type(expression_type);
     break;
   case O_NUMERIC_ASSIGN: {
     expression *left = e->value, *right = left->next;
