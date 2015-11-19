@@ -209,7 +209,7 @@ u8 disambiguateExpression(TokenBuffer state) {
   }
 
   if (bufferLookahead(state, L_OPEN_BRACE)) {
-    return G_FUNCTION & -wasEmpty;
+    return wasEmpty ? G_FUNCTION : 0;
   }
 
   return G_EXPRESSION;
