@@ -80,7 +80,7 @@ Function parseFunction(TokenBuffer state, bool allowAnonymous) {
 
   if (allowAnonymous) {
     Token nameToken = accept(state, L_IDENTIFIER);
-    functionName = nameToken == null ? null : nameToken.valueString;
+    functionName = (nameToken == null ? null : nameToken.valueString);
   } else {
     functionName = expectIdentifier(state);
   }

@@ -130,86 +130,86 @@ Token scan(Stream in) {
   // '#'
   if (chr == 0x23) {
     // accept '='
-    return accept(in, 0x3d) == null
-      ? newToken(in, L_STR_CONCAT)
-      : newToken(in, L_STR_CONCAT_ASSIGN);
+    return acceptChar(in, 0x3d)
+      ? newToken(in, L_STR_CONCAT_ASSIGN)
+      : newToken(in, L_STR_CONCAT);
   }
 
   // '!'
   if (chr == 0x21) {
     // accept '='
-    tokenType = accept(in, 0x3d) == null ? L_NOT : L_NE;
+    tokenType = (acceptChar(in, 0x3d) ? L_NE : L_NOT);
   }
 
   // '>'
   else if (chr == 0x3e) {
-    tokenType = accept(in, 0x3e) != null // '>'
-      ? accept(in, 0x3e) != null // '>'
-        ? accept(in, 0x3d) != null ? L_RSHIFT_ASSIGN : L_RSHIFT // '='
-        : (accept(in, 0x3d) != null ? L_ASHIFT_ASSIGN : L_ASHIFT) // '='
-      : (accept(in, 0x3d) != null ? L_GTE : L_GT); // '='
+    tokenType = (acceptChar(in, 0x3e) // '>'
+      ? acceptChar(in, 0x3e) // '>'
+        ? acceptChar(in, 0x3d) ? L_RSHIFT_ASSIGN : L_RSHIFT // '='
+        : (acceptChar(in, 0x3d) ? L_ASHIFT_ASSIGN : L_ASHIFT) // '='
+      : (acceptChar(in, 0x3d) ? L_GTE : L_GT)); // '='
   }
 
   // '<'
   else if (chr == 0x3c) {
-    tokenType = accept(in, 0x3c) != null // '<'
-      ? accept(in, 0x3d) != null ? L_LSHIFT_ASSIGN : L_LSHIFT // '='
-      : (accept(in, 0x3d) != null ? L_LTE : LT); // '='
+    tokenType = (acceptChar(in, 0x3c) // '<'
+      ? acceptChar(in, 0x3d) ? L_LSHIFT_ASSIGN : L_LSHIFT // '='
+      : (acceptChar(in, 0x3d) ? L_LTE : L_LT)); // '='
   }
 
   // '%'
   else if (chr == 0x25) {
-    tokenType = accept(in, 0x3d) == null ? L_MOD : L_MOD_ASSIGN; // '='
+    tokenType = (acceptChar(in, 0x3d) ? L_MOD_ASSIGN : L_MOD); // '='
   }
 
   // '&'
   else if (chr == 0x26) {
-    tokenType = accept(in, 0x26) == null // '&'
-      ? accept(in, 0x3d) == null ? L_BITWISE_AND : L_BITWISE_AND_ASSIGN // '='
-      : L_AND;
+    tokenType = (acceptChar(in, 0x26) // '&'
+      ? L_AND
+      : (acceptChar(in, 0x3d) ? L_BITWISE_AND_ASSIGN : L_BITWISE_AND)); // '='
   }
 
   // '*'
   else if (chr == 0x2a) {
-    tokenType = accept(in, 0x3d) == null ? L_MUL : L_MUL_ASSIGN; // '='
+    tokenType = (acceptChar(in, 0x3d) ? L_MUL_ASSIGN : L_MUL); // '='
   }
 
   // '+'
   else if (chr == 0x2b) {
-    tokenType = accept(in, 0x2b) == null // '+'
-      ? accept(in, 0x3d) == null ? L_ADD : L_ADD_ASSIGN // '='
-      : L_INCREMENT;
+    tokenType = (acceptChar(in, 0x2b) // '+'
+      ? L_INCREMENT
+      : (acceptChar(in, 0x3d) ? L_ADD_ASSIGN : L_ADD)); // '='
   }
 
   // '-'
   else if (chr == 0x2d) {
-    tokenType = accept(in, 0x2d) == null // '-'
-      ? accept(in, 0x3d) == null ? L_SUB : L_SUB_ASSIGN // '='
-      : L_DECREMENT;
+    tokenType = (acceptChar(in, 0x2d) // '-'
+      ? L_DECREMENT
+      : (acceptChar(in, 0x3d) ? L_SUB_ASSIGN : L_SUB)); // '='
   }
 
   // '/'
   else if (chr == 0x2f) {
-    tokenType = accept(in, 0x3d) == null ? L_DIV : L_DIV_ASSIGN; // '='
+    tokenType = (acceptChar(in, 0x3d) ? L_DIV_ASSIGN : L_DIV); // '='
   }
 
   // '='
   else if (chr == 0x3d) {
-    tokenType = accept(in, 0x3d) == null ? L_ASSIGN : L_EQ; // '='
+    tokenType = (acceptChar(in, 0x3d) ? L_EQ : L_ASSIGN); // '='
   }
 
   // '^'
   else if (chr == 0x5e) {
-    tokenType = accept(in, 0x5e) == null // '^'
-      ? accept(in, 0x3d) == null ? L_BITWISE_XOR : L_BITWISE_XOR_ASSIGN // '='
-      : L_XOR;
+    tokenType = (acceptChar(in, 0x5e) // '^'
+      ? L_XOR
+      : (acceptChar(in, 0x3d) ? L_BITWISE_XOR_ASSIGN : L_BITWISE_XOR)); // '='
   }
 
   // '|'
   else if (chr == 0x7c) {
-    tokenType = accept(in, 0x7c) == null // '|'
-      ? accept(in, 0x3d) == null ? L_BITWISE_OR : L_BITWISE_OR_ASSIGN
-      : L_OR;
+    tokenType = (acceptChar(in, 0x7c) // '|'
+      ? L_OR
+      : (acceptChar(in, 0x3d) ? L_BITWISE_OR_ASSIGN : L_BITWISE_OR)); // '='
   }
 
   else if (chr == 0x28) tokenType = L_OPEN_PAREN;    // '('
@@ -592,4 +592,13 @@ void consumeComment(Stream in) {
       exit(1);
     }
   }
+}
+
+bool acceptChar(Stream in, u8 chr) {
+  u8 found = streamShift(in);
+  if (found == chr) {
+    return true;
+  }
+  streamPush(in, found);
+  return false;
 }
