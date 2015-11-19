@@ -230,6 +230,14 @@ void explicit_cast(expression *value) {
     value->value->next = right;
     return;
   }
+  case (T_STRING << 8) | T_ARRAY:
+    // TODO: utf-8 support
+    if (value->value->type->arraytype->type == T_U8) {
+      // TODO: only allow this kind of casting in core code!
+      cmethod = O_REINTERPRET;
+      break;
+    }
+    // fallthrough
   default:
     fprintf(stderr, "incompatible types in explicit cast\n");
     exit(1);
