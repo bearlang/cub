@@ -573,3 +573,23 @@ u8 expectHexDigit(Stream in) {
   print("unexpected character, expecting hex digit");
   exit(1);
 }
+
+void consumeComment(Stream in) {
+  for (;;) {
+    u8 chr = streamShift(in);
+
+    // '*'
+    if (chr == 0x2a) {
+      chr = streamShift(in);
+
+      // '/'
+      if (chr == 0x2f) break;
+    }
+
+    if (chr == 0) {
+      // TODO: line number
+      print("unexpected EOF, expecting '*/'");
+      exit(1);
+    }
+  }
+}
