@@ -219,6 +219,11 @@ expression *implicit_cast(expression *value, type *expected) {
 
     return new_compare_node(O_NE, value, right);
   }
+  case (T_STRING << 8) | T_OBJECT:
+    if (value->operation.type == O_LITERAL) {
+      return value;
+    }
+    // fallthrough
   default:
     fprintf(stderr, "incompatible types\n");
     exit(1);
@@ -464,6 +469,11 @@ type_type binary_numeric_promotion(expression *value, bool allow_floats) {
   case (T_U64 << 8) | T_S64:
     replace_cast(&value->value, O_REINTERPRET, rtype);
     return rtype;
+  case (T_STRING << 8) | T_OBJECT:
+    if (right->operation.type == O_LITERAL) {
+      return ltype;
+    }
+    // fallthrough
   default:
     fprintf(stderr, "unsupported types in binary operation\n");
     exit(1);
