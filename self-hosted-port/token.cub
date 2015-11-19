@@ -13,6 +13,21 @@ Token newToken(Stream input, u8 tokenType) {
   return new Token(tokenType, 0, false, null, 0, input.line, input.offset);
 }
 
+Token newIntegerToken(Stream input, u64 value, u8 bits) {
+  Token token = newToken(input, L_LITERAL);
+  if (bits > 32) {
+    token.literalType = T_U64;
+  } else if (bits > 16) {
+    token.literalType = T_U32;
+  } else if (bits > 8) {
+    token.literalType = T_U16;
+  } else {
+    token.literalType = T_U8;
+  }
+  token.valueInt = value;
+  return token;
+}
+
 string tokenString(u8 tokenType) {
   if (tokenType == L_ADD) return "ADD";
   else if (tokenType == L_ADD_ASSIGN) return "ADD_ASSIGN";
