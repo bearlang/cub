@@ -336,6 +336,22 @@ expression *parse_unary_expression(parse_state *state) {
 
     return new_not_node(bitwise, e);
   }
+  case L_LT: {
+    parse_shift(state);
+    free(t);
+
+    type *cast_type = parse_type(state, NULL, false);
+    if (cast_type == NULL) {
+      unexpected_token(parse_peek(state), "expecting type for cast");
+    }
+
+    expect_consume(state, L_GT);
+
+    e = parse_unary_expression(state);
+    check_expression(state, e);
+
+    return new_cast_node(cast_type, e);
+  }
   case L_NEW: {
     parse_shift(state);
     free(t);

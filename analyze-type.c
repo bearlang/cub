@@ -24,6 +24,218 @@ expression *bool_cast(expression *value) {
   return implicit_cast(value, &t);
 }
 
+void explicit_cast(expression *value) {
+  type_type etype = value->type->type, vtype = value->value->type->type;
+
+  cast_type cmethod;
+
+  if (equivalent_type(value->value->type, value->type)) {
+    fprintf(stderr, "noop explicit cast not supported\n");
+    exit(1);
+  }
+
+  switch ((((uint8_t) etype) << 8) | (uint8_t) vtype) {
+  case (T_F32 << 8) | T_F64:
+  case (T_F32 << 8) | T_F128:
+  case (T_F64 << 8) | T_F128:
+    cmethod = O_FLOAT_TRUNCATE;
+    break;
+  case (T_F64 << 8) | T_F32:
+  case (T_F128 << 8) | T_F32:
+  case (T_F128 << 8) | T_F64:
+    cmethod = O_FLOAT_EXTEND;
+    break;
+  case (T_F32 << 8) | T_S8:
+  case (T_F32 << 8) | T_S16:
+  case (T_F32 << 8) | T_S32:
+  case (T_F32 << 8) | T_S64:
+  case (T_F64 << 8) | T_S8:
+  case (T_F64 << 8) | T_S16:
+  case (T_F64 << 8) | T_S32:
+  case (T_F64 << 8) | T_S64:
+  case (T_F128 << 8) | T_S8:
+  case (T_F128 << 8) | T_S16:
+  case (T_F128 << 8) | T_S32:
+  case (T_F128 << 8) | T_S64:
+    cmethod = O_SIGNED_TO_FLOAT;
+    break;
+  case (T_F32 << 8) | T_U8:
+  case (T_F32 << 8) | T_U16:
+  case (T_F32 << 8) | T_U32:
+  case (T_F32 << 8) | T_U64:
+  case (T_F64 << 8) | T_U8:
+  case (T_F64 << 8) | T_U16:
+  case (T_F64 << 8) | T_U32:
+  case (T_F64 << 8) | T_U64:
+  case (T_F128 << 8) | T_U8:
+  case (T_F128 << 8) | T_U16:
+  case (T_F128 << 8) | T_U32:
+  case (T_F128 << 8) | T_U64:
+    cmethod = O_UNSIGNED_TO_FLOAT;
+    break;
+  case (T_S8 << 8) | T_F32:
+  case (T_S8 << 8) | T_F64:
+  case (T_S8 << 8) | T_F128:
+  case (T_S16 << 8) | T_F32:
+  case (T_S16 << 8) | T_F64:
+  case (T_S16 << 8) | T_F128:
+  case (T_S32 << 8) | T_F32:
+  case (T_S32 << 8) | T_F64:
+  case (T_S32 << 8) | T_F128:
+  case (T_S64 << 8) | T_F32:
+  case (T_S64 << 8) | T_F64:
+  case (T_S64 << 8) | T_F128:
+    cmethod = O_FLOAT_TO_SIGNED;
+    break;
+  case (T_S8 << 8) | T_U8:
+  case (T_S16 << 8) | T_U16:
+  case (T_S32 << 8) | T_U32:
+  case (T_S64 << 8) | T_U64:
+  case (T_U8 << 8) | T_S8:
+  case (T_U16 << 8) | T_S16:
+  case (T_U32 << 8) | T_S32:
+  case (T_U64 << 8) | T_S64:
+    cmethod = O_REINTERPRET;
+    break;
+  case (T_S16 << 8) | T_S8:
+  case (T_S32 << 8) | T_S8:
+  case (T_S32 << 8) | T_S16:
+  case (T_S64 << 8) | T_S8:
+  case (T_S64 << 8) | T_S16:
+  case (T_S64 << 8) | T_S32:
+    cmethod = O_SIGN_EXTEND;
+    break;
+  case (T_S8 << 8) | T_S16:
+  case (T_S8 << 8) | T_S32:
+  case (T_S8 << 8) | T_S64:
+  case (T_S8 << 8) | T_U16:
+  case (T_S8 << 8) | T_U32:
+  case (T_S8 << 8) | T_U64:
+  case (T_S16 << 8) | T_S32:
+  case (T_S16 << 8) | T_S64:
+  case (T_S16 << 8) | T_U32:
+  case (T_S16 << 8) | T_U64:
+  case (T_S32 << 8) | T_S64:
+  case (T_S32 << 8) | T_U64:
+  case (T_U8 << 8) | T_S16:
+  case (T_U8 << 8) | T_S32:
+  case (T_U8 << 8) | T_S64:
+  case (T_U8 << 8) | T_U16:
+  case (T_U8 << 8) | T_U32:
+  case (T_U8 << 8) | T_U64:
+  case (T_U16 << 8) | T_S32:
+  case (T_U16 << 8) | T_S64:
+  case (T_U16 << 8) | T_U32:
+  case (T_U16 << 8) | T_U64:
+  case (T_U32 << 8) | T_S64:
+  case (T_U32 << 8) | T_U64:
+    cmethod = O_TRUNCATE;
+    break;
+  case (T_S16 << 8) | T_U8:
+  case (T_S32 << 8) | T_U8:
+  case (T_S32 << 8) | T_U16:
+  case (T_S64 << 8) | T_U8:
+  case (T_S64 << 8) | T_U16:
+  case (T_S64 << 8) | T_U32:
+  case (T_U16 << 8) | T_S8:
+  case (T_U16 << 8) | T_U8:
+  case (T_U32 << 8) | T_S8:
+  case (T_U32 << 8) | T_S16:
+  case (T_U32 << 8) | T_U8:
+  case (T_U32 << 8) | T_U16:
+  case (T_U64 << 8) | T_S8:
+  case (T_U64 << 8) | T_S16:
+  case (T_U64 << 8) | T_S32:
+  case (T_U64 << 8) | T_U8:
+  case (T_U64 << 8) | T_U16:
+  case (T_U64 << 8) | T_U32:
+    cmethod = O_ZERO_EXTEND;
+    break;
+  case (T_U8 << 8) | T_F32:
+  case (T_U8 << 8) | T_F64:
+  case (T_U8 << 8) | T_F128:
+  case (T_U16 << 8) | T_F32:
+  case (T_U16 << 8) | T_F64:
+  case (T_U16 << 8) | T_F128:
+  case (T_U32 << 8) | T_F32:
+  case (T_U32 << 8) | T_F64:
+  case (T_U32 << 8) | T_F128:
+  case (T_U64 << 8) | T_F32:
+  case (T_U64 << 8) | T_F64:
+  case (T_U64 << 8) | T_F128:
+    cmethod = O_FLOAT_TO_UNSIGNED;
+    break;
+  case (T_ARRAY << 8) | T_ARRAY:
+    fprintf(stderr, "incompatible array type\n");
+    exit(1);
+  case (T_BLOCKREF << 8) | T_BLOCKREF:
+    fprintf(stderr, "incompatible function type\n");
+    exit(1);
+  case (T_OBJECT << 8) | T_OBJECT: {
+    if (!value->type->classtype) {
+      // it's ok, we're assigning a null literal to an object variable
+      fprintf(stderr, "explicit cast from null literal not supported\n");
+      exit(1);
+    }
+
+    // TODO: support checked and unchecked downcasting
+
+    bool can_upcast = false;
+    class *the_class = value->value->type->classtype,
+      *eclass = value->type->classtype;
+
+    while ((the_class = the_class->parent) != NULL) {
+      if (the_class == eclass) {
+        // upcast!
+        cmethod = O_UPCAST;
+        can_upcast = true;
+        break;
+      }
+    }
+
+    if (!can_upcast) {
+      fprintf(stderr, "incompatible object '%s', expecting '%s'\n",
+        value->type->classtype->class_name, eclass->class_name);
+      exit(1);
+    }
+  }
+  case (T_BOOL << 8) | T_S8:
+  case (T_BOOL << 8) | T_S16:
+  case (T_BOOL << 8) | T_S32:
+  case (T_BOOL << 8) | T_S64:
+  case (T_BOOL << 8) | T_U8:
+  case (T_BOOL << 8) | T_U16:
+  case (T_BOOL << 8) | T_U32:
+  case (T_BOOL << 8) | T_U64: {
+    expression *right = new_literal_node(vtype);
+
+    switch (vtype) {
+    case T_S8: right->value_s8 = 0; break;
+    case T_S16: right->value_s16 = 0; break;
+    case T_S32: right->value_s32 = 0; break;
+    case T_S64: right->value_s64 = 0; break;
+    case T_U8: right->value_u8 = 0; break;
+    case T_U16: right->value_u16 = 0; break;
+    case T_U32: right->value_u32 = 0; break;
+    case T_U64: right->value_u64 = 0; break;
+    default:
+      abort();
+    }
+
+    value->operation.type = O_COMPARE;
+    value->operation.compare_type = O_NE;
+    value->symbol_name = "TEST";
+    value->value->next = right;
+    return;
+  }
+  default:
+    fprintf(stderr, "incompatible types in explicit cast\n");
+    exit(1);
+  }
+
+  value->operation.cast_type = cmethod;
+}
+
 // caller is responsible for correctly assigning next field of return value if
 // changed
 expression *implicit_cast(expression *value, type *expected) {
@@ -279,6 +491,7 @@ type_type binary_numeric_promotion(expression *value, bool allow_floats) {
   expression *left = value->value, *right = left->next;
   type_type ltype = left->type->type, rtype = right->type->type;
 
+  // TODO: support common upcasting
   switch ((((uint8_t) ltype) << 8) | (uint8_t) rtype) {
   case (T_F32 << 8) | T_F64:
   case (T_F32 << 8) | T_F128:

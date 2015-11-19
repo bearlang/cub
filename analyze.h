@@ -9,6 +9,7 @@
 #define ST_VARIABLE 8
 
 expression *bool_cast(expression *value);
+void explicit_cast(expression *value);
 expression *implicit_cast(expression *value, type *expected);
 expression *numeric_promotion(expression*, bool allow_floats);
 type_type binary_numeric_promotion(expression *value, bool allow_floats);

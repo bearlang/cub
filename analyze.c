@@ -181,6 +181,10 @@ static void analyze_expression(block_statement *block, expression *e) {
     }
 
   } break;
+  case O_CAST: {
+    analyze_expression(block, e->value);
+    explicit_cast(e);
+  } break;
   // type already declared
   case O_LITERAL:
     break;
@@ -605,7 +609,6 @@ static void analyze_expression(block_statement *block, expression *e) {
     ternary_numeric_promotion(e);
   } break;
   case O_BLOCKREF:
-  case O_CAST: // TODO: implement me!
   case O_GET_LENGTH:
   case O_INSTANCEOF:
   case O_SET_LENGTH:

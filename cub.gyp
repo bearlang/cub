@@ -56,6 +56,7 @@
     'sources': [
       'expression/assign.c',
       'expression/call.c',
+      'expression/cast.c',
       'expression/compare.c',
       'expression/function.c',
       'expression/get-field.c',

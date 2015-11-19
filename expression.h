@@ -47,6 +47,7 @@ operation_type assert_valid_assign(expression *left);
 
 expression *new_assign_node(expression *left, expression *right);
 expression *new_call_node(expression *callee, expression *args);
+expression *new_cast_node(type *cast_type, expression *value);
 expression *new_compare_node(compare_type type, expression *left, expression *right);
 expression *new_get_field_node(expression *left, char *field);
 expression *new_get_index_node(expression *left, expression *index);
