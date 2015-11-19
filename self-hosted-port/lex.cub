@@ -255,7 +255,7 @@ Token scanWord(Stream in) {
 
   streamPush(in, chr);
 
-  string word = buffer.toString(bufferUsed);
+  string word = stringFromArray(buffer, 0, bufferUsed);
   Token token;
 
   // TODO: signal lexer from parser to indicate whether identifier expected
@@ -366,7 +366,7 @@ Token scanString(Stream in, u8 match) {
 
   Token token = newToken(in, L_LITERAL);
   token.literalType = T_STRING;
-  token.valueString = buffer.toString(bufferUsed);
+  token.valueString = stringFromArray(buffer, 0, bufferUsed);
   return token;
 }
 
