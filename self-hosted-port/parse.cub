@@ -11,7 +11,8 @@ BlockStatement parse() {
 }
 
 BlockStatement parseBlock(TokenBuffer state, u8 endToken) {
-  BlockStatement result = newBlockStatement(null), tail = null;
+  BlockStatement result = newBlockStatement(null);
+  Statement tail = null;
 
   while (accept(state, endToken) == null) {
     Statement next = expectStatement(state);
@@ -22,7 +23,7 @@ BlockStatement parseBlock(TokenBuffer state, u8 endToken) {
       continue;
     }
 
-    if (result.body == null) {
+    if (result.body == null) { // tail == null
       result.body = next;
     } else {
       tail.next = next;
