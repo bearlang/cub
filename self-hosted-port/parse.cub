@@ -1,5 +1,5 @@
 BlockStatement parse() {
-  TokenBuffer state = newTokenBuffer(16);
+  TokenBuffer state = newTokenBuffer();
   BlockStatement body = parseBlock(state, L_EOF);
 
   Token token = bufferPeek(state);
