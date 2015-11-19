@@ -559,14 +559,14 @@ u8 expectHexDigit(Stream in) {
 
   // [0-9]
   if (chr >= 0x30 && chr <= 0x39) {
-    return chr - 0x30; // '0'
+    return <u8>(chr - 0x30); // '0'
   }
 
   chr |= 0x20; // lowercase
 
   // [a-z]
   if (chr >= 0x61 && chr <= 0x66) {
-    return chr - 0x57;
+    return <u8>(chr - 0x57);
   }
 
   // TODO: line number
