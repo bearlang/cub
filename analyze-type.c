@@ -198,6 +198,8 @@ void explicit_cast(expression *value) {
         value->type->classtype->class_name, eclass->class_name);
       exit(1);
     }
+
+    break;
   }
   case (T_BOOL << 8) | T_S8:
   case (T_BOOL << 8) | T_S16:
@@ -219,12 +221,12 @@ void explicit_cast(expression *value) {
     case T_U32: right->value_u32 = 0; break;
     case T_U64: right->value_u64 = 0; break;
     default:
-      abort();
+      fprintf(stderr, "cannot explicitly convert non-integer to boolean\n");
+      exit(1);
     }
 
     value->operation.type = O_COMPARE;
     value->operation.compare_type = O_NE;
-    value->symbol_name = "TEST";
     value->value->next = right;
     return;
   }
@@ -405,6 +407,8 @@ expression *implicit_cast(expression *value, type *expected) {
         value->type->classtype->class_name, eclass->class_name);
       exit(1);
     }
+
+    break;
   }
   case (T_BOOL << 8) | T_S8:
   case (T_BOOL << 8) | T_S16:
@@ -426,7 +430,8 @@ expression *implicit_cast(expression *value, type *expected) {
     case T_U32: right->value_u32 = 0; break;
     case T_U64: right->value_u64 = 0; break;
     default:
-      abort();
+      fprintf(stderr, "cannot implicitly convert non-integer to boolean\n");
+      exit(1);
     }
 
     return new_compare_node(O_NE, value, right);
