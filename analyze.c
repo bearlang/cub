@@ -599,7 +599,6 @@ static void analyze_expression(block_statement *block, expression *e) {
 
     if (b != cond) {
       b->next = left;
-      cond->next = NULL;
       e->value = b;
     }
 
