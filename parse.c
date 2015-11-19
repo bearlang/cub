@@ -543,7 +543,7 @@ expression *parse_bor_expression(parse_state *state) {
     expression *right = parse_bxor_expression(state);
     check_expression(state, right);
 
-    left = new_logic_node(O_BOR, left, right);
+    left = new_numeric_node(O_BOR, left, right);
   }
 
   return left;
