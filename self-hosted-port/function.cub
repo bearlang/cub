@@ -90,8 +90,8 @@ Function parseFunction(TokenBuffer state, bool allowAnonymous) {
   if (accept(state, L_OPEN_PAREN) != null) {
     // parseArgs consumes the L_CLOSE_PAREN
     args = parseArgs(state, initType.firstType);
-  } else if (functionName == null && returnType.type == T_BLOCKREF && returnType.blockType.next == null) {
-    returnType = returnType.blockType.argumentType;
+  } else if (functionName == null && returnType.type == T_BLOCKREF && !returnType.argTypes.length) {
+    returnType = returnType.subType;
     args = new FunctionArg[0];
   } else {
     if (functionName == null) {
