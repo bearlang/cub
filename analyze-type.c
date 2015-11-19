@@ -601,16 +601,22 @@ type_type binary_numeric_promotion(expression *value, bool allow_floats) {
   case (T_S8 << 8) | T_S16:
   case (T_S16 << 8) | T_S8:
   case (T_S16 << 8) | T_S16:
+    replace_cast(&left->next, O_SIGN_EXTEND, T_S32);
+    replace_cast(&value->value, O_SIGN_EXTEND, T_S32);
+    return T_S32;
   case (T_S8 << 8) | T_U8:
   case (T_S8 << 8) | T_U16:
   case (T_S16 << 8) | T_U8:
   case (T_S16 << 8) | T_U16:
+    replace_cast(&left->next, O_ZERO_EXTEND, T_S32);
+    replace_cast(&value->value, O_SIGN_EXTEND, T_S32);
+    return T_S32;
   case (T_U8 << 8) | T_S8:
   case (T_U8 << 8) | T_S16:
   case (T_U16 << 8) | T_S8:
   case (T_U16 << 8) | T_S16:
     replace_cast(&left->next, O_SIGN_EXTEND, T_S32);
-    replace_cast(&value->value, O_SIGN_EXTEND, T_S32);
+    replace_cast(&value->value, O_ZERO_EXTEND, T_S32);
     return T_S32;
   case (T_S8 << 8) | T_S32:
   case (T_S8 << 8) | T_S64:
