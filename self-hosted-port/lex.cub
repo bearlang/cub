@@ -604,3 +604,14 @@ bool acceptChar(Stream in, u8 chr) {
   streamPush(in, found);
   return false;
 }
+
+u8 integerBits(u64 value) {
+  u8 bits = 0;
+
+  while (value) {
+    ++bits;
+    value >>= 1;
+  }
+
+  return bits;
+}
