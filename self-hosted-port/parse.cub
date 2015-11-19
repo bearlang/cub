@@ -84,6 +84,7 @@ Statement expectStatement(TokenBuffer state) {
       }
 
       first.parent = result;
+      result.first = first;
     }
 
     if (second != null) {
@@ -93,6 +94,7 @@ Statement expectStatement(TokenBuffer state) {
       }
 
       second.parent = result;
+      result.second = second;
     }
 
     return result;
