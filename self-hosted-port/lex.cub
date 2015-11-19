@@ -235,7 +235,7 @@ Token scan(Stream in) {
   return token;
 }
 
-// TODO: optimize
+// TODO: optimize (use maps!)
 Token scanWord(Stream in) {
   u32 bufferUsed = 0;
   u8[] buffer = new u8[16];
@@ -596,9 +596,11 @@ void consumeComment(Stream in) {
 
 bool acceptChar(Stream in, u8 chr) {
   u8 found = streamShift(in);
+
   if (found == chr) {
     return true;
   }
+
   streamPush(in, found);
   return false;
 }
