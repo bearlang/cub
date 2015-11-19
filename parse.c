@@ -607,6 +607,7 @@ expression *parse_operation_expression(parse_state *state) {
     return NULL;
   }
 
+  // TODO: precedence and associativity of '=' and '?:' incorrect
   for (;;) {
     const token *t = parse_peek(state);
 
@@ -998,13 +999,28 @@ statement *parse_statement(parse_state *state) {
     statement *first = expect_statement(state), *second = consume(state, L_ELSE)
       ? expect_statement(state) : NULL;
 
-    result = s_if(condition, ensure_block(first), ensure_block(second));
+    result = s_if(condition, NULL, NULL);
+
     if (first) {
+      if (first->type != S_BLOCK) {
+        first = s_block(first);
+        ((block_statement*) first)->body->parent = first;
+      }
+
       first->parent = result;
+      ((if_statement*) result)->first = (block_statement*) first;
     }
+
     if (second) {
+      if (second->type != S_BLOCK) {
+        second = s_block(second);
+        ((block_statement*) second)->body->parent = second;
+      }
+
       second->parent = result;
+      ((if_statement*) result)->second = (block_statement*) second;
     }
+
     return result;
   }
   case L_LET: {
