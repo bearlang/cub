@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+cpp -P "$DIR/constants.cub" "$DIR/all.cub.tmp"
+cat $(cd "$DIR" && ls *.cub | grep -v '^constants.cub$') >> "$DIR/all.cub.tmp"
+
+"$DIR/../out/Debug/cub" "$DIR/all.cub.tmp"

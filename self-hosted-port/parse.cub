@@ -158,7 +158,8 @@ Statement expectStatement(TokenBuffer state) {
   }
 
   if (type == L_DO || type == L_WHILE) {
-    BlockStatement body;
+    Statement body;
+    BlockStatement bodyBlock;
     Expression condition;
 
     if (type == L_DO) {
@@ -177,16 +178,20 @@ Statement expectStatement(TokenBuffer state) {
       body = expectStatement(state);
     }
 
-    if (body != null && body.type != S_BLOCK) {
-      body = newBlockStatement(body);
-      body.body.parent = body;
+    if (body == null) {
+      bodyBlock = null;
+    } else if (body.type == S_BLOCK) {
+      bodyBlock = <BlockStatement> body;
+    } else {
+      bodyBlock = newBlockStatement(body);
+      body.parent = bodyBlock;
     }
 
     LoopStatement loop = newLoopStatement(type == L_DO ? S_DO_WHILE : S_WHILE,
-      condition, body);
+      condition, bodyBlock);
 
-    if (body != null) {
-      body.parent = loop;
+    if (bodyBlock != null) {
+      bodyBlock.parent = loop;
     }
 
     return loop;
