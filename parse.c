@@ -18,6 +18,26 @@ block_statement *ensure_block(statement *node) {
   return (block_statement*) node;
 }
 
+static block_statement *set_block_parent(statement *child, statement *parent) {
+  block_statement *child_block;
+
+  if (child == NULL) {
+    child_block = NULL;
+  } else {
+    if (child->type == S_BLOCK) {
+      child_block = (block_statement*) child;
+    } else {
+      statement *c_parent = s_block(child);
+      child_block = (block_statement*) c_parent;
+      child->parent = c_parent;
+    }
+
+    child_block->parent = parent;
+  }
+
+  return child_block;
+}
+
 static type *parse_type(parse_state *state, type **first_type,
     bool ignore_array) {
   token *first_token = accept(state, L_TYPE);
@@ -1017,25 +1037,10 @@ statement *parse_statement(parse_state *state) {
 
     result = s_if(condition, NULL, NULL);
 
-    if (first) {
-      if (first->type != S_BLOCK) {
-        first = s_block(first);
-        ((block_statement*) first)->body->parent = first;
-      }
+    if_statement *branch = (if_statement*) result;
 
-      first->parent = result;
-      ((if_statement*) result)->first = (block_statement*) first;
-    }
-
-    if (second) {
-      if (second->type != S_BLOCK) {
-        second = s_block(second);
-        ((block_statement*) second)->body->parent = second;
-      }
-
-      second->parent = result;
-      ((if_statement*) result)->second = (block_statement*) second;
-    }
+    branch->first = set_block_parent(first, result);
+    branch->second = set_block_parent(second, result);
 
     return result;
   }
