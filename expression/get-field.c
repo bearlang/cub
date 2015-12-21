@@ -8,5 +8,7 @@ expression *new_get_field_node(expression *left, char *field) {
   get_field->value = left;
   get_field->symbol_name = field;
   get_field->next = NULL;
+  get_field->line = left->line;
+  get_field->offset = left->offset;
   return get_field;
 }

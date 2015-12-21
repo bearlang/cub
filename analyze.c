@@ -47,6 +47,7 @@ static expression **analyze_new(block_statement *block, class *the_class,
 static void analyze_field_operation(expression *e) {
   char *field_name = e->symbol_name;
 
+  char *class_name;
   if (e->value->type->type == T_ARRAY) {
     if (strcmp(field_name, "length") == 0) {
       free(field_name);
@@ -58,9 +59,9 @@ static void analyze_field_operation(expression *e) {
       return;
     }
 
-    fprintf(stderr, "arrays support the length field, not the '%s' field\n",
-      field_name);
-    exit(1);
+    // TODO: better things
+    class_name = '[]';
+    goto unknown_field;
   }
 
   if (e->value->type->type == T_STRING) {
@@ -73,18 +74,15 @@ static void analyze_field_operation(expression *e) {
       return;
     }
 
-    fprintf(stderr, "strings only support getting the length field\n");
-    exit(1);
+    class_name = 'string';
+    goto unknown_field;
   }
 
   if (e->value->type->type != T_OBJECT) {
-    fprintf(stderr, "field access can only occur on arrays, strings, and "
-      "objects\n");
-    exit(1);
+    fail("field access can only occur on arrays, strings, and objects", e);
   }
 
   class *the_class = e->value->type->classtype;
-  char *class_name = the_class->class_name;
 
   do {
     size_t i = 0;
@@ -107,8 +105,10 @@ static void analyze_field_operation(expression *e) {
     }
   } while ((the_class = the_class->parent) != NULL);
 
-  fprintf(stderr, "'%s' has no field named '%s'\n", class_name, field_name);
-  exit(1);
+  class_name = the_class->class_name;
+
+unknown_field:
+  fail("'%s' has no field named '%s'", e, class_name, field_name);
 }
 
 static void analyze_expression(block_statement *block, expression *e) {
@@ -127,8 +127,7 @@ static void analyze_expression(block_statement *block, expression *e) {
     case T_U64:
       break;
     default:
-      fprintf(stderr, "cannot bitwise invert non-integer\n");
-      exit(1);
+      fail("cannot bitwise invert non-integer", e);
     }
 
     e->type = copy_type(e->value->type);
@@ -147,8 +146,7 @@ static void analyze_expression(block_statement *block, expression *e) {
     type *fntype = e->value->type;
 
     if (fntype->type != T_BLOCKREF) {
-      fprintf(stderr, "type not callable\n");
-      exit(1);
+      fail("type not callable", e);
     }
 
     e->type = copy_type(fntype->blocktype->argument_type);
@@ -161,9 +159,7 @@ static void analyze_expression(block_statement *block, expression *e) {
 
       expression *cast = implicit_cast(*argvalue, arg->argument_type);
       if (!cast) {
-        fprintf(stderr, "function called with incompatible argument %zi\n",
-          i + 1);
-        exit(1);
+        fail("function called with incompatible argument %zu", e, i + 1);
       }
 
       if (cast != *argvalue) {
@@ -176,8 +172,7 @@ static void analyze_expression(block_statement *block, expression *e) {
     }
 
     if ((!*argvalue) != (!arg)) {
-      fprintf(stderr, "function called with wrong number of arguments\n");
-      exit(1);
+      fail("function called with wrong number of arguments", e);
     }
 
   } break;
@@ -198,8 +193,7 @@ static void analyze_expression(block_statement *block, expression *e) {
     type_type ltype = lt->type, rtype = rt->type;
 
     if (ltype == T_ARRAY && rtype == T_ARRAY) {
-      fprintf(stderr, "array comparison not supported\n");
-      exit(1);
+      fail("array comparison not supported", e);
     } else if (ltype == T_BLOCKREF && rtype == T_BLOCKREF) {
       // TODO: optimize for incompatible types
       switch (e->operation.compare_type) {
@@ -207,8 +201,7 @@ static void analyze_expression(block_statement *block, expression *e) {
       case O_GTE:
       case O_LT:
       case O_LTE:
-        fprintf(stderr, "relative function comparison not supported\n");
-        exit(1);
+        fail("relative function comparison not supported", e);
       default:
         break;
       }
@@ -218,8 +211,7 @@ static void analyze_expression(block_statement *block, expression *e) {
       case O_GTE:
       case O_LT:
       case O_LTE:
-        fprintf(stderr, "relative object comparison not supported\n");
-        exit(1);
+        fail("relative object comparison not supported", e);
       default:
         break;
       }
@@ -229,8 +221,7 @@ static void analyze_expression(block_statement *block, expression *e) {
       case O_GTE:
       case O_LT:
       case O_LTE:
-        fprintf(stderr, "relative string comparison not supported\n");
-        exit(1);
+        fail("relative string comparison not supported", e);
       default:
         break;
       }
@@ -247,8 +238,7 @@ static void analyze_expression(block_statement *block, expression *e) {
     analyze_expression(block, left);
 
     if (left->type->type != T_OBJECT) {
-      fprintf(stderr, "cannot identify non-object\n");
-      exit(1);
+      fail("cannot identify non-object", e);
     }
 
     if (right->operation.type == O_GET_SYMBOL) {
@@ -258,10 +248,9 @@ static void analyze_expression(block_statement *block, expression *e) {
       entry = get_symbol(block, right->symbol_name, &symbol_type);
 
       if (symbol_type == ST_FUNCTION) {
-        // TODO: this should be supported so you can check if two function
-        // references have the same closure
-        fprintf(stderr, "cannot check identity of function\n");
-        exit(1);
+        // TODO: should this be supported so you can check if two function
+        // references have the same closure?
+        fail("cannot check identity of function", e);
       }
 
       if (symbol_type == ST_TYPE) {
@@ -279,8 +268,7 @@ static void analyze_expression(block_statement *block, expression *e) {
 
     // comparing two objects for identity
     if (right->type->type != T_OBJECT) {
-      fprintf(stderr, "cannot identify non-object\n");
-      exit(1);
+      fail("cannot identify non-object", e);
     }
   } break;
   case O_LOGIC: {
@@ -334,19 +322,16 @@ static void analyze_expression(block_statement *block, expression *e) {
 
     // TODO: support map indexing
     if (e->value->type->type != T_ARRAY && e->value->type->type != T_STRING) {
-      fprintf(stderr, "must index an array or a string\n");
-      exit(1);
+      fail("must index an array or a string", e);
     }
 
     if (!is_integer(e->value->next->type)) {
-      fprintf(stderr, "cannot index by non-integer\n");
-      exit(1);
+      fail("cannot index by non-integer", e);
     }
 
     if (e->operation.type == O_SET_INDEX) {
       if (e->value->type->type == T_STRING) {
-        fprintf(stderr, "strings are immutable\n");
-        exit(1);
+        fail("strings are immutable", e);
       }
 
       analyze_expression(block, e->value->next->next);
@@ -370,14 +355,12 @@ static void analyze_expression(block_statement *block, expression *e) {
     symbol_entry *entry = get_symbol(block, e->symbol_name, &symbol_type);
 
     if (!entry) {
-      fprintf(stderr, "unknown symbol '%s'\n", e->symbol_name);
-      exit(1);
+      fail("unknown symbol '%s'", e, e->symbol_name);
     }
 
     if (symbol_type == ST_FUNCTION) {
       if (e->operation.type == O_SET_SYMBOL) {
-        fprintf(stderr, "cannot reassign function '%s'\n", e->symbol_name);
-        exit(1);
+        fail("cannot reassign function '%s'", e, e->symbol_name);
       }
 
       free(e->symbol_name);
@@ -392,9 +375,7 @@ static void analyze_expression(block_statement *block, expression *e) {
 
         expression *cast = implicit_cast(e->value, entry->type);
         if (!cast) {
-          fprintf(stderr, "incompatible type for '%s' assignment\n",
-            e->symbol_name);
-          exit(1);
+          fail("incompatible type for '%s' assignment", e, e->symbol_name);
         }
 
         // not initialized by implicit_cast
@@ -418,8 +399,7 @@ static void analyze_expression(block_statement *block, expression *e) {
       symbol_entry *entry = get_symbol(block, e->assign, &symbol_type);
 
       if (!entry) {
-        fprintf(stderr, "unknown symbol '%s'\n", e->assign);
-        exit(1);
+        fail("unknown symbol '%s'", e, e->assign);
       }
 
       e->type = copy_type(entry->type);
@@ -436,13 +416,11 @@ static void analyze_expression(block_statement *block, expression *e) {
     symbol_entry *entry = get_symbol(block, class_name, &symbol_type);
 
     if (!entry) {
-      fprintf(stderr, "class '%s' not defined\n", class_name);
-      exit(1);
+      fail("class '%s' not defined", e, class_name);
     }
 
     if (entry->type->type != T_OBJECT) {
-      fprintf(stderr, "type '%s' not a class\n", class_name);
-      exit(1);
+      fail("type '%s' not a class", e, class_name);
     }
 
     class *the_class = entry->type->classtype;
@@ -450,9 +428,8 @@ static void analyze_expression(block_statement *block, expression *e) {
     e->type->classtype = the_class;
 
     if (*analyze_new(block, the_class, &e->value)) {
-      fprintf(stderr, "constructor for '%s' called with wrong number of"
-        " arguments\n", class_name);
-      exit(1);
+      fail("constructor for '%s' called with wrong number of arguments", e,
+        class_name);
     }
 
     free(class_name);
@@ -461,8 +438,7 @@ static void analyze_expression(block_statement *block, expression *e) {
     analyze_expression(block, e->value);
 
     if (!is_integer(e->value->type)) {
-      fprintf(stderr, "new array size must be numeric\n");
-      exit(1);
+      fail("new array size must be numeric", e);
     }
 
     resolve_type(block, e->type);
@@ -525,8 +501,7 @@ static void analyze_expression(block_statement *block, expression *e) {
 
     if (!is_integer(left->type) && (!allow_floats ||
         !is_float(left->type))) {
-      fprintf(stderr, "numeric assignment lhs must be numeric\n");
-      exit(1);
+      fail("numeric assignment lhs must be numeric", e);
     }
 
     expression *cast = implicit_cast(right, left->type);
@@ -560,8 +535,7 @@ static void analyze_expression(block_statement *block, expression *e) {
     analyze_expression(block, right);
 
     if (!is_integer(left->type)) {
-      fprintf(stderr, "shift assignment lhs must be numeric\n");
-      exit(1);
+      fail("shift assignment lhs must be numeric", e);
     }
 
     expression *cast = numeric_promotion(right, false);
@@ -575,8 +549,7 @@ static void analyze_expression(block_statement *block, expression *e) {
     analyze_expression(block, right);
 
     if (left->type->type != T_STRING || right->type->type != T_STRING) {
-      fprintf(stderr, "string coercion not implemented\n");
-      exit(1);
+      fail("string coercion not implemented", e);
     }
   } break;
   case O_STR_CONCAT_ASSIGN: {
@@ -585,13 +558,11 @@ static void analyze_expression(block_statement *block, expression *e) {
     analyze_expression(block, right);
 
     if (left->type->type != T_STRING) {
-      fprintf(stderr, "must concatenate a string into a string lvalue\n");
-      exit(1);
+      fail("must concatenate a string into a string lvalue", e);
     }
 
     if (right->type->type != T_STRING) {
-      fprintf(stderr, "string coercion not implemented\n");
-      exit(1);
+      fail("string coercion not implemented", e);
     }
   } break;
   case O_TERNARY: {
@@ -704,7 +675,7 @@ static void analyze_inner(block_statement *block, statement **node) {
   case S_IF: {
     if_statement *if_s = (if_statement*) *node;
     analyze_expression(block, if_s->condition);
-    assert_condition(if_s->condition->type);
+    assert_condition(if_s->condition);
 
     if (if_s->first) {
       analyze(if_s->first);
@@ -717,7 +688,7 @@ static void analyze_inner(block_statement *block, statement **node) {
   case S_WHILE: {
     loop_statement *loop = (loop_statement*) *node;
     analyze_expression(block, loop->condition);
-    assert_condition(loop->condition->type);
+    assert_condition(loop->condition);
 
     analyze(loop->body);
   } break;

@@ -9,5 +9,7 @@ expression *new_postfix_node(postfix_type type, expression *value) {
   postfix->operation.postfix_type = type;
   postfix->value = value;
   postfix->next = NULL;
+  postfix->line = value->line;
+  postfix->offset = value->offset;
   return postfix;
 }

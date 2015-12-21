@@ -9,5 +9,7 @@ expression *new_ternary_node(expression *condition, expression *left,
   condition->next = left;
   left->next = right;
   ternary->next = NULL;
+  ternary->line = condition->line;
+  ternary->offset = condition->offset;
   return ternary;
 }

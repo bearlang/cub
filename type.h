@@ -41,6 +41,8 @@ typedef struct function {
   argument *argument;
   struct block_statement *body;
 
+  size_t line, offset;
+
   // code generation
   size_t block_body;
   size_t return_struct;

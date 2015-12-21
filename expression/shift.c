@@ -9,6 +9,8 @@ expression *new_shift_node(shift_type type, expression *left,
   shift->value = left;
   left->next = right;
   shift->next = NULL;
+  shift->line = left->line;
+  shift->offset = left->offset;
   return shift;
 }
 
@@ -22,5 +24,7 @@ expression *new_shift_assign_node(shift_type type, expression *left,
   shift->value = left;
   left->next = right;
   shift->next = NULL;
+  shift->line = left->line;
+  shift->offset = left->offset;
   return shift;
 }

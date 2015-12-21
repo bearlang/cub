@@ -9,5 +9,7 @@ expression *new_identity_node(expression *left, expression *right) {
   identity->value = left;
   left->next = right;
   identity->next = NULL;
+  identity->line = left->line;
+  identity->offset = left->offset;
   return identity;
 }

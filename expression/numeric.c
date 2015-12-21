@@ -9,6 +9,8 @@ expression *new_numeric_node(numeric_type type, expression *left,
   numeric->value = left;
   left->next = right;
   numeric->next = NULL;
+  numeric->line = left->line;
+  numeric->offset = left->offset;
   return numeric;
 }
 
@@ -22,5 +24,7 @@ expression *new_numeric_assign_node(numeric_type type, expression *left,
   numeric->value = left;
   left->next = right;
   numeric->next = NULL;
+  numeric->line = left->line;
+  numeric->offset = left->offset;
   return numeric;
 }

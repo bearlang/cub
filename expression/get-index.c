@@ -8,5 +8,7 @@ expression *new_get_index_node(expression *left, expression *index) {
   get_index->value = left;
   get_index->value->next = index;
   get_index->next = NULL;
+  get_index->line = left->line;
+  get_index->offset = left->offset;
   return get_index;
 }

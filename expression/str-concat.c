@@ -9,6 +9,8 @@ expression *new_str_concat_node(expression *left, expression *right) {
   str_concat->value = left;
   left->next = right;
   str_concat->next = NULL;
+  str_concat->line = left->line;
+  str_concat->offset = left->offset;
   return str_concat;
 }
 
@@ -22,5 +24,7 @@ expression *new_str_concat_assign_node(expression *left, expression *right) {
   str_concat->value = left;
   left->next = right;
   str_concat->next = NULL;
+  str_concat->line = left->line;
+  str_concat->offset = left->offset;
   return str_concat;
 }

@@ -8,5 +8,7 @@ expression *new_call_node(expression *callee, expression *args) {
   call->value = callee;
   callee->next = args;
   call->next = NULL;
+  call->line = callee->line;
+  call->offset = callee->offset;
   return call;
 }

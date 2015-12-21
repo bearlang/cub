@@ -14,10 +14,12 @@ void _expected(token *t) {
 
 void unexpected_token(token *t, char *expecting) {
   fprintf(stderr, "unexpected ");
-  if (t) {
-    fprintf(stderr, "token '%s'", token_string(t->type));
-  } else {
+  if (!t) {
     fprintf(stderr, "EOF");
+  } else if (t->type == L_IDENTIFIER) {
+    fprintf(stderr, "identifier");
+  } else {
+    fprintf(stderr, "token '%s'", token_string(t->type));
   }
   if (expecting) {
     fprintf(stderr, ", %s", expecting);

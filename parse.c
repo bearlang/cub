@@ -175,6 +175,8 @@ void parse_args(parse_state *state, function *fn, type *first_type) {
 
 // can use expect, guaranteed to find a function if anything
 function *parse_function(parse_state *state, bool allow_anonymous) {
+  size_t line = state->in->line, offset = state->in->offset;
+
   type *first_type = NULL;
   type *return_type = parse_type(state, &first_type, false);
 
@@ -185,6 +187,8 @@ function *parse_function(parse_state *state, bool allow_anonymous) {
   function *fn = xmalloc(sizeof(*fn));
   fn->function_name = NULL;
   fn->return_type = return_type;
+  fn->line = line;
+  fn->offset = offset;
 
   token *name_token = accept(state, L_IDENTIFIER);
 
@@ -229,11 +233,14 @@ function *parse_function(parse_state *state, bool allow_anonymous) {
 expression *parse_base_expression(parse_state *state) {
   expression *e;
 
+  size_t line = state->in->line, offset = state->in->offset;
   if (consume(state, L_OPEN_PAREN)) {
     e = parse_expression(state);
     check_expression(state, e);
 
     expect_consume(state, L_CLOSE_PAREN);
+    e->line = line;
+    e->offset = offset;
 
     return e;
   }
@@ -259,6 +266,8 @@ expression *parse_base_expression(parse_state *state) {
       exit(1);
     }
 
+    e->line = t->line;
+    e->offset = t->offset;
     free(t);
 
     return e;
@@ -277,9 +286,9 @@ expression *parse_base_expression(parse_state *state) {
   t = accept(state, L_IDENTIFIER);
 
   if (t != NULL) {
-    char *name = t->symbol_name;
+    e = new_get_symbol_node(t);
     free(t);
-    return new_get_symbol_node(name);
+    return e;
   }
 
   return NULL;
@@ -327,38 +336,44 @@ expression *parse_unary_expression(parse_state *state) {
   case L_DECREMENT: {
     numeric_type type = t->type == L_INCREMENT ? O_ADD : O_SUB;
     parse_shift(state);
-    free(t);
 
     e = parse_unary_expression(state);
     check_expression(state, e);
 
     literal = new_literal_node(T_U8);
     literal->value_u8 = 1;
+    literal->line = t->line;
+    literal->offset = t->offset;
+    free(t);
 
     return new_numeric_assign_node(type, e, literal);
   }
   case L_SUB:
     parse_shift(state);
-    free(t);
 
     e = parse_unary_expression(state);
     check_expression(state, e);
 
-    return new_negate_node(e);
+    e = new_negate_node(e);
+    e->line = t->line;
+    e->offset = t->offset;
+    free(t);
+    return e;
   case L_NOT:
   case L_BITWISE_NOT: {
-    bool bitwise = t->type == L_BITWISE_NOT;
     parse_shift(state);
-    free(t);
 
     e = parse_unary_expression(state);
     check_expression(state, e);
 
-    return new_not_node(bitwise, e);
+    e = new_not_node(t->type == L_BITWISE_NOT, e);
+    e->line = t->line;
+    e->offset = t->offset;
+    free(t);
+    return e;
   }
   case L_LT: {
     parse_shift(state);
-    free(t);
 
     type *cast_type = parse_type(state, NULL, false);
     if (cast_type == NULL) {
@@ -370,14 +385,20 @@ expression *parse_unary_expression(parse_state *state) {
     e = parse_unary_expression(state);
     check_expression(state, e);
 
-    return new_cast_node(cast_type, e);
-  }
-  case L_NEW: {
-    parse_shift(state);
+    expression *cast = new_cast_node(cast_type, e);
+    cast->line = t->line;
+    cast->offset = t->offset;
     free(t);
-
-    return parse_new(state);
+    return cast;
   }
+  case L_NEW:
+    parse_shift(state);
+
+    e = parse_new(state);
+    e->line = t->line;
+    e->offset = t->offset;
+    free(t);
+    return e;
   default:
     return parse_interact_expression(state);
   }
@@ -1083,12 +1104,10 @@ statement *parse_statement(parse_state *state) {
   case L_NATIVE: {
     free(t);
 
-    token *callee = expect(state, L_IDENTIFIER);
-    char *assign = NULL;
+    token *callee = expect(state, L_IDENTIFIER), *assign = NULL;
 
     if (consume(state, L_ASSIGN)) {
-      assign = callee->symbol_name;
-      free(callee);
+      assign = callee;
       callee = expect(state, L_IDENTIFIER);
     }
 
@@ -1098,12 +1117,13 @@ statement *parse_statement(parse_state *state) {
     expect_consume(state, L_CLOSE_PAREN);
     expect_consume(state, L_SEMICOLON);
 
-    expression *e = new_native_node(callee->symbol_name, assign, args,
-      arg_count);
+    expression *e = new_native_node(callee->symbol_name, assign == NULL ? NULL
+      : assign->symbol_name, args, arg_count);
     free(callee);
 
     if (assign) {
       e = new_assign_node(new_get_symbol_node(assign), e);
+      free(assign);
     }
 
     return s_expression(e);
@@ -1207,8 +1227,11 @@ statement *parse_statement(parse_state *state) {
     statement* body = expect_statement(state);
 
     if (condition == NULL) {
+      // TODO: line/offset?
       condition = new_literal_node(T_BOOL);
       condition->value_bool = true;
+      condition->line = 0;
+      condition->offset = 0;
     }
 
     block_statement *body_block = ensure_block(body);

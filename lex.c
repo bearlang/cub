@@ -194,7 +194,9 @@ static token *scan_number(stream *in) {
   return t;
 }
 
-static token *scan_string(stream *in, char match) {
+static token *scan_string(stream *in) {
+  size_t offset = in->offset;
+  char match = stream_shift(in);
   char chr;
   buffer buf;
   buffer_init(&buf);
@@ -245,6 +247,7 @@ static token *scan_string(stream *in, char match) {
   token *t = new_token(in, L_LITERAL);
   t->literal_type = T_STRING;
   t->value_string = buffer_flush(&buf);
+  t->offset = offset;
   // TODO: buffer_free not called (not a leak currently, but could be a problem)
   return t;
 }
@@ -601,7 +604,8 @@ static token *scan_inner(stream *in) {
   case '"':
   case '\'':
     // TODO: implement interpolation for '"'
-    return scan_string(in, chr);
+    stream_push(in, chr);
+    return scan_string(in);
 #ifndef DOT_STYLE_CONCAT
   case '#':
     return consume(in, '=')

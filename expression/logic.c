@@ -11,5 +11,7 @@ expression *new_logic_node(logic_type ltype, expression *left,
   logic->value = left;
   left->next = right;
   logic->next = NULL;
+  logic->line = left->line;
+  logic->offset = left->offset;
   return logic;
 }

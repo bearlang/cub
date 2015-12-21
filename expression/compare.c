@@ -11,5 +11,7 @@ expression *new_compare_node(compare_type type, expression *left,
   compare->value = left;
   left->next = right;
   compare->next = NULL;
+  compare->line = left->line;
+  compare->offset = left->offset;
   return compare;
 }

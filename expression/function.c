@@ -12,5 +12,7 @@ expression *new_function_node(function *fn) {
   function->type->blocktype->next = copy_arguments(fn->argument, false);
   function->function = fn;
   function->next = NULL;
+  function->line = fn->line;
+  function->offset = fn->offset;
   return function;
 }
