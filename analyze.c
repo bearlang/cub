@@ -60,7 +60,7 @@ static void analyze_field_operation(expression *e) {
     }
 
     // TODO: better things
-    class_name = '[]';
+    class_name = "[]";
     goto unknown_field;
   }
 
@@ -74,7 +74,7 @@ static void analyze_field_operation(expression *e) {
       return;
     }
 
-    class_name = 'string';
+    class_name = "string";
     goto unknown_field;
   }
 
