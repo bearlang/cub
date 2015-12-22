@@ -4,6 +4,7 @@
 
 #include "../backend.h"
 #include "patch.h"
+#include "types.h"
 
 #define vf(var, ...) { char *cptr; if (asprintf(&cptr, __VA_ARGS__) == -1) { perror("asprintf"); exit(1); } pt_put(var, cptr); }
 #define vfr(var, x) { pt_put(var, x); }

@@ -1,17 +1,5 @@
 #include "types.h"
-
-enum llvm_type_type {
-	LT_VOID, LT_INT, LT_FLOAT, LT_PTR, LT_INSTANCE, LT_BLOCKREF
-};
-
-struct llvm_type {
-	enum llvm_type_type type;
-	union {
-		int bits; // for integers
-		int struct_id; // for structs - not quite LLVM-level, but close enough
-		struct llvm_type *subtype; // for pointers
-	};
-};
+#include <string.h>
 
 #define check_format(...) { if (asprintf(&cptr, __VA_ARGS__) == -1) { perror("asprintf"); exit(1); } }
 #define return_format(...) { check_format(__VA_ARGS__) break; }
@@ -34,7 +22,7 @@ char *llvm_type_string(struct llvm_type *type, bool dealloc) {
 		}
 		break;
 	case LT_PTR:
-		ciptr = llvm_type_string(type->subtype);
+		ciptr = llvm_type_string(type->subtype, dealloc);
 		check_format("%s*", ciptr);
 		free(ciptr);
 		break;
@@ -49,5 +37,11 @@ char *llvm_type_string(struct llvm_type *type, bool dealloc) {
 	}
 	free(type);
 	return cptr;
+}
+
+struct llvm_type *llvm_type_alloc(struct llvm_type data) {
+	struct llvm_type *t = malloc(sizeof(struct llvm_type));
+	*t = data;
+	return t;
 }
 

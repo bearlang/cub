@@ -105,6 +105,7 @@
       'optimize.c',
       'llvm-backend/llvm-backend.c',
       'llvm-backend/patch.c',
+      'llvm-backend/types.c',
       'compile.c'
     ],
     'actions': [{
