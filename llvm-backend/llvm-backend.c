@@ -8,7 +8,7 @@
 #define vf(var, ...) { char *cptr; if (asprintf(&cptr, __VA_ARGS__) == -1) { perror("asprintf"); exit(1); } pt_put(var, cptr); }
 #define vfr(var, x) { pt_put(var, x); }
 
-static void wt(type *t) {
+static struct llvm_type *convert_type(type *t) {
 	if (t == NULL) {
 		abort();
 	}
@@ -17,55 +17,49 @@ static void wt(type *t) {
 		fprintf(stderr, "array type not implemented\n");
 		exit(1);
 	case T_BLOCKREF:
-		pt_printf("i8*");
-		break;
+		return LL_BLOCK;
 	case T_BOOL:
-		pt_printf("i1");
-		break;
+		return LL_I1;
 	case T_F32:
-		pt_printf("float");
-		break;
+		return LL_F32;
 	case T_F64:
-		pt_printf("double");
-		break;
+		return LL_F64;
 	case T_F128:
-		pt_printf("fp128");
-		break;
+		return LL_F128;
 	case T_OBJECT:
-		pt_printf("%%struct.%zu*", t->struct_index);
-		break;
+		return LL_OBJ(t->struct_index);
 	case T_REF:
 		abort();
 	case T_U8:
 	case T_S8:
-		pt_printf("i8"); // in LLVM, signedness is distinguished on the instructions, not the types
-		break;
+		// in LLVM, signedness is distinguished on the instructions, not the types
+		return LL_I8;
 	case T_U16:
 	case T_S16:
-		pt_printf("i16");
-		break;
+		return LL_I16;
 	case T_U32:
 	case T_S32:
-		pt_printf("i32");
-		break;
+		return LL_I32;
 	case T_U64:
 	case T_S64:
-		pt_printf("i64");
-		break;
+		return LL_I64;
 	case T_STRING:
-		pt_printf("i8*");
 		// Despite what this looks like, it's actually not a C string.
 		// It's a length-prefixed string: the length is stored as the first 64 bits (sans the first bit)
 		// The length counts the number of bytes following those 64 bits.
 		// There is no null terminator.
 		// The first bit is set to 1 if the string is statically-allocated instead of heap-allocated.
-		break;
+		return LL_PTR(LL_I8);
 	case T_VOID:
-		pt_printf("void");
-		break;
+		return LL_VOID;
 	default:
 		abort();
 	}
+}
+
+static void wt(type *t) {
+	char *ts = llvm_type_string(convert_type(t), LTS_DEALLOC);
+	pt_printf("%s", ts);
 }
 
 bool check_prototypes(code_block *from, code_block *to, size_t toindex) {
