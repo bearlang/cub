@@ -104,6 +104,7 @@
       'generate.c',
       'optimize.c',
       'llvm-backend/llvm-backend.c',
+      'llvm-backend/patch.c',
       'compile.c'
     ],
     'actions': [{
