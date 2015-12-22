@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include <math.h>
+
 // #define TRACE_GC
 
 enum reachable {
@@ -180,6 +182,11 @@ bool bear_streq(uint8_t *a, uint8_t *b) {
 	return true;
 }
 
+void bear_print(uint8_t *head) {
+	uint64_t length = (*(uint64_t*) head) & ~0x8000000000000000;
+	fwrite(head + 8, sizeof(*head), length, stdout);
+}
+
 void bear_print_number(uint64_t value/*, uint8_t *str*/) {
 	printf("%lu\n", value);
 /*	uint64_t slen = *(uint64_t*) bstr;
@@ -188,4 +195,12 @@ void bear_print_number(uint64_t value/*, uint8_t *str*/) {
 	memcpy(temp, (uint8_t*) (1 + (uint64_t*) bstr), slen);
 	temp[slen] = 0;
 	printf("%lu %s\n", value, temp);*/
+}
+
+uint8_t bear_log2(uint8_t value) {
+	return log2f(value);
+}
+
+uint8_t bear_log10(uint8_t value) {
+	return log10f(value);
 }

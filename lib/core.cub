@@ -1,5 +1,5 @@
-void print(u64 value) {
-  native bear_print_number(value);
+void print(string value) {
+  native bear_print(value);
 }
 
 void exit(u8 code) {
@@ -20,6 +20,29 @@ string stringFromArray(u8[] buffer, u32 start, u32 end) {
 string stringFromCode(u8 code) {
   u8[] buffer = new u8[1];
   buffer[0] = code;
+
+  return <string> buffer;
+}
+
+u8 log2(u8 value) {
+  native bear_log2(value);
+}
+
+u8 log10(u8 value) {
+  native bear_log10(value);
+}
+
+string u8ToString(u8 value) {
+  u8 size = value ? <u8>(log10(value) + 1) : 1;
+  u8[] buffer = new u8[size];
+
+  u8 i = <u8>(size - 1);
+  for (;;) {
+    buffer[i] = <u8>(48 + value % 10);
+    value /= 10;
+    if (i == 0) break;
+    --i;
+  }
 
   return <string> buffer;
 }
