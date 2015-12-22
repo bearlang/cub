@@ -83,6 +83,7 @@ static void analyze_field_operation(expression *e) {
   }
 
   class *the_class = e->value->type->classtype;
+  class_name = the_class->class_name;
 
   do {
     size_t i = 0;
@@ -104,8 +105,6 @@ static void analyze_field_operation(expression *e) {
       }
     }
   } while ((the_class = the_class->parent) != NULL);
-
-  class_name = the_class->class_name;
 
 unknown_field:
   fail("'%s' has no field named '%s'", e, class_name, field_name);
