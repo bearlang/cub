@@ -44,6 +44,7 @@ typedef enum {
   L_IDENTIFIER,
   L_IF,
   L_INCREMENT,
+  L_IS,
   L_LET,
   L_LITERAL,
   L_LSHIFT,

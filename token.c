@@ -47,6 +47,7 @@ char *token_string(token_type type) {
   case L_IDENTIFIER: return "IDENTIFIER";
   case L_IF: return "IF";
   case L_INCREMENT: return "INCREMENT";
+  case L_IS: return "IS";
   case L_LITERAL: return "LITERAL";
   case L_LSHIFT: return "LSHIFT";
   case L_LSHIFT_ASSIGN: return "LSHIFT_ASSIGN";

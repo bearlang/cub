@@ -539,9 +539,18 @@ expression *parse_equality_expression(parse_state *state) {
   for (;;) {
     token *t = parse_peek(state);
     compare_type type;
+    expression *right;
     switch (t->type) {
     case L_EQ: type = O_EQ; break;
     case L_NE: type = O_NE; break;
+    case L_IS:
+      free(t);
+      parse_shift(state);
+
+      right = parse_concat_expression(state);
+      check_expression(state, right);
+      left = new_identity_node(left, right);
+      continue;
     default:
       return left;
     }
@@ -549,7 +558,7 @@ expression *parse_equality_expression(parse_state *state) {
     free(t);
     parse_shift(state);
 
-    expression *right = parse_concat_expression(state);
+    right = parse_concat_expression(state);
     check_expression(state, right);
     left = new_compare_node(type, left, right);
   }
