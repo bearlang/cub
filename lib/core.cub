@@ -6,6 +6,12 @@ void exit(u8 code) {
   native exit(code);
 }
 
+u32 read() {
+  u32 code;
+  native code = bear_read();
+  return code;
+}
+
 string stringFromArray(u8[] buffer, u32 start, u32 end) {
   u32 length = end - start + 1;
   u8[] copy = new u8[length];

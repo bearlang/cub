@@ -197,6 +197,14 @@ void bear_print_number(uint64_t value/*, uint8_t *str*/) {
 	printf("%lu %s\n", value, temp);*/
 }
 
+uint32_t bear_read() {
+	int value = fgetc(stdin);
+	if (value == EOF) {
+		return -1;
+	}
+	return value;
+}
+
 uint8_t bear_log2(uint8_t value) {
 	return log2f(value);
 }
