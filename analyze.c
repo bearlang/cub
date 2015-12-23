@@ -176,6 +176,7 @@ static void analyze_expression(block_statement *block, expression *e) {
 
   } break;
   case O_CAST: {
+    resolve_type(block, e->type);
     analyze_expression(block, e->value);
     explicit_cast(e);
   } break;
