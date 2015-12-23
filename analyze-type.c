@@ -395,6 +395,12 @@ expression *implicit_cast(expression *value, type *expected) {
     break;
   case (T_ARRAY << 8) | T_ARRAY:
     fail("incompatible array type", value);
+  case (T_ARRAY << 8) | T_OBJECT:
+    if (!value->type->classtype) {
+      // it's ok, we're assigning a null literal to an array variable
+      return value;
+    }
+    fail("incompatible types", value);
   case (T_BLOCKREF << 8) | T_BLOCKREF:
     fail("incompatible function type", value);
   case (T_OBJECT << 8) | T_OBJECT: {
