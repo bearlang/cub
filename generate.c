@@ -430,12 +430,15 @@ static void generate_return(code_block *parent, return_statement *ret) {
 
   size_t param_count = 1 + non_void;
 
+  if (non_void) {
+    parent = generate_expression(parent, ret->value);
+  }
+
   parent->tail.type = GOTO;
   parent->tail.parameter_count = param_count;
   parent->tail.parameters = xmalloc(sizeof(size_t) * param_count);
 
   if (non_void) {
-    parent = generate_expression(parent, ret->value);
     parent->tail.parameters[1] = last_instruction(parent);
   }
 
@@ -1158,6 +1161,7 @@ static code_block *generate_call(code_block *parent, expression *value) {
 static code_block *generate_cast(code_block *parent, expression *value) {
   switch (value->operation.cast_type) {
   case O_DOWNCAST:
+    // TODO: add downcast check
   case O_FLOAT_EXTEND:
   case O_FLOAT_TO_SIGNED:
   case O_FLOAT_TO_UNSIGNED:
