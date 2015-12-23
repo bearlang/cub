@@ -29,7 +29,6 @@ symbol_entry *get_entry(symbol_entry*, const char*);
 symbol_entry *new_symbol_entry(char*);
 symbol_entry *add_symbol(block_statement*, uint8_t, char*);
 symbol_entry *get_symbol(block_statement*, char*, uint8_t *symbol_type);
-symbol_entry *get_variable_symbol(block_statement*, char*);
 
 void analyze(block_statement*);
 

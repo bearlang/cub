@@ -157,7 +157,7 @@ symbol_entry *get_symbol(block_statement *block, char *symbol_name,
       }
 
       entry = get_entry(entry, symbol_name);
-      if (entry) {
+      if (entry != NULL) {
         *symbol_type = compare_symbol_type;
 
         return entry;
@@ -167,11 +167,5 @@ symbol_entry *get_symbol(block_statement *block, char *symbol_name,
     block = parent_scope(block, &escape);
   } while (block);
 
-  fprintf(stderr, "symbol '%s' undeclared\n", symbol_name);
-  exit(1);
-}
-
-symbol_entry *get_variable_symbol(block_statement *block, char *symbol_name) {
-  uint8_t symbol_type = ST_VARIABLE;
-  return get_symbol(block, symbol_name, &symbol_type);
+  return NULL;
 }

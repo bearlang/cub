@@ -242,9 +242,11 @@ static void analyze_expression(block_statement *block, expression *e) {
 
     if (right->operation.type == O_GET_SYMBOL) {
       uint8_t symbol_type = ST_FUNCTION | ST_VARIABLE | ST_TYPE;
-      symbol_entry *entry;
+      symbol_entry *entry = get_symbol(block, right->symbol_name, &symbol_type);
 
-      entry = get_symbol(block, right->symbol_name, &symbol_type);
+      if (entry == NULL) {
+        fail("undeclared symbol '%s'", right, right->symbol_name);
+      }
 
       if (symbol_type == ST_FUNCTION) {
         // TODO: should this be supported so you can check if two function
@@ -353,7 +355,7 @@ static void analyze_expression(block_statement *block, expression *e) {
     uint8_t symbol_type = ST_FUNCTION | ST_VARIABLE;
     symbol_entry *entry = get_symbol(block, e->symbol_name, &symbol_type);
 
-    if (!entry) {
+    if (entry == NULL) {
       fail("unknown symbol '%s'", e, e->symbol_name);
     }
 
@@ -397,7 +399,7 @@ static void analyze_expression(block_statement *block, expression *e) {
       uint8_t symbol_type = ST_VARIABLE;
       symbol_entry *entry = get_symbol(block, e->assign, &symbol_type);
 
-      if (!entry) {
+      if (entry == NULL) {
         fail("unknown symbol '%s'", e, e->assign);
       }
 
@@ -414,8 +416,8 @@ static void analyze_expression(block_statement *block, expression *e) {
     uint8_t symbol_type = ST_TYPE;
     symbol_entry *entry = get_symbol(block, class_name, &symbol_type);
 
-    if (!entry) {
-      fail("class '%s' not defined", e, class_name);
+    if (entry == NULL) {
+      fail("undeclared class '%s'", e, class_name);
     }
 
     if (entry->type->type != T_OBJECT) {
@@ -776,8 +778,8 @@ void analyze(block_statement *block) {
         uint8_t symbol_type = ST_TYPE;
         symbol_entry *entry = get_symbol(block, class_name, &symbol_type);
 
-        if (!entry) {
-          fprintf(stderr, "class '%s' not defined\n", class_name);
+        if (entry == NULL) {
+          fprintf(stderr, "undeclared class '%s'\n", class_name);
           exit(1);
         }
 
