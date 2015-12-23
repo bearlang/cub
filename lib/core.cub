@@ -24,12 +24,8 @@ string stringFromCode(u8 code) {
   return <string> buffer;
 }
 
-u8 log2(u8 value) {
-  native bear_log2(value);
-}
-
-u8 log10(u8 value) {
-  native bear_log10(value);
+u8 log10(u8 v) {
+  return (v >= 100) ? 2 : ((v >= 10) ? 1 : 0);
 }
 
 string u8ToString(u8 value) {
