@@ -4,8 +4,7 @@
 static void no_floats(expression *v) __attribute__ ((noreturn));
 
 static void no_floats(expression *v) {
-  fprintf(stderr, "floats are not allowed at %zu:%zu\n", v->line, v->offset);
-  exit(1);
+  fail("floats are not allowed", v);
 }
 
 static void replace_cast(expression **value, cast_type cast, type_type target) {
@@ -30,9 +29,7 @@ void explicit_cast(expression *value) {
   cast_type cmethod;
 
   if (equivalent_type(value->value->type, value->type)) {
-    fprintf(stderr, "noop explicit cast not supported at %zu:%zu\n",
-      value->line, value->offset);
-    exit(1);
+    fail("noop explicit cast not supported", value);
   }
 
   switch ((((uint8_t) etype) << 8) | (uint8_t) vtype) {
@@ -167,20 +164,14 @@ void explicit_cast(expression *value) {
     cmethod = O_FLOAT_TO_UNSIGNED;
     break;
   case (T_ARRAY << 8) | T_ARRAY:
-    fprintf(stderr, "incompatible array type at %zu:%zu\n", value->line,
-      value->offset);
-    exit(1);
+    fail("incompatible array type", value);
   case (T_BLOCKREF << 8) | T_BLOCKREF:
-    fprintf(stderr, "incompatible function type at %zu:%zu\n", value->line,
-      value->offset);
-    exit(1);
+    fail("incompatible function type", value);
   case (T_OBJECT << 8) | T_OBJECT: {
     if (!value->type->classtype) {
       // TODO: shouldn't this be allowed?
       // it's ok, we're assigning a null literal to an object variable
-      fprintf(stderr, "explicit cast from null literal not supported at %zu:"
-        "%zu\n", value->line, value->offset);
-      exit(1);
+      fail("explicit cast from null literal not supported", value);
     }
 
     bool can_cast = false;
@@ -240,9 +231,7 @@ void explicit_cast(expression *value) {
     case T_U32: right->value_u32 = 0; break;
     case T_U64: right->value_u64 = 0; break;
     default:
-      fprintf(stderr, "cannot explicitly convert non-integer to boolean at %zu:"
-        "%zu\n", value->line, value->offset);
-      exit(1);
+      fail("cannot explicitly convert non-integer to boolean", value);
     }
 
     value->operation.type = O_COMPARE;
@@ -259,9 +248,7 @@ void explicit_cast(expression *value) {
     }
     // fallthrough
   default:
-    fprintf(stderr, "incompatible types in explicit cast at %zu:%zu\n",
-      value->line, value->offset);
-    exit(1);
+    fail("incompatible types in explicit cast", value);
   }
 
   value->operation.cast_type = cmethod;
@@ -334,9 +321,7 @@ expression *implicit_cast(expression *value, type *expected) {
   case (T_U32 << 8) | T_U64:
   case (T_U64 << 8) | T_F64:
   case (T_U64 << 8) | T_F128:
-    fprintf(stderr, "possible loss of precision during implicit conversion at "
-      "%zu:%zu\n", value->line, value->offset);
-    exit(1);
+    fail("possible loss of precision during implicit conversion", value);
   case (T_F32 << 8) | T_S8:
   case (T_F32 << 8) | T_S16:
   case (T_F64 << 8) | T_S8:
@@ -409,13 +394,9 @@ expression *implicit_cast(expression *value, type *expected) {
     cmethod = O_FLOAT_TO_UNSIGNED;
     break;
   case (T_ARRAY << 8) | T_ARRAY:
-    fprintf(stderr, "incompatible array type at %zu:%zu\n", value->line,
-      value->offset);
-    exit(1);
+    fail("incompatible array type", value);
   case (T_BLOCKREF << 8) | T_BLOCKREF:
-    fprintf(stderr, "incompatible function type at %zu:%zu\n", value->line,
-      value->offset);
-    exit(1);
+    fail("incompatible function type", value);
   case (T_OBJECT << 8) | T_OBJECT: {
     if (!value->type->classtype) {
       // it's ok, we're assigning a null literal to an object variable
@@ -435,10 +416,8 @@ expression *implicit_cast(expression *value, type *expected) {
     }
 
     if (!can_upcast) {
-      fprintf(stderr, "incompatible object '%s', expecting '%s' at %zu:%zu\n",
-        value->type->classtype->class_name, eclass->class_name, value->line,
-        value->offset);
-      exit(1);
+      fail("'%s' incompatible with '%s'", value,
+        value->type->classtype->class_name, eclass->class_name);
     }
 
     break;
@@ -463,9 +442,7 @@ expression *implicit_cast(expression *value, type *expected) {
     case T_U32: right->value_u32 = 0; break;
     case T_U64: right->value_u64 = 0; break;
     default:
-      fprintf(stderr, "cannot implicitly convert non-integer to boolean at %zu:"
-        "%zu\n", value->line, value->offset);
-      exit(1);
+      fail("cannot implicitly convert non-integer to boolean", value);
     }
 
     return new_compare_node(O_NE, value, right);
@@ -476,9 +453,7 @@ expression *implicit_cast(expression *value, type *expected) {
     }
     // fallthrough
   default:
-    fprintf(stderr, "incompatible types at %zu:%zu\n", value->line,
-      value->offset);
-    exit(1);
+    fail("incompatible types", value);
   }
 
   expression *cast = xmalloc(sizeof(*cast));
@@ -514,9 +489,7 @@ expression *numeric_promotion(expression *value, bool allow_floats) {
     cmethod = O_ZERO_EXTEND;
     break;
   default:
-    fprintf(stderr, "must be a numeric expression at %zu:%zu\n", value->line,
-      value->offset);
-    exit(1);
+    fail("must be a numeric expression", value);
   }
 
   expression *cast = xmalloc(sizeof(*cast));
@@ -635,9 +608,7 @@ type_type binary_numeric_conversion(expression *value/*, bool allow_floats*/) {
     replace_cast(&value->value, O_REINTERPRET, rtype);
     return rtype;
   default:
-    fprintf(stderr, "unsupported types in bitwise binary operation at %zu:%zu"
-      "\n", value->line, value->offset);
-    exit(1);
+    fail("unsupported types in bitwise binary operation", value);
   }
 }
 
@@ -848,9 +819,7 @@ type_type binary_numeric_promotion(expression *value, bool allow_floats) {
     }
     // fallthrough
   default:
-    fprintf(stderr, "unsupported types in binary operation at %zu:%zu\n",
-      value->line, value->offset);
-    exit(1);
+    fail("unsupported types in binary operation", value);
   }
 }
 
@@ -1103,17 +1072,13 @@ void ternary_numeric_promotion(expression *value) {
   return;
 
 unsupported:
-  fprintf(stderr, "unsupported types in ternary operation at %zu:%zu\n",
-    value->line, value->offset);
-  exit(1);
+  fail("unsupported types in ternary operation", value);
 }
 
 void assert_condition(expression *condition) {
   type *t = condition->type;
   if (t->type != T_BOOL && !is_integer(t)) {
-    fprintf(stderr, "invalid condition at %zu:%zu\n", condition->line,
-      condition->offset);
-    exit(1);
+    fail("invalid condition", condition);
   }
 }
 
