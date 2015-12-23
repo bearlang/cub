@@ -183,9 +183,7 @@ void explicit_cast(expression *value) {
       exit(1);
     }
 
-    // TODO: support checked and unchecked downcasting
-
-    bool can_upcast = false;
+    bool can_cast = false;
     class *the_class = value->value->type->classtype,
       *eclass = value->type->classtype;
 
@@ -193,19 +191,34 @@ void explicit_cast(expression *value) {
       if (the_class == eclass) {
         // upcast!
         cmethod = O_UPCAST;
-        can_upcast = true;
+        can_cast = true;
         break;
       }
     }
 
-    if (!can_upcast) {
-      fprintf(stderr, "incompatible object '%s', expecting '%s' at %zu:%zu\n",
-        value->type->classtype->class_name, eclass->class_name, value->line,
-        value->offset);
-      exit(1);
+    if (can_cast) {
+      break;
     }
 
-    break;
+    // TODO: support unchecked downcasting
+    the_class = eclass;
+    eclass = value->value->type->classtype;
+
+    while ((the_class = the_class->parent) != NULL) {
+      if (the_class == eclass) {
+        // downcast!
+        cmethod = O_DOWNCAST;
+        can_cast = true;
+        break;
+      }
+    }
+
+    if (can_cast) {
+      break;
+    }
+
+    fail("'%s' is not compatible with '%s'", value, eclass->class_name,
+      value->type->classtype->class_name);
   }
   case (T_BOOL << 8) | T_S8:
   case (T_BOOL << 8) | T_S16:
