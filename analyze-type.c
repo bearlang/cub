@@ -1135,6 +1135,11 @@ type *resolve_type(block_statement *block, type *t) {
     uint8_t symbol_type = ST_TYPE;
     symbol_entry *entry = get_symbol(block, t->symbol_name, &symbol_type);
 
+    if (entry == NULL) {
+      fprintf(stderr, "undeclared symbol '%s'\n", t->symbol_name);
+      exit(1);
+    }
+
     free(t->symbol_name);
 
     copy_type_into(entry->type, t);
