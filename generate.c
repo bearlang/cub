@@ -1066,9 +1066,12 @@ static code_block *generate_call(code_block *parent, expression *value) {
 
       get = new_instruction(return_block, 2);
       get->operation.type = O_GET_FIELD;
-      get->type = NULL;
+      get->type = copy_type(outer_return);
       get->parameters[0] = return_context;
       get->parameters[1] = 1;
+
+      return_block->has_return = true;
+      return_block->return_instruction = last_instruction(return_block);
     }
 
     size_t i = parent->has_return + 1;
