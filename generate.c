@@ -362,6 +362,12 @@ static code_block *generate_do_while(code_block *parent, loop_statement *loop) {
 }
 
 static code_block *generate_while(code_block *parent, loop_statement *loop) {
+  if (loop->condition->operation.type == O_LITERAL &&
+      loop->condition->type->type == T_BOOL && loop->condition->value_bool) {
+    loop->type = S_DO_WHILE;
+    return generate_do_while(parent, loop);
+  }
+
   size_t condition_block = parent->system->block_count;
   code_block *condition = fork_block(parent);
 
