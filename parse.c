@@ -1235,12 +1235,14 @@ statement *parse_statement(parse_state *state) {
 
     statement* body = expect_statement(state);
 
+    statement_type loop_type = S_WHILE;
     if (condition == NULL) {
       // TODO: line/offset?
       condition = new_literal_node(T_BOOL);
       condition->value_bool = true;
       condition->line = 0;
       condition->offset = 0;
+      loop_type = S_DO_WHILE;
     }
 
     block_statement *body_block = ensure_block(body);
@@ -1258,7 +1260,7 @@ statement *parse_statement(parse_state *state) {
       body_block->body->parent = body;
     }
 
-    statement *loop = s_loop(S_WHILE, condition, body_block);
+    statement *loop = s_loop(loop_type, condition, body_block);
 
     if (body_block != NULL) {
       body_block->parent = loop;
