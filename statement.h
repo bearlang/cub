@@ -92,6 +92,7 @@ typedef struct /*extends statement*/ {
 
 typedef struct define_clause {
   char *symbol_name;
+  symbol_entry *symbol_entry;
   expression *value;
   struct define_clause *next;
 } define_clause;

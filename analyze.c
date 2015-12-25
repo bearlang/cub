@@ -14,8 +14,9 @@ static void analyze_function(block_statement *block, function *fn) {
   // add arguments to symbol table
   for (argument *arg = fn->argument; arg; arg = arg->next) {
     type *arg_type = arg->argument_type;
-    add_symbol(body, ST_VARIABLE, arg->symbol_name)
-      ->type = copy_type(arg_type);
+    symbol_entry *entry = add_symbol(body, ST_VARIABLE, arg->symbol_name);
+    entry->type = copy_type(arg_type);
+    arg->symbol_entry = entry;
   }
 
   analyze(body);
@@ -59,9 +60,7 @@ static void analyze_field_operation(expression *e) {
       return;
     }
 
-    // TODO: better things
-    class_name = "[]";
-    goto unknown_field;
+    fail("array has no field named '%s'", e, field_name);
   }
 
   if (e->value->type->type == T_STRING) {
@@ -74,8 +73,7 @@ static void analyze_field_operation(expression *e) {
       return;
     }
 
-    class_name = "string";
-    goto unknown_field;
+    fail("string has no field named '%s'", e, field_name);
   }
 
   if (e->value->type->type != T_OBJECT) {
@@ -106,7 +104,6 @@ static void analyze_field_operation(expression *e) {
     }
   } while ((the_class = the_class->parent) != NULL);
 
-unknown_field:
   fail("'%s' has no field named '%s'", e, class_name, field_name);
 }
 
@@ -646,8 +643,9 @@ static void analyze_inner(block_statement *block, statement **node) {
     define_clause *clause = define->clause;
 
     do {
-      add_symbol(block, ST_VARIABLE, clause->symbol_name)
-        ->type = copy_type(define_type);
+      symbol_entry *entry = add_symbol(block, ST_VARIABLE, clause->symbol_name);
+      entry->type = copy_type(define_type);
+      clause->symbol_entry = entry;
 
       if (clause->value) {
         analyze_expression(block, clause->value);
@@ -672,8 +670,9 @@ static void analyze_inner(block_statement *block, statement **node) {
         exit(1);
       }
 
-      add_symbol(block, ST_VARIABLE, clause->symbol_name)
-        ->type = copy_type(clause->value->type);
+      symbol_entry *entry = add_symbol(block, ST_VARIABLE, clause->symbol_name);
+      entry->type = copy_type(clause->value->type);
+      clause->symbol_entry = entry;
 
       clause = clause->next;
     } while (clause);

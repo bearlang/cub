@@ -30,6 +30,7 @@ typedef struct type {
 
 typedef struct argument {
   char *symbol_name;
+  symbol_entry *symbol_entry;
   type *argument_type;
   struct argument *next;
 } argument;
