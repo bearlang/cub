@@ -28,13 +28,13 @@ static code_struct *add_struct(code_system *system) {
   return cstruct;
 }
 
-static symbol_entry *add_symbol(code_block *block, const char *symbol_name,
+static symbol_entry *add_symbol(code_block *block, symbol_entry *upstream_entry,
     size_t instruction) {
   symbol_entry **entry = &block->symbol_head;
 
   for (; *entry; entry = &(*entry)->next) {
-    if (strcmp(symbol_name, (*entry)->symbol_name) == 0) {
-      fprintf(stderr, "symbol '%s' already defined\n", symbol_name);
+    if (upstream_entry == (*entry)->upstream) {
+      fprintf(stderr, "symbol '%s' already defined\n", (*entry)->symbol_name);
       exit(1);
     }
   }
@@ -45,7 +45,8 @@ static symbol_entry *add_symbol(code_block *block, const char *symbol_name,
   (*entry)->instruction = instruction;
   (*entry)->exists = true;
   (*entry)->next = NULL;
-  (*entry)->symbol_name = (char*) symbol_name;
+  (*entry)->symbol_name = upstream_entry->symbol_name;
+  (*entry)->upstream = upstream_entry;
   (*entry)->type = NULL;
   return *entry;
 }
@@ -276,7 +277,7 @@ static code_block *generate_define(code_block *parent,
       value = last_instruction(parent);
     }
 
-    symbol_entry *entry = add_symbol(parent, clause->symbol_name, value);
+    symbol_entry *entry = add_symbol(parent, clause->symbol_entry, value);
     entry->type = resolve_type(parent->system, copy_type(define_type));
     entry->exists = !!clause->value;
 
@@ -293,7 +294,7 @@ static code_block *generate_let(code_block *parent, let_statement *let) {
 
   do {
     parent = generate_expression(parent, clause->value);
-    symbol_entry *entry = add_symbol(parent, clause->symbol_name,
+    symbol_entry *entry = add_symbol(parent, clause->symbol_entry,
       last_instruction(parent));
     entry->type = resolve_type(system, copy_type(clause->value->type));
     entry->exists = true;
@@ -330,6 +331,7 @@ static code_block *generate_do_while(code_block *parent, loop_statement *loop) {
     body = generate_block(body, loop->body);
   }
 
+  // if the body ends, it implicitly continues
   if (body) {
     block_node *node = xmalloc(sizeof(*node));
     node->block = body;
@@ -337,13 +339,13 @@ static code_block *generate_do_while(code_block *parent, loop_statement *loop) {
     loop->continue_node = node;
   }
 
-  if (!loop->continue_node && !loop->break_node) {
-    fprintf(stderr, "do-while condition not reachable\n");
-
-    return NULL;
-  }
-
+  // if we ever continue the loop, we'll want to include the available variables
+  // these variables:
+  // - need to be in the outermost scope in the loop
+  // - need to be available from all continue statements (including the final
+  //   implicit continue)
   if (loop->continue_node) {
+    // TODO: enable backwards graph traversal via origin block pointers
     code_block *condition = tangle_blocks(body, loop->continue_node);
 
     condition = generate_expression(condition, loop->condition);
@@ -356,9 +358,14 @@ static code_block *generate_do_while(code_block *parent, loop_statement *loop) {
     return post;
   }
 
-  fprintf(stderr, "do-while condition not reachable\n");
+  // loop only breaks, never continues (effectively not a loop)
+  if (loop->break_node) {
+    fprintf(stderr, "do-while condition not reachable\n");
+    return tangle_blocks(parent, loop->break_node);
+  }
 
-  return tangle_blocks(parent, loop->break_node);
+  fprintf(stderr, "infinite loop, do-while condition not reachable\n");
+  return NULL;
 }
 
 static code_block *generate_while(code_block *parent, loop_statement *loop) {
@@ -536,7 +543,7 @@ static code_block *generate_function_stub(code_system *system, function *fn) {
   for (argument *arg = fn->argument; arg; arg = arg->next) {
     type *arg_type = resolve_type(system, copy_type(arg->argument_type));
     start_block->parameters[++i].field_type = arg_type;
-    symbol_entry *entry = add_symbol(start_block, arg->symbol_name, i);
+    symbol_entry *entry = add_symbol(start_block, arg->symbol_entry, i);
     entry->type = copy_type(arg_type);
   }
 
@@ -605,13 +612,13 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     return parent;
   }
   case O_GET_SYMBOL: {
-    const char *symbol = value->symbol_name;
+    const symbol_entry *upstream = value->symbol_entry;
 
     for (symbol_entry *entry = parent->symbol_head; entry;
         entry = entry->next) {
-      if (strcmp(entry->symbol_name, symbol) == 0) {
+      if (entry->upstream == upstream) {
         if (!entry->exists) {
-          fprintf(stderr, "symbol '%s' not initialized\n", symbol);
+          fprintf(stderr, "symbol '%s' not initialized\n", value->symbol_name);
           exit(1);
         }
 
@@ -621,7 +628,8 @@ static code_block *generate_expression(code_block *parent, expression *value) {
     }
 
     // crap
-    fprintf(stderr, "no symbol '%s' in get-symbol post-analysis\n", symbol);
+    fprintf(stderr, "missing symbol '%s' in get-symbol post-analysis\n",
+      value->symbol_name);
     abort();
   }
   case O_INSTANCEOF:
@@ -833,11 +841,11 @@ static code_block *generate_expression(code_block *parent, expression *value) {
       mirror_instruction(parent, mirror);
     } break;
     case O_GET_SYMBOL: {
-      const char *symbol = left->symbol_name;
+      const symbol_entry *upstream = left->symbol_entry;
 
       for (symbol_entry *entry = parent->symbol_head; entry;
           entry = entry->next) {
-        if (strcmp(entry->symbol_name, symbol) == 0) {
+        if (entry->upstream == upstream) {
           entry->instruction = last_instruction(parent);
 
           // only need to mirror when we're referencing a previous value because
@@ -849,7 +857,8 @@ static code_block *generate_expression(code_block *parent, expression *value) {
         }
       }
 
-      fprintf(stderr, "no symbol '%s' in get-symbol post-analysis\n", symbol);
+      fprintf(stderr, "missing symbol '%s' in get-symbol post-analysis\n",
+        left->symbol_name);
       // fallthrough
     }
     default:
@@ -914,18 +923,19 @@ static code_block *generate_expression(code_block *parent, expression *value) {
   case O_SET_SYMBOL: {
     parent = generate_expression(parent, value->value);
 
-    const char *symbol = value->symbol_name;
+    const symbol_entry *upstream = value->symbol_entry;
 
     for (symbol_entry *entry = parent->symbol_head; entry;
         entry = entry->next) {
-      if (strcmp(entry->symbol_name, symbol) == 0) {
+      if (entry->upstream == upstream) {
         entry->exists = true;
         entry->instruction = last_instruction(parent);
         return parent;
       }
     }
 
-    fprintf(stderr, "no symbol '%s' in set-symbol post-analysis\n", symbol);
+    fprintf(stderr, "missing symbol '%s' in set-symbol post-analysis\n",
+      value->symbol_name);
     abort();
   }
   case O_TERNARY:
@@ -1135,6 +1145,7 @@ static code_block *generate_call(code_block *parent, expression *value) {
       // add an entry to the symbol table representing the variable
       symbol_entry *return_entry = xmalloc(sizeof(*return_entry));
       return_entry->symbol_name = entry->symbol_name;
+      return_entry->upstream = entry->upstream;
       return_entry->type = copy_type(entry->type);
       return_entry->exists = true;
       return_entry->instruction = last_instruction(return_block);

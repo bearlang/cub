@@ -79,7 +79,7 @@ static code_block *child_block(code_block *context, block_node *parents,
       for (size_t j = 0; j < parent_count; j++) {
         symbol_entry *entry = parent_entries[j];
 #ifdef DEBUG
-        if (strcmp(context_entry->symbol_name, entry->symbol_name) != 0) {
+        if (context_entry->upstream != entry->upstream) {
           fprintf(stderr, "unable to create child: mismatched symbol table\n");
           exit(1);
         }
@@ -99,6 +99,7 @@ static code_block *child_block(code_block *context, block_node *parents,
 
       symbol_entry *tail_entry = xmalloc(sizeof(*tail_entry));
       tail_entry->symbol_name = context_entry->symbol_name;
+      tail_entry->upstream = context_entry->upstream;
       tail_entry->type = copy_type(context_entry->type);
       tail_entry->exists = exists;
       if (exists) {

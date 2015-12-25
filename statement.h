@@ -61,6 +61,7 @@ typedef struct symbol_entry {
   // code generation
   bool exists;
   size_t instruction;
+  struct symbol_entry *upstream;
 } symbol_entry;
 
 typedef struct block_statement /*extends statement*/ {

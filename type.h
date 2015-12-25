@@ -14,6 +14,8 @@ struct block_statement;
 struct class;
 struct arguments;
 
+struct symbol_entry;
+
 // note that this struct may be referenced - do not modify post-parsing :3
 typedef struct type {
   type_type type;
@@ -30,7 +32,7 @@ typedef struct type {
 
 typedef struct argument {
   char *symbol_name;
-  symbol_entry *symbol_entry;
+  struct symbol_entry *symbol_entry;
   type *argument_type;
   struct argument *next;
 } argument;
