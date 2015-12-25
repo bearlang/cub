@@ -173,7 +173,10 @@ static void mirror_instruction(code_block *parent, size_t src) {
 
 // HEAD
 
-static code_block *generate_block(code_block*, block_statement*);
+typedef void(*block_iter)(code_block *block, void *iter_data);
+
+static code_block *generate_block(code_block*, block_statement*, block_iter,
+  void*);
 static void generate_control(code_block*, control_statement*);
 static code_block *generate_define(code_block*, define_statement*);
 static code_block *generate_let(code_block*, let_statement*);
@@ -194,7 +197,8 @@ static code_block *generate_ternary(code_block*, expression*);
 
 // STATEMENT-RELATED GENERATION
 
-static code_block *generate_block(code_block *parent, block_statement *block) {
+static code_block *generate_block(code_block *parent, block_statement *block,
+    block_iter iter, void *iter_data) {
   for (symbol_entry *c = block->class_head; c; c = c->next) {
     generate_class_stub(parent->system, c->classtype);
   }
@@ -215,7 +219,7 @@ static code_block *generate_block(code_block *parent, block_statement *block) {
     switch (node->type) {
     case S_BLOCK: {
       code_block *body = fork_block(parent);
-      body = generate_block(body, (block_statement*) node);
+      body = generate_block(body, (block_statement*) node, NULL, NULL);
       parent = rejoin_block(parent, body);
     } break;
     case S_BREAK:
@@ -258,6 +262,10 @@ static code_block *generate_block(code_block *parent, block_statement *block) {
       }
 
       return NULL;
+    }
+
+    if (iter != NULL) {
+      iter(parent, iter_data);
     }
   }
 
@@ -323,12 +331,39 @@ static void generate_control(code_block *parent, control_statement *control) {
   }
 }
 
+struct generate_loop_trigger_data {
+  loop_statement *loop;
+  bool done;
+  code_block *prev_block;
+  code_block **context_block;
+};
+
+// this doesn't feel good
+static void loop_trigger(code_block *block, void *data) {
+  struct generate_loop_trigger_data *trigger_data = data;
+
+  if (trigger_data->done) return;
+
+  if (trigger_data->loop->continue_node) {
+    *(trigger_data->context_block) = trigger_data->prev_block;
+    trigger_data->done = true;
+  } else {
+    trigger_data->prev_block = block;
+  }
+}
+
 static code_block *generate_do_while(code_block *parent, loop_statement *loop) {
   size_t body_block = parent->system->block_count;
-  code_block *body = fork_block(parent);
+  code_block *body = fork_block(parent), *context = body;
 
   if (loop->body) {
-    body = generate_block(body, loop->body);
+    struct generate_loop_trigger_data data = {
+      .loop = loop,
+      .done = false,
+      .prev_block = body,
+      .context_block = &context
+    };
+    body = generate_block(body, loop->body, loop_trigger, &data);
   }
 
   // if the body ends, it implicitly continues
@@ -345,8 +380,7 @@ static code_block *generate_do_while(code_block *parent, loop_statement *loop) {
   // - need to be available from all continue statements (including the final
   //   implicit continue)
   if (loop->continue_node) {
-    // TODO: enable backwards graph traversal via origin block pointers
-    code_block *condition = tangle_blocks(body, loop->continue_node);
+    code_block *condition = tangle_blocks(context, loop->continue_node);
 
     condition = generate_expression(condition, loop->condition);
 
@@ -391,7 +425,7 @@ static code_block *generate_while(code_block *parent, loop_statement *loop) {
   loop->post_block = post_block;
 
   if (loop->body) {
-    body = generate_block(body, loop->body);
+    body = generate_block(body, loop->body, NULL, NULL);
   }
 
   if (body) {
@@ -413,8 +447,10 @@ static code_block *generate_if(code_block *parent, if_statement *branch) {
   code_block *first, *second;
   branch_into(parent, &first, &second);
 
-  first = branch->first ? generate_block(first, branch->first) : first;
-  second = branch->second ? generate_block(second, branch->second) : second;
+  first = branch->first ? generate_block(first, branch->first, NULL, NULL)
+    : first;
+  second = branch->second ? generate_block(second, branch->second, NULL, NULL)
+    : second;
 
   switch (((!first) << 1) | (!second)) {
   case 0: // both exist
@@ -499,7 +535,7 @@ static code_struct *generate_class_stub(code_system *system, class *the_class) {
 static code_block *generate_function(code_system *system, function *fn) {
   code_block *start_block = get_code_block(system, fn->block_body);
 
-  code_block *block = generate_block(start_block, fn->body);
+  code_block *block = generate_block(start_block, fn->body, NULL, NULL);
 
   if (block) {
     if (fn->return_type && fn->return_type->type != T_VOID) {
@@ -1320,7 +1356,7 @@ code_system *generate(block_statement *root) {
 
   code_block *block = create_block(system);
 
-  code_block *tail_block = generate_block(block, root);
+  code_block *tail_block = generate_block(block, root, NULL, NULL);
 
   if (tail_block != NULL) {
     // TODO: add exit code when the final block exists
