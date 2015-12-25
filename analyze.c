@@ -264,6 +264,7 @@ static void analyze_expression(block_statement *block, expression *e) {
       }
 
       right->type = copy_type(entry->type);
+      right->symbol_entry = entry;
     } else {
       analyze_expression(block, e->value->next);
     }
@@ -353,6 +354,7 @@ static void analyze_expression(block_statement *block, expression *e) {
   case O_GET_SYMBOL:
   case O_SET_SYMBOL: {
     // O_GET_SYMBOL also implemented in O_IDENTITY :|
+    // and O_SET_SYMBOL in O_NATIVE
     uint8_t symbol_type = ST_FUNCTION | ST_VARIABLE;
     symbol_entry *entry = get_symbol(block, e->symbol_name, &symbol_type);
 
@@ -388,6 +390,7 @@ static void analyze_expression(block_statement *block, expression *e) {
       }
 
       e->type = copy_type(entry->type);
+      e->symbol_entry = entry;
     }
     break;
   }
@@ -405,6 +408,7 @@ static void analyze_expression(block_statement *block, expression *e) {
       }
 
       e->type = copy_type(entry->type);
+      e->symbol_entry = entry;
     } else {
       e->type = new_type(T_VOID);
     }

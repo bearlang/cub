@@ -7,6 +7,8 @@
 #include "operation.h"
 #include "type.h"
 
+struct symbol_entry;
+
 typedef struct expression_node {
   operation operation;
   type *type; // literal object -> null
@@ -38,6 +40,8 @@ typedef struct expression_node {
   // native
   char *assign;
   size_t arg_count;
+
+  struct symbol_entry *symbol_entry;
 
   struct expression_node *next;
 } expression_node;

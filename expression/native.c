@@ -7,6 +7,7 @@ expression *new_native_node(char *callee, char *assign, expression *args,
   native->operation.type = O_NATIVE;
   // native->type not initialized
   native->symbol_name = callee;
+  native->symbol_entry = NULL;
   native->assign = assign;
   native->value = args;
   native->arg_count = arg_count;
