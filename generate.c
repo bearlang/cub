@@ -668,8 +668,15 @@ static code_block *generate_expression(code_block *parent, expression *value) {
       value->symbol_name);
     abort();
   }
-  case O_INSTANCEOF:
-    abort();
+  case O_INSTANCEOF: {
+    parent = generate_expression(parent, value->value);
+    code_instruction *instanceof = new_instruction(parent, 2);
+    instanceof->operation.type = O_INSTANCEOF;
+    instanceof->type = copy_type(value->type);
+    instanceof->parameters[0] = last_instruction(parent);
+    instanceof->parameters[1] = value->classtype->struct_index;
+    return parent;
+  }
   case O_LITERAL: {
     code_instruction *literal = add_instruction(parent);
     literal->operation.type = O_LITERAL;
@@ -1276,8 +1283,12 @@ static code_block *generate_new(code_block *parent, expression *value) {
     param_count++;
   }
 
-  class *the_class = value->type->classtype;
+  class *the_class = value->type->classtype, *c_class = the_class->parent;
   size_t field_count = the_class->field_count;
+
+  for (; c_class != NULL; c_class = c_class->parent) {
+    field_count += c_class->field_count;
+  }
 
   if (param_count != field_count) {
     fprintf(stderr, "wrong parameter count to '%s' constructor post-analysis\n",
