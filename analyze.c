@@ -22,14 +22,15 @@ static void analyze_function(block_statement *block, function *fn) {
   analyze(body);
 }
 
-static expression **analyze_new(block_statement *block, class *the_class,
-    expression **param) {
-  if (the_class->parent) {
-    param = analyze_new(block, the_class->parent, param);
+static bool analyze_new_inner(block_statement *block, class *the_class,
+    expression ***params) {
+  if (the_class->parent != NULL && analyze_new_inner(block, the_class->parent,
+      params)) {
+    return true;
   }
 
   field *class_field = the_class->field;
-  size_t i = 0;
+  expression **param = *params;
   while (class_field && *param) {
     analyze_expression(block, *param);
 
@@ -39,10 +40,24 @@ static expression **analyze_new(block_statement *block, class *the_class,
     (*param)->next = next;
     param = &(*param)->next;
     class_field = class_field->next;
-    ++i;
   }
 
-  return param;
+  *params = param;
+
+  if (class_field) {
+    return true;
+  }
+
+  return false;
+}
+
+static void analyze_new(block_statement *block, class *the_class,
+    expression *new) {
+  expression **params = &new->value;
+  if (analyze_new_inner(block, the_class, &params) || *params) {
+    fail("'%s' constructor called with wrong number of arguments", new,
+      the_class->class_name);
+  }
 }
 
 static void analyze_field_operation(expression *e) {
@@ -256,6 +271,7 @@ static void analyze_expression(block_statement *block, expression *e) {
         // TODO: support more than just T_OBJECT
         e->operation.type = O_INSTANCEOF;
         e->classtype = entry->type->classtype;
+        left->next = NULL;
         free_expression(right, true);
         break;
       }
@@ -430,10 +446,7 @@ static void analyze_expression(block_statement *block, expression *e) {
 
     e->type->classtype = the_class;
 
-    if (*analyze_new(block, the_class, &e->value)) {
-      fail("constructor for '%s' called with wrong number of arguments", e,
-        class_name);
-    }
+    analyze_new(block, the_class, e);
 
     free(class_name);
   } break;
