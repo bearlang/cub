@@ -1,0 +1,20 @@
+# TODO: map, list, class, function
+T_ARRAY    = 0
+T_BLOCKREF = 1
+T_BOOL     = 2
+T_F32      = 3
+T_F64      = 4
+T_F128     = 5
+T_FUNCREF  = 6
+T_OBJECT   = 7
+T_REF      = 8
+T_S8       = 9
+T_S16      = 10
+T_S32      = 11
+T_S64      = 12
+T_STRING   = 13
+T_U8       = 14
+T_U16      = 15
+T_U32      = 16
+T_U64      = 17
+T_VOID     = 18
