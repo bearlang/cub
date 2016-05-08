@@ -112,6 +112,7 @@ class Scanner:
         else:
           self._push(char)
           char = u'/'
+          break
       elif char == u' ' or char == u'\t': continue
       elif char is None: return None
       elif char != u'\n': break
@@ -223,7 +224,7 @@ class Scanner:
       return self._token(keywordmap[word], offset)
 
     if word in typemap:
-      return self._token(typemap[word], offset)
+      return tokens.TypeToken(self.line, offset, typemap[word])
 
     if word == u"true":
       token = tokens.BoolToken(self.line, offset, True)
