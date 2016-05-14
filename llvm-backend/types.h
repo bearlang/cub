@@ -9,11 +9,15 @@ enum llvm_type_type {
 	LT_VOID, LT_INT, LT_FLOAT, LT_PTR, LT_INSTANCE, LT_BLOCKREF
 };
 
+struct llvm_struct {
+	size_t struct_id;
+};
+
 struct llvm_type {
 	enum llvm_type_type type;
 	union {
 		int bits; // for integers
-		size_t struct_id; // for structs
+		struct llvm_struct struct_id; // for structs
 		struct llvm_type *subtype; // for pointers
 	};
 };

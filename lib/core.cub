@@ -1,5 +1,5 @@
-void print(string value) {
-  native bear_print(value);
+void print(u64 value) {
+  native bear_print_number(value);
 }
 
 void exit(u8 code) {
@@ -12,7 +12,8 @@ u32 read() {
   return code;
 }
 
-string stringFromArray(u8[] buffer, u32 start, u32 end) {
+/* string stringFromArray(u8[] buffer, u32 start, u32 end) {
+>>>>>>> Stashed changes
   u32 length = end - start + 1;
   u8[] copy = new u8[length];
 
@@ -47,4 +48,4 @@ string u8ToString(u8 value) {
   }
 
   return <string> buffer;
-}
+} */

@@ -28,6 +28,7 @@ static struct llvm_type *convert_type(type *t) {
 	case T_F128:
 		return LL_F128;
 	case T_OBJECT:
+		WRONG AND BAD.
 		return LL_OBJ(t->struct_index);
 	case T_REF:
 		abort();

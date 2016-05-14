@@ -35,7 +35,9 @@ char *llvm_type_string(struct llvm_type *type, bool dealloc) {
 		fprintf(stderr, "invalid LLVM type ordinal: %d\n", type->type);
 		abort();
 	}
-	free(type);
+	if (dealloc) {
+		free(type);
+	}
 	return cptr;
 }
 
