@@ -78,7 +78,8 @@ class Reader:
       return self.buffer[0]
     try:
       item = self.chariter.next()
-    except
+    except StopIteration:
+      return None
     self.buffer.append(item)
     return item
 
