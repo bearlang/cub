@@ -253,7 +253,7 @@ class Scanner:
         self.error("unexpected character '%c', expected escape sequence" %
           char)
 
-    return tokens.StrToken(self.line, offset, string)
+    return tokens.StrToken(reader.line, offset, string)
 
   def scan_number(self):
     offset = self.reader.offset

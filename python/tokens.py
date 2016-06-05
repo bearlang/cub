@@ -170,7 +170,7 @@ class TypeToken(Token):
     self.literal_type = literal_type
 
   def __str__(self):
-    return "<TypeToken %d>" % self.literal_type
+    return "<TypeToken %s>" % types.type_to_str(self.literal_type)
 
 class IdToken(Token):
   def __init__(self, line, offset, name):
@@ -215,8 +215,7 @@ class StrToken(LiteralToken):
     self.value = string
 
   def __str__(self):
-    return "<StringToken ...>"
+    return "<StringToken '%s'>" % self.value.encode('utf-8')
 
   def __unicode__(self):
-    return u"<StringToken '%s'>" % self.value.encode('unicode_escape')
-
+    return u"<StringToken '" + self.value + "'>"
