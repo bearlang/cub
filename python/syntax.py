@@ -1,5 +1,7 @@
 import constructs
 
+# surface/syntax-level expressions
+
 class Syntax(object):
   def gen(self):
     raise Exception, "this is just a contract"
@@ -27,10 +29,10 @@ class Assign(Syntax):
 class SymbolCapture(Capture):
   def __init__(self, symbol):
     self.symbol = symbol
-    
+
   def get(self):
     return constructs.GetSymbol(self.symbol)
-  
+
   def set(self, right):
     return constructs.SetSymbol(self.symbol, right)
 

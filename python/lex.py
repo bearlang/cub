@@ -1,6 +1,6 @@
 import tokens
 import type as types
-from reader import Reader
+from reader import CharReader
 
 ordinalset = set(map(unicode, xrange(0, 10)))
 hexletterset = set(map(unichr, xrange(0x41, 0x47)))
@@ -62,7 +62,7 @@ class Scanner:
   # public api
   def __init__(self, upstream):
     self.upstream = upstream
-    self.reader = Reader(upstream)
+    self.reader = CharReader(upstream)
 
   def __iter__(self):
     return self
@@ -71,14 +71,6 @@ class Scanner:
     token = self.scan()
     if token is None: raise StopIteration
     return token
-
-  # internal api
-  def token(self, token_type, offset = None):
-    if offset is None: offset = self.reader.offset
-    return tokens.Token(self.reader.line, offset, token_type)
-
-  def error(self, message):
-    raise ParseError(self.reader.line, self.reader.offset, message)
 
   def scan(self):
     reader = self.reader
@@ -192,6 +184,7 @@ class Scanner:
       self.error("unexpected character '%c'" % char)
     return self.token(token_type, offset)
 
+  # internal api
   def scan_word(self):
     reader = self.reader
     offset = reader.offset
@@ -395,3 +388,10 @@ class Scanner:
           if depth == 0: break
       elif char == u'/':
         if reader.pop() == u'*': depth += 1
+
+  def token(self, token_type, offset = None):
+    if offset is None: offset = self.reader.offset
+    return tokens.Token(self.reader.line, offset, token_type)
+
+  def error(self, message):
+    raise ParseError(self.reader.line, self.reader.offset, message)
