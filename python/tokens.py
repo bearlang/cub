@@ -164,6 +164,14 @@ class Token(object):
   def __unicode__(self):
     return unicode(str(self))
 
+class TypeToken(Token):
+  def __init__(self, line, offset, literal_type):
+    super(TypeToken, self).__init__(line, offset, L_TYPE)
+    self.literal_type = literal_type
+
+  def __str__(self):
+    return "<TypeToken %d>" % self.literal_type
+
 class IdToken(Token):
   def __init__(self, line, offset, name):
     super(IdToken, self).__init__(line, offset, L_IDENTIFIER)
