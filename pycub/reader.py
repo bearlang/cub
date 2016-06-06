@@ -14,20 +14,23 @@ class Lookahead(object):
   def _pull(self):
     if self.iter:
       try:
-        return self.iter.next()
+        return next(self.iter)
       except StopIteration:
         self.iter = None
 
-    item = self.reader.gen.next()
+    item = next(self.reader.gen)
     self.buffer.append(item)
     return item
 
-  def next(self):
+  def __next__(self):
     if self.iterpeek:
       item, self.iterpeek = self.iterpeek, None
       return item
 
     return self._pull()
+
+  def next(self):
+    return next(self)
 
   def peek(self):
     if self.iterpeek:
@@ -37,11 +40,11 @@ class Lookahead(object):
     return item
 
 def _matcher_fail():
-  raise Exception, "matcher expectation failed"
+  raise Exception("matcher expectation failed")
 
 def _custom_matcher_fail(string):
   def _fail():
-    raise Exception, string
+    raise Exception(string)
   return _fail
 
 # earlier items at left end, later items at right end
@@ -56,14 +59,14 @@ class Reader(object):
     # optional args
     if fail is None:
       self.fail = _matcher_fail
-    elif isinstance(fail, basestring):
+    elif isinstance(fail, str):
       self.fail = _custom_matcher_fail(fail)
     else:
       self.fail = fail
 
     if matches is None:
       self.matches = lambda a, b: a == b
-    elif isinstance(matches, basestring):
+    elif isinstance(matches, str):
       self.matches = lambda a, b: getattr(a, matches) == b
     else:
       self.matches = matches
@@ -75,20 +78,20 @@ class Reader(object):
     if len(self.buffer):
       return self.buffer.popleft()
     if raisestop:
-      return self.gen.next()
+      return next(self.gen)
     try:
-      return self.gen.next()
+      return next(self.gen)
     except StopIteration:
       return None
 
-  def next(self):
+  def __next__(self):
     return self._pop(True)
 
   def peek(self):
     if len(self.buffer):
       return self.buffer[0]
     try:
-      item = self.gen.next()
+      item = next(self.gen)
     except StopIteration:
       return None
     self.buffer.append(item)
@@ -172,7 +175,7 @@ class CharReader(Reader):
   def push(self, item):
     if item is None: return
     if self.offset == 1:
-      raise RuntimeError, "unable to push back a line"
+      raise RuntimeError("unable to push back a line")
     super(CharReader, self).push(item)
     self.offset -= 1
 

@@ -1,11 +1,11 @@
-import tokens
-import type as types
-from reader import CharReader
+import pycub.tokens as tokens
+import pycub.types as types
+from pycub.reader import CharReader
 
-ordinalset = set(map(unicode, xrange(0, 10)))
-hexletterset = set(map(unichr, xrange(0x41, 0x47)))
-alphaset = set(map(unichr, xrange(0x41, 0x5b)) +
-  map(unichr, xrange(0x61, 0x7b)))
+ordinalset = set(map(str, range(0, 10)))
+hexletterset = set(map(chr, range(0x41, 0x47)))
+alphaset = set(map(chr, range(0x41, 0x5b))) | \
+  set(map(chr, range(0x61, 0x7b)))
 idstartset = alphaset.union(set(['_']))
 idset = ordinalset.union(idstartset)
 
@@ -67,7 +67,7 @@ class Scanner:
   def __iter__(self):
     return self
 
-  def next(self):
+  def __next__(self):
     token = self.scan()
     if token is None: raise StopIteration
     return token
@@ -77,6 +77,8 @@ class Scanner:
 
     # handle whitespace and comments
     while True:
+      # token offset start
+      offset = reader.offset
       char = reader.pop()
       if char == u'/':
         char = reader.peek()
@@ -92,19 +94,13 @@ class Scanner:
       elif char is None: return None
       elif char != u'\n': break
 
-    # token offset start
-    offset = reader.offset
-
     def accept(char):
-      if reader.peek() == char:
-        reader.pop()
-        return True
-      return False
+      return reader.accept(char) is not None
 
     if char == u'.':
       if reader.peek() not in ordinalset:
         return self.token(tokens.L_DOT, offset)
-      reader.push(u'.')
+      reader.push(char)
       return self.scan_number()
 
     if char in ordinalset:
@@ -116,7 +112,7 @@ class Scanner:
       return self.scan_word()
 
     if char in u'\'"':
-      return self.scan_string(char)
+      return self.scan_string(char, offset)
 
     if char == u'#':
       # accept '='
@@ -218,9 +214,8 @@ class Scanner:
     return token
 
   # TODO: interpolation
-  def scan_string(self, match):
+  def scan_string(self, match, offset):
     reader = self.reader
-    offset = reader.offset
     string = u""
     while True:
       char = reader.pop()
@@ -241,7 +236,7 @@ class Scanner:
       if char == u'\n':
         self.error("expected escape sequence, found newline")
       if char == u'x':
-        string += unichr((self.expectHexDigit() << 4) | self.expectHexDigit())
+        string += chr((self.expectHexDigit() << 4) | self.expectHexDigit())
       else:
         self.error("unexpected character '%c', expected escape sequence" %
           char)
@@ -332,9 +327,9 @@ class Scanner:
         reader.push(char)
         return integer_token(0)
 
-      print "warning: octals are written as 0o7, not 07"
+      print("warning: octals are written as 0o7, not 07")
 
-    if char == u'.':
+    if char == '.':
       raise NotImplementedError("floating point literals are not implemented")
 
     value = 0

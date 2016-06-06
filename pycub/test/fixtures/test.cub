@@ -1,0 +1,13 @@
+'天井';
+
+import thing;
+import thing as other;
+import thing.again;
+import thing.again as other;
+
+u8 b = 4 + (3 / (2 - 1) * 4);
+
+b += 3;
+b -= 3;
+b *= 3;
+b /= 3;

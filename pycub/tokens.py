@@ -1,5 +1,5 @@
 import math
-import type as types
+import pycub.types as types
 
 L_ADD                = 0
 L_ADD_ASSIGN         = 1
@@ -147,10 +147,8 @@ def token_string(token_type):
   elif token_type == L_XOR: return "XOR"
   else: return "UNKNOWN_TOKEN"
 
-LN2 = math.log(2)
-
 def count_bits(value):
-  return 0 if value == 0 else int(math.log(value) / LN2) + 1
+  return 0 if value == 0 else int(math.log2(value)) + 1
 
 class Token(object):
   def __init__(self, line, offset, token_type):
@@ -158,43 +156,61 @@ class Token(object):
     self.offset = offset
     self.token_type = token_type
 
-  def __str__(self):
+  def __repr__(self):
     return "<Token %s>" % token_string(self.token_type)
 
-  def __unicode__(self):
-    return unicode(str(self))
+  def __eq__(self, other):
+    return isinstance(other, Token) and self.token_type == other.token_type and\
+      self.line == other.line and self.offset == other.offset
 
 class TypeToken(Token):
   def __init__(self, line, offset, literal_type):
     super(TypeToken, self).__init__(line, offset, L_TYPE)
     self.literal_type = literal_type
 
-  def __str__(self):
+  def __repr__(self):
     return "<TypeToken %s>" % types.type_to_str(self.literal_type)
+
+  def __eq__(self, other):
+    return super(TypeToken, self).__eq__(other) and \
+      isinstance(other, TypeToken) and self.literal_type == other.literal_type
 
 class IdToken(Token):
   def __init__(self, line, offset, name):
     super(IdToken, self).__init__(line, offset, L_IDENTIFIER)
     self.value = name
 
-  def __str__(self):
+  def __repr__(self):
     return "<IdToken %s>" % self.value
+
+  def __eq__(self, other):
+    return super(IdToken, self).__eq__(other) and isinstance(other, IdToken) \
+      and self.value == other.value
 
 class LiteralToken(Token):
   def __init__(self, line, offset, literal_type):
     super(LiteralToken, self).__init__(line, offset, L_LITERAL)
     self.literal_type = literal_type
 
-  def __str__(self):
+  def __repr__(self):
     return "<LiteralToken %d>" % self.literal_type
+
+  def __eq__(self, other):
+    return super(LiteralToken, self).__eq__(other) and \
+      isinstance(other, LiteralToken) and \
+      self.literal_type == other.literal_type
 
 class BoolToken(LiteralToken):
   def __init__(self, line, offset, value):
     super(IntToken, self).__init__(line, offset, types.T_BOOL)
     self.value = value
 
-  def __str__(self):
+  def __repr__(self):
     return "<BoolToken %s>" % ("true" if self.value else "false")
+
+  def __eq__(self, other):
+    return super(BoolToken, self).__eq__(other) and \
+      isinstance(other, BoolToken) and self.value == other.value
 
 class IntToken(LiteralToken):
   def __init__(self, line, offset, value):
@@ -206,16 +222,20 @@ class IntToken(LiteralToken):
     super(IntToken, self).__init__(line, offset, literal_type)
     self.value = value
 
-  def __str__(self):
+  def __repr__(self):
     return "<IntToken %d>" % self.value
+
+  def __eq__(self, other):
+    return super(IntToken, self).__eq__(other) and \
+      isinstance(other, IntToken) and self.value == other.value
 
 class StrToken(LiteralToken):
   def __init__(self, line, offset, string):
     super(StrToken, self).__init__(line, offset, types.T_STRING)
     self.value = string
 
-  def __str__(self):
-    return "<StringToken '%s'>" % self.value.encode('utf-8')
+  def __repr__(self):
+    return "<StringToken '%s'>" % self.value
 
-  def __unicode__(self):
-    return u"<StringToken '" + self.value + "'>"
+  def __eq__(self, other):
+    return isinstance(other, StrToken) and self.value == other.value

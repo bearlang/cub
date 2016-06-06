@@ -7,10 +7,3 @@ def file_iter(filename):
     while len(char):
       yield char
       char = f.read(1)
-
-# import lex
-# for t in lex.Scanner(file_iter('test.cub')):
-#   print str(t)
-
-import lex, parse
-print parse.Parser(lex.Scanner(file_iter('test.cub'))).parse()
