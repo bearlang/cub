@@ -125,7 +125,7 @@ class Reader(object):
   # if terminator is immediately found
   def accept_terminated(self, terminator, match=None, no_match=None):
     if self.accept(terminator) is not None:
-      return no_match() if callable(no_match) else no_match
+      return no_match() if hasattr(no_match, '__call__') else no_match
     if match is None:
       value = self.pop()
     else:
@@ -140,11 +140,11 @@ class Reader(object):
   # if terminator is immediately found
   def expect_terminated(self, terminator, match=None, no_match=None):
     if self.accept(terminator) is not None:
-      return no_match() if callable(no_match) else no_match
+      return no_match() if hasattr(no_match, '__call__') else no_match
     if match is None:
       if self.peek() is None: self.fail()
       value = self.pop()
-    elif callable(match):
+    elif hasattr(match, '__call__'):
       value = match()
       if value is None: self.fail()
     else:
@@ -152,7 +152,7 @@ class Reader(object):
     if self.accept(terminator) is not None:
       return value
     # TODO: what to do with callable? we can't roll-back
-    if not callable(match):
+    if not hasattr(match, '__call__'):
       self.push(value)
     self.fail()
 

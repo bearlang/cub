@@ -73,79 +73,84 @@ L_WHILE              = 68
 L_XOR                = 69
 L_EOF                = 0xff
 
+token_strings = {
+  L_ADD: "ADD",
+  L_ADD_ASSIGN: "ADD_ASSIGN",
+  L_AND: "AND",
+  L_AS: "AS",
+  L_ASHIFT: "ASHIFT",
+  L_ASHIFT_ASSIGN: "ASHIFT_ASSIGN",
+  L_ASSIGN: "ASSIGN",
+  L_BITWISE_AND: "BITWISE_AND",
+  L_BITWISE_AND_ASSIGN: "BITWISE_AND_ASSIGN",
+  L_BITWISE_NOT: "BITWISE_NOT",
+  L_BITWISE_OR: "BITWISE_OR",
+  L_BITWISE_OR_ASSIGN: "BITWISE_OR_ASSIGN",
+  L_BITWISE_XOR: "BITWISE_XOR",
+  L_BITWISE_XOR_ASSIGN: "BITWISE_XOR_ASSIGN",
+  L_BREAK: "BREAK",
+  L_CASE: "CASE",
+  L_CLASS: "CLASS",
+  L_CLOSE_BRACE: "CLOSE_BRACE",
+  L_CLOSE_BRACKET: "CLOSE_BRACKET",
+  L_CLOSE_PAREN: "CLOSE_PAREN",
+  L_COLON: "COLON",
+  L_COMMA: "COMMA",
+  L_CONTINUE: "CONTINUE",
+  L_DECREMENT: "DECREMENT",
+  L_DIV: "DIV",
+  L_DIV_ASSIGN: "DIV_ASSIGN",
+  L_DO: "DO",
+  L_DOT: "DOT",
+  L_ELSE: "ELSE",
+  L_EQ: "EQ",
+  L_FOR: "FOR",
+  L_GT: "GT",
+  L_GTE: "GTE",
+  L_IDENTIFIER: "IDENTIFIER",
+  L_IF: "IF",
+  L_INCREMENT: "INCREMENT",
+  L_LET: "LET",
+  L_LITERAL: "LITERAL",
+  L_LSHIFT: "LSHIFT",
+  L_LSHIFT_ASSIGN: "LSHIFT_ASSIGN",
+  L_LT: "LT",
+  L_LTE: "LTE",
+  L_MOD: "MOD",
+  L_MOD_ASSIGN: "MOD_ASSIGN",
+  L_MUL: "MUL",
+  L_MUL_ASSIGN: "MUL_ASSIGN",
+  L_NATIVE: "NATIVE",
+  L_NE: "NE",
+  L_NEW: "NEW",
+  L_NOT: "NOT",
+  L_NULL: "NULL",
+  L_OPEN_BRACE: "OPEN_BRACE",
+  L_OPEN_BRACKET: "OPEN_BRACKET",
+  L_OPEN_PAREN: "OPEN_PAREN",
+  L_OR: "OR",
+  L_RETURN: "RETURN",
+  L_RSHIFT: "RSHIFT",
+  L_RSHIFT_ASSIGN: "RSHIFT_ASSIGN",
+  L_SEMICOLON: "SEMICOLON",
+  L_STR_CONCAT: "STR_CONCAT",
+  L_STR_CONCAT_ASSIGN: "STR_CONCAT_ASSIGN",
+  L_SUB: "SUB",
+  L_SUB_ASSIGN: "SUB_ASSIGN",
+  L_TERNARY: "TERNARY",
+  L_TYPE: "TYPE",
+  L_TYPEDEF: "TYPEDEF",
+  L_VOID: "VOID",
+  L_WHILE: "WHILE",
+  L_XOR: "XOR"
+}
+
 def token_string(token_type):
   if isinstance(token_type, Token):
     token_type = token_type.token_type
-  if token_type == L_ADD: return "ADD"
-  elif token_type == L_ADD_ASSIGN: return "ADD_ASSIGN"
-  elif token_type == L_AND: return "AND"
-  elif token_type == L_AS: return "AS"
-  elif token_type == L_ASHIFT: return "ASHIFT"
-  elif token_type == L_ASHIFT_ASSIGN: return "ASHIFT_ASSIGN"
-  elif token_type == L_ASSIGN: return "ASSIGN"
-  elif token_type == L_BITWISE_AND: return "BITWISE_AND"
-  elif token_type == L_BITWISE_AND_ASSIGN: return "BITWISE_AND_ASSIGN"
-  elif token_type == L_BITWISE_NOT: return "BITWISE_NOT"
-  elif token_type == L_BITWISE_OR: return "BITWISE_OR"
-  elif token_type == L_BITWISE_OR_ASSIGN: return "BITWISE_OR_ASSIGN"
-  elif token_type == L_BITWISE_XOR: return "BITWISE_XOR"
-  elif token_type == L_BITWISE_XOR_ASSIGN: return "BITWISE_XOR_ASSIGN"
-  elif token_type == L_BREAK: return "BREAK"
-  elif token_type == L_CASE: return "CASE"
-  elif token_type == L_CLASS: return "CLASS"
-  elif token_type == L_CLOSE_BRACE: return "CLOSE_BRACE"
-  elif token_type == L_CLOSE_BRACKET: return "CLOSE_BRACKET"
-  elif token_type == L_CLOSE_PAREN: return "CLOSE_PAREN"
-  elif token_type == L_COLON: return "COLON"
-  elif token_type == L_COMMA: return "COMMA"
-  elif token_type == L_CONTINUE: return "CONTINUE"
-  elif token_type == L_DECREMENT: return "DECREMENT"
-  elif token_type == L_DIV: return "DIV"
-  elif token_type == L_DIV_ASSIGN: return "DIV_ASSIGN"
-  elif token_type == L_DO: return "DO"
-  elif token_type == L_DOT: return "DOT"
-  elif token_type == L_ELSE: return "ELSE"
-  elif token_type == L_EQ: return "EQ"
-  elif token_type == L_FOR: return "FOR"
-  elif token_type == L_GT: return "GT"
-  elif token_type == L_GTE: return "GTE"
-  elif token_type == L_IDENTIFIER: return "IDENTIFIER"
-  elif token_type == L_IF: return "IF"
-  elif token_type == L_INCREMENT: return "INCREMENT"
-  elif token_type == L_LET: return "LET"
-  elif token_type == L_LITERAL: return "LITERAL"
-  elif token_type == L_LSHIFT: return "LSHIFT"
-  elif token_type == L_LSHIFT_ASSIGN: return "LSHIFT_ASSIGN"
-  elif token_type == L_LT: return "LT"
-  elif token_type == L_LTE: return "LTE"
-  elif token_type == L_MOD: return "MOD"
-  elif token_type == L_MOD_ASSIGN: return "MOD_ASSIGN"
-  elif token_type == L_MUL: return "MUL"
-  elif token_type == L_MUL_ASSIGN: return "MUL_ASSIGN"
-  elif token_type == L_NATIVE: return "NATIVE"
-  elif token_type == L_NE: return "NE"
-  elif token_type == L_NEW: return "NEW"
-  elif token_type == L_NOT: return "NOT"
-  elif token_type == L_NULL: return "NULL"
-  elif token_type == L_OPEN_BRACE: return "OPEN_BRACE"
-  elif token_type == L_OPEN_BRACKET: return "OPEN_BRACKET"
-  elif token_type == L_OPEN_PAREN: return "OPEN_PAREN"
-  elif token_type == L_OR: return "OR"
-  elif token_type == L_RETURN: return "RETURN"
-  elif token_type == L_RSHIFT: return "RSHIFT"
-  elif token_type == L_RSHIFT_ASSIGN: return "RSHIFT_ASSIGN"
-  elif token_type == L_SEMICOLON: return "SEMICOLON"
-  elif token_type == L_STR_CONCAT: return "STR_CONCAT"
-  elif token_type == L_STR_CONCAT_ASSIGN: return "STR_CONCAT_ASSIGN"
-  elif token_type == L_SUB: return "SUB"
-  elif token_type == L_SUB_ASSIGN: return "SUB_ASSIGN"
-  elif token_type == L_TERNARY: return "TERNARY"
-  elif token_type == L_TYPE: return "TYPE"
-  elif token_type == L_TYPEDEF: return "TYPEDEF"
-  elif token_type == L_VOID: return "VOID"
-  elif token_type == L_WHILE: return "WHILE"
-  elif token_type == L_XOR: return "XOR"
-  else: return "UNKNOWN_TOKEN"
+  if token_type in token_strings:
+    return token_strings[token_type]
+  return "UNKNOWN_TOKEN"
 
 def count_bits(value):
   return 0 if value == 0 else int(math.log2(value)) + 1
@@ -238,4 +243,5 @@ class StrToken(LiteralToken):
     return "<StringToken '%s'>" % self.value
 
   def __eq__(self, other):
-    return isinstance(other, StrToken) and self.value == other.value
+    return super(StrToken, self).__eq__(other) and \
+      isinstance(other, StrToken) and self.value == other.value

@@ -12,6 +12,10 @@ def example_fail():
 def alphabet():
   return (chr(a) for a in range(ord('a'), ord('z') + 1))
 
+class SampleObj(object):
+  def __init__(self, value):
+    self.value = value
+
 class TestReader(unittest.TestCase):
 
   def test_basic(self):
@@ -62,6 +66,7 @@ class TestReader(unittest.TestCase):
     reader = Reader(iter('hello'))
     reader.peek()
     lookahead = reader.lookahead()
+    self.assertEqual(lookahead.peek(), 'h')
     self.assertEqual(lookahead.peek(), 'h')
     self.assertEqual(lookahead.next(), 'h')
 
@@ -124,6 +129,33 @@ class TestReader(unittest.TestCase):
       return {'tree': 'here'}
     self.assertEqual(reader.expect_terminated('k', fake_parse), {'tree': 'here'})
 
+    # this is a destructive exception - we don't currently have a way to roll
+    # back
+    with self.assertRaises(ExampleException):
+      def faker_parse():
+        reader.expect('l')
+        return True
+      reader.expect_terminated('k', faker_parse)
+
+    reader = Reader(iter(()))
+    with self.assertRaises(Exception):
+      reader.expect(0)
+
+    reader = Reader(iter(()), fail="some message")
+    with self.assertRaises(Exception) as cm:
+      reader.expect(0)
+
+    self.assertEqual(str(cm.exception), "some message")
+
+    samp = SampleObj(4), SampleObj(3), SampleObj(1), SampleObj(1), SampleObj(0)
+    reader = Reader(iter(samp), matches="value")
+    reader.expect(4)
+    reader.expect(3)
+    reader.expect(1)
+    reader.expect(1)
+    reader.expect(0)
+    self.assertIsNone(reader.pop())
+
 class TestCharReader(unittest.TestCase):
 
   def test_pos(self):
@@ -142,6 +174,7 @@ class TestCharReader(unittest.TestCase):
     assert_pos(1, 2)
     reader.consume_line()
     assert_pos(2, 1)
+    reader.push(None)
     with self.assertRaises(Exception):
       reader.push(u't')
     assert_pos(2, 1)
@@ -158,3 +191,23 @@ class TestCharReader(unittest.TestCase):
     self.assertEqual(reader.pop(), u'\u4e95')
     assert_pos(1, 3)
     self.assertIsNone(reader.pop())
+
+  def test_consume_line(self):
+    reader = CharReader(iter(u"some silly\n\nlittle file thin\ng\nasdf"))
+
+    def assert_pos(line, offset):
+      self.assertEqual(reader.line, line)
+      self.assertEqual(reader.offset, offset)
+
+    reader.consume_line()
+    assert_pos(2, 1)
+    reader.consume_line()
+    assert_pos(3, 1)
+    reader.consume_line()
+    assert_pos(4, 1)
+    reader.consume_line()
+    assert_pos(5, 1)
+    reader.consume_line()
+    assert_pos(5, 5)
+
+    self.assertEqual(list(reader), [])

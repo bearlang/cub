@@ -1,5 +1,6 @@
 '天井';
 
+// some sample imports
 import thing;
 import thing as other;
 import thing.again;
@@ -7,7 +8,19 @@ import thing.again as other;
 
 u8 b = 4 + (3 / (2 - 1) * 4);
 
-b += 3;
+	b += 3; // a little indentation test
 b -= 3;
 b *= 3;
 b /= 3;
+
+string q = "hi, me" # "\n";
+
+q #= "what's up?\n";
+
+/* a block comment
+*/
+
+/**
+ * A complex block comment
+ * /* with subcomment */
+ */

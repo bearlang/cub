@@ -195,8 +195,8 @@ class Scanner:
     # TODO: don't map yet, map in parser - context sensitive
     # maybe handle reserved words like "import" here?
     # (import is reserved for type names, what about bindings?)
-    if word in keywordmap:
-      return self.token(keywordmap[word], offset)
+    # if word in keywordmap:
+    #   return self.token(keywordmap[word], offset)
 
     if word in typemap:
       return tokens.TypeToken(reader.line, offset, typemap[word])
@@ -246,7 +246,7 @@ class Scanner:
   def scan_number(self):
     offset = self.reader.offset
     token = self.scan_number_inner()
-    tokens.offset = offset
+    token.offset = offset
     return token
 
   # TODO: use maybeDot for floats
@@ -254,7 +254,7 @@ class Scanner:
     reader = self.reader
 
     def integer_token(value):
-      return tokens.IntToken(reader.line, reader.offset, value)
+      return tokens.IntToken(reader.line, 0, value)
 
     char = reader.pop()
     if char == u'0':
