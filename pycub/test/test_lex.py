@@ -95,4 +95,8 @@ class TestLex(unittest.TestCase):
       tokens.Token(18, 3, tokens.L_STR_CONCAT_ASSIGN),
       tokens.StrToken(18, 6, "what's up?\n"),
       tokens.Token(18, 20, tokens.L_SEMICOLON)
-    ]);
+    ])
+
+  def test_eof(self):
+    "lex handles eof correctly"
+    self.assertEqual(list(Scanner(iter("4"))), [tokens.IntToken(1, 1, 4)])

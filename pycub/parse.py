@@ -1,76 +1,85 @@
-import tokens
-from statement import token_map
+import pycub.tokens as tokens
+import pycub.statement as statement
+import pycub.disambiguate as disambiguate
+from pycub.reader import Reader
+
+# not sure how pythonic this is
+token_map = {
+  tokens.L_BREAK: 'parse_break',
+  tokens.L_CLASS: 'parse_class',
+  tokens.L_CONTINUE: 'parse_continue',
+  tokens.L_IF: 'parse_if',
+  tokens.L_LET: 'parse_let',
+  tokens.L_OPEN_BRACE: 'parse_block',
+  tokens.L_RETURN: 'parse_return',
+  tokens.L_TYPEDEF: 'parse_typedef',
+  tokens.L_DO: 'parse_do_while',
+  tokens.L_WHILE: 'parse_while',
+  tokens.L_FOR: 'parse_for',
+  tokens.L_IDENTIFIER: 'parse_ambiguous'
+}
+
+expected_fail_map = {
+  # 'parse_break': 'break statement',
+  # 'parse_class': 'class declaration,
+  # 'parse_continue': 'continue statement',
+  # 'parse_if': 'if statement',
+  # 'parse_let': 'let statement',
+  'parse_block': 'block',
+  # 'parse_return': 'return statement',
+  'parse_typedef': 'type definition',
+  # 'parse_do_while': 'do-while loop',
+  # 'parse_while': 'while loop',
+  # 'parse_for': 'for loop'
+}
 
 def parse_error(token, message):
   raise ParseError(token.line, token.offset, message)
 
-def expected_error(token, token_type):
+def expected_error(reader, token, expected):
+  if token is None:
+    raise ParseError(reader.line, reader.offset,
+      "expected %s, found EOF" % expected)
+
   parse_error(token, "expected '%s', found '%s'" %
-    (tokens.token_string(token_type), tokens.token_string(token)))
+    (expected, tokens.token_string(token)))
 
 def set_block_parent(child, parent):
   if child is None: return None
-
-  if child.type == S_BLOCK: child_block = child
-  else: child_block = BlockStatement(child)
+  else: child_block = child.wrap_block()
 
   child_block.parent = parent
   return child_block
 
 class Parser:
+  # public api
   def __init__(self, scanner):
     self.scanner = scanner
-    self.buffer = []
-
-  def _peek(self):
-    if len(self.buffer):
-      return self.buffer[-1]
-
-    token = self.scanner.scan()
-
-    if token is None:
-      return self.scanner._token(L_EOF)
-
-    self.buffer.append(token)
-    return token
-
-  def _pull(self):
-    if len(self.buffer):
-      return self.buffer.pop()
-
-    token = self.scanner.scan()
-
-    if token is None:
-      return self.scanner._token(L_EOF)
-
-    return token
-
-  def _push(self, token):
-    self.buffer.append(token)
-
-  def accept(self, token_type):
-    token = self._peek()
-
-    if token.token_type == token_type:
-      self._shift()
-      return token
-
-  def expect(self, token_type):
-    token = self._shift()
-
-    if token.token_type != token_type:
-      expected_error(token, token_type)
-
-    return token
-
-  def expect_identifier(self):
-    return expect(L_IDENTIFIER).value
+    self.reader = Reader(scanner, matches='token_type', fail=self._fail)
 
   def parse(self):
     return self.parse_block(tokens.L_EOF)
 
+  # internal api
+  def _fail(self, expected):
+    token = self.reader.peek()
+    if isinstance(expected, Token):
+      expected_error(self.reader, token, expected)
+    elif hasattr(expected, '__call__') and hasattr(expected, '__name__'):
+      expected_error(self.reader, token, expected_fail_map[expected.__name__])
+    else:
+      expected_error(self.reader, token, "something")
+
+  def accept(self, token):
+    if token is None:
+      return self.reader.peek() is None
+    return self.reader.accept(token)
+
+  def lookahead(self):
+    return self.reader.lookahead()
+
   def parse_block(self, end_token):
-    result = BlockStatement(None)
+    result = statement.BlockStatement(None)
     tail = None
 
     while not self.accept(end_token):
@@ -87,189 +96,57 @@ class Parser:
     return result
 
   def expect_statement(self):
-    token = self._peek()
-    token_type = token.token_type
-
-    if token_type == L_SEMICOLON:
-      self._shift()
-      return None
-
-    if token_type in token_map:
-      token_map[token_type](self)
-
-    self.parse_ambiguous_statement()
-
-  def expect_statement(self):
-    token = self._shift()
+    reader = self.reader
+    token = reader.pop()
 
     if token is None:
-      self.scanner._error("expected statement")
+      expected_error(self.reader, None, "statement")
 
-    type = token.token_type
+    token_type = token.token_type
 
-    if type == L_SEMICOLON:
+    if token_type == tokens.L_SEMICOLON:
       return None
 
-    if type == L_BREAK or type == L_CONTINUE:
-      token = self.accept(L_IDENTIFIER)
-      label = None if token is None else token.value
-      self.expect(L_SEMICOLON)
+    if token_type in statement.token_map:
+      method = statement.token_map[token_type]
+      if hasattr(self, method):
+        return self.getattr(method)()
+      raise RuntimeError('misconfigured parser')
 
-      return ControlStatement(S_BREAK if type == L_BREAK else S_CONTINUE, label)
-
-    if type == L_CLASS:
-      return self.parse_class()
-
-    if type == L_IF:
-      self.expect(L_OPEN_PAREN)
-      condition = self.parse_expression()
-      self.expect(L_CLOSE_PAREN)
-
-      first = self.expect_statement()
-      second = self.expect_statement() if self.accept(L_ELSE) else None
-
-      branch = IfStatement(condition, None, None)
-
-      branch.first = set_block_parent(first, branch)
-      branch.second = set_block_parent(second, branch)
-
-      return branch
-
-    if type == L_LET:
-      # TODO: what about coords?
-      symbol = self.expect_identifier()
-
-      self.expect(L_ASSIGN)
-      clauses = [DefineClause(symbol, self.parse_expression(), None)]
-
-      while self.accept(L_COMMA):
-        symbol = self.expect_identifier()
-
-        self.expect(L_ASSIGN)
-
-        clauses.append(DefineClause(symbol, self.parse_expression(), None))
-
-      self.expect(L_SEMICOLON)
-
-      return LetStatement(clauses)
-
-    if type == L_OPEN_BRACE:
-      return self.parse_block(L_CLOSE_BRACE)
-
-    if type == L_RETURN:
-      if self.accept(L_SEMICOLON): value = None
-      else:
-        value = self.parse_expression()
-        self.expect(L_SEMICOLON)
-
-      return ReturnStatement(value)
-
-    if type == L_TYPEDEF:
-      left = self.parse_type(False, False)[0]
-      self.expect(L_AS)
-      return TypedefStatement(left, self.expect_identifier())
-
-    if type == L_DO or type == L_WHILE:
-      if type == L_DO:
-        body = self.expect_statement()
-
-        self.expect(L_WHILE)
-        self.expect(L_OPEN_PAREN)
-        condition = self.parse_expression()
-        self.expect(L_CLOSE_PAREN)
-        self.expect(L_SEMICOLON)
-      else:
-        self.expect(L_OPEN_PAREN)
-        condition = self.parse_expression()
-        self.expect(L_CLOSE_PAREN)
-
-        body = self.expect_statement()
-
-      if body is None: body_block = None
-      elif body.type == S_BLOCK: body_block = body
-      else: body_block = BlockStatement(body)
-
-      loop = LoopStatement(S_DO_WHILE if type == L_DO else S_WHILE, condition,
-        body_block)
-
-      if body_block:
-        body_block.parent = loop
-
-      return loop
-
-    if type == L_FOR:
-      self.expect(state, L_OPEN_PAREN)
-
-      if self.accept(L_SEMICOLON): init = None
-      else:
-        structure = self.disambiguate_statement()
-        if structure == G_DEFINE:
-          init = self.expect_define_statement(True)
-        elif structure == G_EXPRESSION:
-          init = ExpressionStatement(self.parse_expression())
-        else:
-          parse_error(self._peek(), "expected define or expression")
-
-        self.expect(L_SEMICOLON)
-
-      if self.accept(L_SEMICOLON):
-        condition = BoolLiteral(token, True)
-      else:
-        condition = self.parse_expression()
-        self.expect(L_SEMICOLON)
-
-      if self.accept(L_SEMICOLON):
-        iterator = None
-      else:
-        iterator = self.parse_expression()
-        self.expect(L_SEMICOLON)
-
-      self.expect(L_CLOSE_PAREN)
-
-      body = self.expect_statement()
-
-      if body and body.type != S_BLOCK:
-        body = BlockStatement(body)
-
-      if iterator:
-        each = ExpressionStatement(iterator)
-        if body is None:
-          body = BlockStatement(each)
-        else:
-          body.next = each
-          body = BlockStatement(body)
-          each.parent = body
-
-      result = LoopStatement(S_WHILE, condition, body)
-
-      if body: body.parent = result
-
-      if init:
-        init.next = result
-        result = BlockStatement(init)
-        init.next.parent = result
-
-      return result
-
-    if type == L_IDENTIFIER and self.accept(L_COLON):
-      next = self._peek()
-
-      if next.token_type not in [L_DO, L_WHILE, L_FOR]:
-        parse_error(next, "expected loop after label")
-
-      loop = self.expect_statement()
-
-      if loop.type != S_LOOP:
-        raise ParseError(loop.line, loop.offset, "expected loop after label")
-
-      loop.label = token.value
-      return loop
-
-    self._push(token)
+    reader.push(token)
 
     return self.parse_ambiguous_statement()
 
   def parse_ambiguous_statement(self):
-    structure = self.disambiguate_statement()
+    reader = self.reader
 
-    if structure ==
+    if reader.accept(tokens.L_IDENTIFIER, tokens.L_COLON) is not None:
+      next = reader.peek()
+
+      if next.token_type not in {tokens.L_DO, tokens.L_WHILE, tokens.L_FOR}:
+        parse_error(next, "expected loop after label")
+
+      loop = self.expect_statement()
+
+      # TODO: this doesn't feel right
+      try:
+        loop.set_label(token.value)
+      except Exception:
+        raise ParseError(loop.line, loop.offset, "expected loop after label")
+
+      return loop
+
+    structure = disambiguate.disambiguate_statement(self)
+
+    if structure == disambiguate.G_FUNCTION:
+      return self.parse_function(self)
+
+    if structure == disambiguate.G_DEFINE:
+      result = self.parse_define(parser, True)
+    elif structure == disambiguate.G_EXPRESSION:
+      result = self.ExpressionStatement(self.parse_expression())
+    else:
+      expected_error(self.reader, self.reader.peek(), "statement")
+
+    self.expect(tokens.L_SEMICOLON)
+    return result

@@ -260,6 +260,9 @@ class Scanner:
     if char == u'0':
       char = reader.pop()
 
+      if char is None:
+        return integer_token(0)
+
       if char in u".eE":
         raise NotImplementedError("floating point literals are not implemented")
 
@@ -269,6 +272,9 @@ class Scanner:
 
         while True:
           char = reader.pop()
+
+          if char is None: break
+
           if char in ordinalset:
             v2 = value << 4
             if v2 > 0xffffffffffffffff:
@@ -299,8 +305,9 @@ class Scanner:
 
         while True:
           char = reader.pop()
-          if char not in u"01":
-            if char in ordinalset:
+
+          if char is None or char not in u"01":
+            if char is not None and char in ordinalset:
               self.error("bad binary literal")
 
             if not found:
@@ -348,6 +355,9 @@ class Scanner:
         self.error("decimal literal too large")
 
       char = reader.pop()
+
+      if char is None:
+        break
 
     reader.push(char)
     return integer_token(value)

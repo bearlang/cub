@@ -3,11 +3,15 @@ import unittest
 from ..reader import Reader, CharReader
 
 class ExampleException(Exception):
-  def __init__(self, message):
+  def __init__(self, message, expected):
     self.message = message
+    self.expected = expected
 
-def example_fail():
-  raise ExampleException("example_fail")
+  def __str__(self):
+    return str(self.message)
+
+def example_fail(expected):
+  raise ExampleException("example_fail", expected)
 
 def alphabet():
   return (chr(a) for a in range(ord('a'), ord('z') + 1))
@@ -80,18 +84,21 @@ class TestReader(unittest.TestCase):
     self.assertIsNone(reader.accept('h'))
     self.assertEqual(reader.peek(), 'e')
     self.assertEqual(reader.expect('e'), 'e')
-    with self.assertRaises(ExampleException):
+    with self.assertRaises(ExampleException) as cm:
       reader.expect('h')
+    self.assertEqual(cm.exception.expected, 'h')
     # failed expect doesn't screw up state
     self.assertEqual(reader.pop(), 'l')
 
     reader = Reader(iter(()), fail=example_fail)
     self.assertIsNone(reader.accept(1))
     self.assertIsNone(reader.accept(None))
-    with self.assertRaises(ExampleException):
+    with self.assertRaises(ExampleException) as cm:
       reader.expect(1)
-    with self.assertRaises(ExampleException):
+    self.assertEqual(cm.exception.expected, 1)
+    with self.assertRaises(ExampleException) as cm:
       reader.expect(None)
+    self.assertEqual(cm.exception.expected, None)
 
     reader = Reader(iter(()), matches=lambda a, b: a['a'] == b)
     self.assertIsNone(reader.accept(1))
@@ -100,8 +107,9 @@ class TestReader(unittest.TestCase):
     reader = Reader(iter(({'a': 4}, {'a': 3}, {'a': 1}, {'a': 1}, {'a': 0})), matches=lambda a, b: a['a'] == b['a'], fail=example_fail)
     self.assertIsNone(reader.accept({'a': 3}))
     self.assertEqual(reader.accept({'a': 4}), {'a': 4})
-    with self.assertRaises(ExampleException):
+    with self.assertRaises(ExampleException) as cm:
       reader.expect({'a': 4})
+    self.assertEqual(cm.exception.expected, {'a': 4})
     self.assertEqual(reader.expect({'a': 3}), {'a': 3})
 
     reader = Reader(alphabet(), fail=example_fail)
@@ -115,12 +123,15 @@ class TestReader(unittest.TestCase):
     self.assertIsNone(reader.accept_terminated('g', 'd'))
     self.assertEqual(reader.peek(), 'f')
 
-    with self.assertRaises(ExampleException):
+    with self.assertRaises(ExampleException) as cm:
       reader.expect_terminated('a')
-    with self.assertRaises(ExampleException):
+    self.assertEqual(cm.exception.expected, None)
+    with self.assertRaises(ExampleException) as cm:
       reader.expect_terminated('h')
-    with self.assertRaises(ExampleException):
+    self.assertEqual(cm.exception.expected, None)
+    with self.assertRaises(ExampleException) as cm:
       reader.expect_terminated('h', 'g')
+    self.assertEqual(cm.exception.expected, 'g')
     self.assertEqual(reader.expect_terminated('f', no_match=14), 14)
     self.assertEqual(reader.expect_terminated('h', 'g'), 'g')
     def fake_parse():
@@ -131,11 +142,12 @@ class TestReader(unittest.TestCase):
 
     # this is a destructive exception - we don't currently have a way to roll
     # back
-    with self.assertRaises(ExampleException):
+    with self.assertRaises(ExampleException) as cm:
       def faker_parse():
         reader.expect('l')
         return True
       reader.expect_terminated('k', faker_parse)
+    self.assertEqual(cm.exception.expected, faker_parse)
 
     reader = Reader(iter(()))
     with self.assertRaises(Exception):

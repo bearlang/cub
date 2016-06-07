@@ -1,4 +1,4 @@
-import constructs
+import pycub.constructs as constructs
 
 # surface/syntax-level expressions
 

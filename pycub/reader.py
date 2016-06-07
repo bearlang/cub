@@ -1,4 +1,4 @@
-import collections
+import collections, itertools
 
 # assumes no access to reader while lookahead still in use
 class Lookahead(object):
@@ -35,15 +35,18 @@ class Lookahead(object):
   def peek(self):
     if self.iterpeek:
       return self.iterpeek
-    item = self._pull()
+    try:
+      item = self._pull()
+    except StopIteration:
+      return None
     self.iterpeek = item
     return item
 
-def _matcher_fail():
+def _matcher_fail(expected):
   raise Exception("matcher expectation failed")
 
 def _custom_matcher_fail(string):
-  def _fail():
+  def _fail(expected):
     raise Exception(string)
   return _fail
 
@@ -109,17 +112,33 @@ class Reader(object):
     return Lookahead(self)
 
   # fancy matching methods
-  def accept(self, other):
-    item = self.peek()
-    if item is not None and self.matches(item, other):
-      return self.pop()
+  def accept(self, *args):
+    if len(args) == 1:
+      item = self.peek()
+      if item is not None and self.matches(item, args[0]):
+        return self.pop()
+    else:
+      acceptiter = (self.accept(other) for other in args)
+      items = itertools.takewhile(lambda x: x is not None, acceptiter)
+      if len(items) == len(args):
+        return items
+      self.buffer.extendleft(reversed(items))
     return None
 
-  def expect(self, other):
-    item = self.accept(other)
-    if item is not None:
-      return item
-    self.fail()
+  def expect(self, *args):
+    if len(args) == 1:
+      item = self.accept(args[0])
+      if item is not None:
+        return item
+      self.fail(args[0])
+    else:
+      # TODO: have CharReader handle this correctly
+      acceptiter = (self.accept(other) for other in args)
+      items = itertools.takewhile(lambda x: x is not None, acceptiter)
+      if len(items) == len(args):
+        return items
+      self.buffer.extendleft(reversed(items))
+      self.fail(args[len(items)])
 
   # match is used when terminator is not immediately found, no_match is called
   # if terminator is immediately found
@@ -142,11 +161,12 @@ class Reader(object):
     if self.accept(terminator) is not None:
       return no_match() if hasattr(no_match, '__call__') else no_match
     if match is None:
-      if self.peek() is None: self.fail()
+      if self.peek() is None:
+        self.fail(None)
       value = self.pop()
     elif hasattr(match, '__call__'):
       value = match()
-      if value is None: self.fail()
+      if value is None: self.fail(match)
     else:
       value = self.expect(match)
     if self.accept(terminator) is not None:
@@ -154,7 +174,7 @@ class Reader(object):
     # TODO: what to do with callable? we can't roll-back
     if not hasattr(match, '__call__'):
       self.push(value)
-    self.fail()
+    self.fail(match)
 
 class CharReader(Reader):
   def __init__(self, chariter):
@@ -178,6 +198,13 @@ class CharReader(Reader):
       raise RuntimeError("unable to push back a line")
     super(CharReader, self).push(item)
     self.offset -= 1
+
+  # def expect(self, *args):
+  #   if len(args) == 1:
+  #     return super(CharReader, self).expect(args[0])
+  #   line = self.line
+  #   offset = self.offset
+
 
   def consume_line(self):
     try:
