@@ -119,7 +119,7 @@ class Reader(object):
         return self.pop()
     else:
       acceptiter = (self.accept(other) for other in args)
-      items = itertools.takewhile(lambda x: x is not None, acceptiter)
+      items = list(itertools.takewhile(lambda x: x is not None, acceptiter))
       if len(items) == len(args):
         return items
       self.buffer.extendleft(reversed(items))
@@ -134,7 +134,7 @@ class Reader(object):
     else:
       # TODO: have CharReader handle this correctly
       acceptiter = (self.accept(other) for other in args)
-      items = itertools.takewhile(lambda x: x is not None, acceptiter)
+      items = list(itertools.takewhile(lambda x: x is not None, acceptiter))
       if len(items) == len(args):
         return items
       self.buffer.extendleft(reversed(items))

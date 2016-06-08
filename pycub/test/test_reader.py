@@ -99,6 +99,9 @@ class TestReader(unittest.TestCase):
     with self.assertRaises(ExampleException) as cm:
       reader.expect(None)
     self.assertEqual(cm.exception.expected, None)
+    with self.assertRaises(ExampleException) as cm:
+      reader.expect_terminated('z')
+    self.assertEqual(cm.exception.expected, None)
 
     reader = Reader(iter(()), matches=lambda a, b: a['a'] == b)
     self.assertIsNone(reader.accept(1))
@@ -111,6 +114,16 @@ class TestReader(unittest.TestCase):
       reader.expect({'a': 4})
     self.assertEqual(cm.exception.expected, {'a': 4})
     self.assertEqual(reader.expect({'a': 3}), {'a': 3})
+
+    reader = Reader(alphabet(), fail=example_fail)
+    self.assertEqual(reader.accept('a', 'b'), ['a', 'b']);
+    self.assertEqual(reader.accept('d', 'c'), None);
+    self.assertEqual(reader.peek(), 'c')
+
+    self.assertEqual(reader.expect('c', 'd', 'e'), list('cde'))
+    with self.assertRaises(ExampleException) as cm:
+      reader.expect('e', 'f', 'g')
+    self.assertEqual(cm.exception.expected, 'e')
 
     reader = Reader(alphabet(), fail=example_fail)
     self.assertIsNone(reader.accept_terminated('z'))
