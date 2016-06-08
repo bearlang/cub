@@ -1,7 +1,7 @@
 import unittest, os.path
 
 from ..file_iter import file_iter
-from ..lex import Scanner, tokens as _tokens
+from ..lex import Scanner
 import pycub.tokens as tokens
 import pycub.types as types
 
@@ -13,8 +13,6 @@ class TestLex(unittest.TestCase):
     self.assertEqual(list(Scanner(iter(()))), [])
 
   def test_fixture(self):
-    self.assertEqual(_tokens.StrToken.__module__, tokens.StrToken.__module__)
-
     scanner = Scanner(file_iter(FIXTURE))
 
     self.assertEqual(list(scanner), [

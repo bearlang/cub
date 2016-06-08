@@ -71,7 +71,7 @@ L_TYPEDEF            = 66
 L_VOID               = 67
 L_WHILE              = 68
 L_XOR                = 69
-L_EOF                = 0xff
+# L_EOF                = 0xff
 
 token_strings = {
   L_ADD: "ADD",
